@@ -7,13 +7,14 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     // Direction Multiplier Constants (1 or -1)
-    public static double FRONT_LEFT_DIR  = 1.0;
-    public static double FRONT_RIGHT_DIR = 1.0;
-    public static double BACK_LEFT_DIR   = 1.0;
-    public static double BACK_RIGHT_DIR  = 1.0;
-    public static double INTAKE_DIR      = 1.0;
-    public static double HOPPER_DIR      = 1.0;
-    public static double SHOOTER_DIR     = 1.0;
+    // Right-side motors are set to -1 because they are physically mounted opposite the left side
+    public static int FRONT_LEFT_DIR  =  1;
+    public static int FRONT_RIGHT_DIR = -1;
+    public static int BACK_LEFT_DIR   =  1;
+    public static int BACK_RIGHT_DIR  = -1;
+    public static int INTAKE_DIR      =  1;
+    public static int HOPPER_DIR      =  1;
+    public static int SHOOTER_DIR     =  1;
 
     private final IronEaglesHardware robot = new IronEaglesHardware();
 
