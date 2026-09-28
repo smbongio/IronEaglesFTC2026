@@ -2,6 +2,11 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
@@ -22,11 +27,24 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     public void runOpMode() {
         robot.init(hardwareMap);
 
+        // Build list of configured motor names in active HardwareMap
+        List<String> configuredMotors = new ArrayList<>();
+        for (Map.Entry<String, DcMotor> entry : hardwareMap.dcMotor.entrySet()) {
+            configuredMotors.add(entry.getKey());
+        }
+
+        telemetry.addData("Configured Motors Count", hardwareMap.dcMotor.size());
+        if (configuredMotors.isEmpty()) {
+            telemetry.addData("Active Config Motors", "NONE FOUND! (Check Active Robot Configuration)");
+        } else {
+            telemetry.addData("Active Config Motors", String.join(", ", configuredMotors));
+        }
+
         if (robot.missingDevices.isEmpty()) {
-            telemetry.addData("Status", "Initialized - All devices found!");
+            telemetry.addData("Status", "Initialized - All 8 devices found!");
         } else {
             telemetry.addData("WARNING", "Initialized with missing config devices!");
-            telemetry.addData("Missing", String.join(", ", robot.missingDevices));
+            telemetry.addData("Missing Requested", String.join(", ", robot.missingDevices));
         }
         telemetry.update();
 

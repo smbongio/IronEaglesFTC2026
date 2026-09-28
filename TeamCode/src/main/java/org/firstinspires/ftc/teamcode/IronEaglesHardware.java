@@ -3,10 +3,12 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Concrete hardware implementation mapping Control Hub and Expansion Hub peripherals.
@@ -45,8 +47,25 @@ public class IronEaglesHardware {
         }
     }
 
+    public void logDiagnostics(HardwareMap hardwareMap) {
+        RobotLog.i("=================== HARDWARE DIAGNOSTICS ===================");
+        RobotLog.i("Total DcMotors found in active HardwareMap: " + hardwareMap.dcMotor.size());
+        for (Map.Entry<String, DcMotor> entry : hardwareMap.dcMotor.entrySet()) {
+            RobotLog.i(" -> Configured DcMotor: '" + entry.getKey() + "'");
+        }
+
+        try {
+            List<WebcamName> webcams = hardwareMap.getAll(WebcamName.class);
+            RobotLog.i("Total Webcams found in active HardwareMap: " + webcams.size());
+        } catch (Exception e) {
+            RobotLog.i("No webcams found in active HardwareMap.");
+        }
+        RobotLog.i("============================================================");
+    }
+
     public void init(HardwareMap hardwareMap) {
         missingDevices.clear();
+        logDiagnostics(hardwareMap);
 
         // Enable AUTO Bulk Caching Mode for all REV Hubs to optimize cycle speed
         try {
