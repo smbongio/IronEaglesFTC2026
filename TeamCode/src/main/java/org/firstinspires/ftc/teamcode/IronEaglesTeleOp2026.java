@@ -65,7 +65,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 robot.getShooter().stop();
             }
 
+            // Telemetry Output for Live Testing
             telemetry.addData("Status", "Running");
+            telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
+            telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
+            telemetry.addData("GP1 Buttons", "X: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.a, gamepad1.b, gamepad1.y);
+
             if (!robot.missingDevices.isEmpty()) {
                 telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
             }
