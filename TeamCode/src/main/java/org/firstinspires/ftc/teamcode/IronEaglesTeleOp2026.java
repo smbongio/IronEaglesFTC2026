@@ -2,23 +2,18 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     // Direction Multiplier Constants (1 or -1)
-    public static int FRONT_LEFT_DIR  =  1;
-    public static int FRONT_RIGHT_DIR =  1; // Reversed/flipped as requested
-    public static int BACK_LEFT_DIR   =  1;
-    public static int BACK_RIGHT_DIR  = -1;
-    public static int INTAKE_DIR      =  1;
-    public static int HOPPER_DIR      =  1;
-    public static int SHOOTER_DIR     =  1;
+    public static int FRONT_LEFT_DIR  = 1;
+    public static int FRONT_RIGHT_DIR = 1;
+    public static int BACK_LEFT_DIR   = 1;
+    public static int BACK_RIGHT_DIR  = 1;
+    public static int INTAKE_DIR      = 1;
+    public static int HOPPER_DIR      = 1;
+    public static int SHOOTER_DIR     = 1;
 
     private final IronEaglesHardware robot = new IronEaglesHardware();
 
@@ -26,24 +21,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     public void runOpMode() {
         robot.init(hardwareMap);
 
-        // Build list of configured motor names in active HardwareMap
-        List<String> configuredMotors = new ArrayList<>();
-        for (Map.Entry<String, DcMotor> entry : hardwareMap.dcMotor.entrySet()) {
-            configuredMotors.add(entry.getKey());
-        }
-
-        telemetry.addData("Configured Motors Count", hardwareMap.dcMotor.size());
-        if (configuredMotors.isEmpty()) {
-            telemetry.addData("Active Config Motors", "NONE FOUND! (Check Active Robot Configuration)");
-        } else {
-            telemetry.addData("Active Config Motors", String.join(", ", configuredMotors));
-        }
-
         if (robot.missingDevices.isEmpty()) {
-            telemetry.addData("Status", "Initialized - All 8 devices found!");
+            telemetry.addData("Status", "Initialized - All devices found!");
         } else {
             telemetry.addData("WARNING", "Initialized with missing config devices!");
-            telemetry.addData("Missing Requested", String.join(", ", robot.missingDevices));
+            telemetry.addData("Missing", String.join(", ", robot.missingDevices));
         }
         telemetry.update();
 
@@ -51,9 +33,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
         while (opModeIsActive()) {
             // Drivetrain Kinematics with 5% deadzone filter to prevent stick drift
+            // Inverted rawRx to fix rotation direction
             double rawY  = -gamepad1.left_stick_y;
             double rawX  =  gamepad1.left_stick_x;
-            double rawRx =  gamepad1.right_stick_x;
+            double rawRx = -gamepad1.right_stick_x;
 
             double y  = Math.abs(rawY)  > 0.05 ? rawY  : 0.0;
             double x  = Math.abs(rawX)  > 0.05 ? rawX  : 0.0;
