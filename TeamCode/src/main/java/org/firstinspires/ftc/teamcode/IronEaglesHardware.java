@@ -4,11 +4,6 @@ import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
-import org.firstinspires.ftc.teamcode.interfaces.DrivetrainInterface;
-import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
-import org.firstinspires.ftc.teamcode.interfaces.IntakeInterface;
-import org.firstinspires.ftc.teamcode.interfaces.RobotHardwareInterface;
-import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +11,7 @@ import java.util.List;
 /**
  * Concrete hardware implementation mapping Control Hub and Expansion Hub peripherals.
  */
-public class IronEaglesHardware implements RobotHardwareInterface {
+public class IronEaglesHardware {
 
     // Control Hub Motors
     public DcMotor frontRight;
@@ -50,7 +45,6 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         }
     }
 
-    @Override
     public void init(HardwareMap hardwareMap) {
         missingDevices.clear();
 
@@ -90,28 +84,24 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         shooterSubsystem    = new ShooterSubsystem(shooter);
     }
 
-    @Override
-    public DrivetrainInterface getDrivetrain() {
+    public DrivetrainSubsystem getDrivetrain() {
         return drivetrainSubsystem;
     }
 
-    @Override
-    public IntakeInterface getIntake() {
+    public IntakeSubsystem getIntake() {
         return intakeSubsystem;
     }
 
-    @Override
-    public HopperInterface getHopper() {
+    public HopperSubsystem getHopper() {
         return hopperSubsystem;
     }
 
-    @Override
-    public ShooterInterface getShooter() {
+    public ShooterSubsystem getShooter() {
         return shooterSubsystem;
     }
 
-    // Inner Subsystem implementations
-    public static class DrivetrainSubsystem implements DrivetrainInterface {
+    // Subsystem implementations
+    public static class DrivetrainSubsystem {
         private final DcMotor fl, fr, bl, br;
 
         public DrivetrainSubsystem(DcMotor fl, DcMotor fr, DcMotor bl, DcMotor br) {
@@ -121,7 +111,6 @@ public class IronEaglesHardware implements RobotHardwareInterface {
             this.br = br;
         }
 
-        @Override
         public void drive(double x, double y, double rx) {
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1.0);
             double flP = ((y + x + rx) / denominator) * IronEaglesTeleOp2026.FRONT_LEFT_DIR;
@@ -135,7 +124,6 @@ public class IronEaglesHardware implements RobotHardwareInterface {
             if (br != null) br.setPower(brP);
         }
 
-        @Override
         public void stop() {
             if (fl != null) fl.setPower(0);
             if (fr != null) fr.setPower(0);
@@ -144,97 +132,85 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         }
     }
 
-    public static class IntakeSubsystem implements IntakeInterface {
+    public static class IntakeSubsystem {
         private final DcMotor motor;
 
         public IntakeSubsystem(DcMotor motor) {
             this.motor = motor;
         }
 
-        @Override
         public void runIntake(double speed) {
             setPower(speed);
         }
 
-        @Override
         public void setPower(double power) {
             if (motor != null) {
                 motor.setPower(power * IronEaglesTeleOp2026.INTAKE_DIR);
             }
         }
 
-        @Override
         public void stop() {
             if (motor != null) {
                 motor.setPower(0);
             }
         }
 
-        @Override
         public boolean isRunning() {
             return motor != null && Math.abs(motor.getPower()) > 0.01;
         }
     }
 
-    public static class HopperSubsystem implements HopperInterface {
+    public static class HopperSubsystem {
         private final DcMotor motor;
 
         public HopperSubsystem(DcMotor motor) {
             this.motor = motor;
         }
 
-        @Override
         public void runHopper(double speed) {
             setPower(speed);
         }
 
-        @Override
         public void setPower(double power) {
             if (motor != null) {
                 motor.setPower(power * IronEaglesTeleOp2026.HOPPER_DIR);
             }
         }
 
-        @Override
         public void stop() {
             if (motor != null) {
                 motor.setPower(0);
             }
         }
 
-        @Override
         public boolean isRunning() {
             return motor != null && Math.abs(motor.getPower()) > 0.01;
         }
     }
 
-    public static class ShooterSubsystem implements ShooterInterface {
+    public static class ShooterSubsystem {
         private final DcMotor motor;
 
         public ShooterSubsystem(DcMotor motor) {
             this.motor = motor;
         }
 
-        @Override
         public void runShooter(double speed) {
             setPower(speed);
         }
 
-        @Override
         public void setPower(double power) {
             if (motor != null) {
                 motor.setPower(power * IronEaglesTeleOp2026.SHOOTER_DIR);
             }
         }
 
-        @Override
         public void stop() {
             if (motor != null) {
                 motor.setPower(0);
             }
         }
 
-        @Override
         public boolean isRunning() {
             return motor != null && Math.abs(motor.getPower()) > 0.01;
         }
