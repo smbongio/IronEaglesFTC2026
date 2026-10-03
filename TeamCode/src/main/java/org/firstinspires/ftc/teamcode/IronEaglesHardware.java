@@ -130,13 +130,33 @@ public class IronEaglesHardware {
             this.br = br;
         }
 
+        /**
+         * Calculates Mecanum wheel powers and applies them to the 4 drive motors.
+         *
+         * @param x  Strafe input (-1.0 to 1.0, right is positive, left is negative)
+         * @param y  Forward input (-1.0 to 1.0, forward is positive, backward is negative)
+         * @param rx Rotation input (-1.0 to 1.0, clockwise is positive, counter-clockwise is negative)
+         */
         public void drive(double x, double y, double rx) {
+            // Step 1: Calculate the maximum potential power sum across all 3 movement vectors.
+            // If the driver pushes joysticks diagonally while turning (e.g. y=1, x=1, rx=1),
+            // the sum would equal 3.0. Since motor power can only range from -1.0 to 1.0,
+            // we divide by 'denominator' to scale all 4 wheel powers down proportionally,
+            // preventing power clipping and preserving the exact driving direction.
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1.0);
+
+            // Step 2: Apply Mecanum Kinematics Equations for each wheel.
+            // Mecanum 45-degree rollers create diagonal force vectors:
+            // - Forward/Backward (y) moves all 4 wheels in the same direction (+).
+            // - Strafing Right (x) spins FrontLeft & BackRight forward (+), FrontRight & BackLeft backward (-).
+            // - Turning Right (rx) spins Left wheels forward (+), Right wheels backward (-).
+            // Each result is normalized by 'denominator' and multiplied by its direction constant (1 or -1).
             double flP = ((y + x + rx) / denominator) * IronEaglesTeleOp2026.FRONT_LEFT_DIR;
             double blP = ((y - x + rx) / denominator) * IronEaglesTeleOp2026.BACK_LEFT_DIR;
             double frP = ((y - x - rx) / denominator) * IronEaglesTeleOp2026.FRONT_RIGHT_DIR;
             double brP = ((y + x - rx) / denominator) * IronEaglesTeleOp2026.BACK_RIGHT_DIR;
 
+            // Step 3: Write calculated power values (-1.0 to 1.0) to physical motors if present.
             if (fl != null) fl.setPower(flP);
             if (fr != null) fr.setPower(frP);
             if (bl != null) bl.setPower(blP);

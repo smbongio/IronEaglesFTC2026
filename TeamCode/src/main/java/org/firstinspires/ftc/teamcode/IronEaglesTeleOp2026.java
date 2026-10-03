@@ -9,7 +9,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     // Direction Multiplier Constants (1 or -1)
     // Right-side motors are set to -1 because they are physically mounted opposite the left side
     public static int FRONT_LEFT_DIR  = 1;
-    public static int FRONT_RIGHT_DIR = -1;
+    public static int FRONT_RIGHT_DIR = 1;
     public static int BACK_LEFT_DIR   = 1;
     public static int BACK_RIGHT_DIR  = -1;
     public static int INTAKE_DIR      = 1;
@@ -35,7 +35,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         while (opModeIsActive()) {
             // Drivetrain Kinematics with 5% deadzone filter to prevent stick drift
             // Inverted rawRx to fix rotation direction
-            double rawY  = gamepad1.left_stick_y;
+            double rawY  = gamepad1.left_stick_y * -1;
             double rawX  = gamepad1.left_stick_x;
             double rawRx = gamepad1.right_stick_x;
 
