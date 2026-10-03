@@ -10,6 +10,7 @@ import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
 import org.firstinspires.ftc.teamcode.interfaces.IntakeInterface;
 import org.firstinspires.ftc.teamcode.interfaces.RobotHardwareInterface;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
+import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -152,6 +153,29 @@ public class IronEaglesHardware implements RobotHardwareInterface {
             if (fr != null) fr.setPower(frP);
             if (bl != null) bl.setPower(blP);
             if (br != null) br.setPower(brP);
+        }
+
+        @Override
+        public boolean alignToTarget(TargetGeometryInterface target) {
+            if (target == null) {
+                stop();
+                return false;
+            }
+
+            double rangeError   = target.getRangeInches() - 24.0; // Target distance 24 inches
+            double bearingError = target.getBearingDegrees();    // Target angle 0 degrees
+
+            // Proportional Gain Constants (Kp)
+            double Kp_forward = 0.03;
+            double Kp_turn    = 0.02;
+
+            double forwardPower = rangeError * Kp_forward;
+            double turnPower    = bearingError * Kp_turn;
+
+            drive(0, forwardPower, turnPower);
+
+            // Returns true when aligned within tolerance (+/- 1.0 inch and +/- 2.0 degrees)
+            return Math.abs(rangeError) < 1.0 && Math.abs(bearingError) < 2.0;
         }
 
         @Override
