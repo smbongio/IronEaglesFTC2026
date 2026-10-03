@@ -48,10 +48,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            // 1. Drivetrain Kinematics with 5% deadzone filter to prevent stick drift
+            // Drivetrain Kinematics with 5% deadzone filter to prevent stick drift
             double rawY  = -gamepad1.left_stick_y;
             double rawX  =  gamepad1.left_stick_x;
-            double rawRx = -gamepad1.right_stick_x;
+            double rawRx =  gamepad1.right_stick_x;
 
             double y  = Math.abs(rawY)  > 0.05 ? rawY  : 0.0;
             double x  = Math.abs(rawX)  > 0.05 ? rawX  : 0.0;
@@ -59,7 +59,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
             boolean isDriverSteering = (y != 0 || x != 0 || rx != 0);
 
-            // 2. High-Level Vision & LED Alert Processing
+            // High-Level Vision & LED Alert Processing
             boolean targetAcquired = (vision != null && vision.isTargetAcquired());
             if (led != null) {
                 if (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE) {
@@ -71,13 +71,13 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 }
             }
 
-            // 3. High-Level Automated Firing Controller Execution
+            // High-Level Automated Firing Controller Execution
             boolean isFireTriggerHeld = gamepad1.right_trigger > 0.2;
             if (autoFireController != null) {
                 autoFireController.update(isFireTriggerHeld, isDriverSteering);
             }
 
-            // 4. Manual Drivetrain & Mechanism Controls (Used when autoFireController is IDLE or null)
+            // Manual Drivetrain & Mechanism Controls (Active when autoFireController is IDLE or null)
             if (autoFireController == null || autoFireController.getCurrentState() == AutoFireControllerInterface.FiringState.IDLE) {
                 robot.getDrivetrain().drive(x, y, rx);
 
