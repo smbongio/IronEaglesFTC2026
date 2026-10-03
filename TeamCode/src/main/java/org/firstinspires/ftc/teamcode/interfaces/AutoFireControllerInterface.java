@@ -2,6 +2,10 @@ package org.firstinspires.ftc.teamcode.interfaces;
 
 /**
  * Interface for orchestrating the automated targeting, positioning, and firing sequence.
+ * Connects Vision, Drivetrain, Shooter, and Hopper interfaces to execute the 3-step firing sequence:
+ *   Step 1: Retrieve AprilTag geometry (range, bearing, yaw) from VisionSubsystemInterface.
+ *   Step 2: Auto-position and orient robot via DrivetrainInterface to optimal shooting distance & angle.
+ *   Step 3: Spin up ShooterInterface flywheel and feed balls via HopperInterface.
  */
 public interface AutoFireControllerInterface {
 
@@ -10,18 +14,46 @@ public interface AutoFireControllerInterface {
      */
     enum FiringState {
         IDLE,           // Waiting for fire button trigger
-        ALIGNING,       // Drivetrain auto-positioning to target distance & angle
-        SPINNING_UP,    // Shooter motor flywheel spinning up to full RPM
-        FEEDING,        // Hopper/intake feeding balls into shooter
-        COMPLETE,       // Firing sequence finished
-        ABORTED         // Interrupted by driver release or manual override
+        ALIGNING,       // Step 1 & 2: Querying AprilTag geometry & driving to optimal 24" & 0° position
+        SPINNING_UP,    // Step 3a: Spinning up shooter flywheel motor to 100% RPM
+        FEEDING,        // Step 3b: Actuating hopper feeder motor to push balls into flywheel
+        COMPLETE,       // All 4 balls fired; sequence complete
+        ABORTED         // Interrupted by driver trigger release or manual joystick steering
     }
 
     /**
-     * Updates and advances the non-blocking auto-fire state machine.
-     * Must be called continuously in the TeleOp loop.
+     * Binds the Vision Subsystem interface dependency for AprilTag geometry acquisition.
      *
-     * @param isFireTriggerHeld true if driver is holding the fire button
+     * @param vision VisionSubsystemInterface implementation
+     */
+    void setVisionSubsystem(VisionSubsystemInterface vision);
+
+    /**
+     * Binds the Drivetrain interface dependency for auto-positioning and orientation.
+     *
+     * @param drivetrain DrivetrainInterface implementation
+     */
+    void setDrivetrain(DrivetrainInterface drivetrain);
+
+    /**
+     * Binds the Shooter interface dependency for flywheel spin-up.
+     *
+     * @param shooter ShooterInterface implementation
+     */
+    void setShooter(ShooterInterface shooter);
+
+    /**
+     * Binds the Hopper interface dependency for ball feeding.
+     *
+     * @param hopper HopperInterface implementation
+     */
+    void setHopper(HopperInterface hopper);
+
+    /**
+     * Updates and advances the non-blocking auto-fire state machine.
+     * Must be called continuously in the main TeleOp loop.
+     *
+     * @param isFireTriggerHeld true if driver is holding the fire button (Right Trigger > 0.2)
      * @param isDriverSteering  true if driver is touching joysticks (manual override)
      */
     void update(boolean isFireTriggerHeld, boolean isDriverSteering);
