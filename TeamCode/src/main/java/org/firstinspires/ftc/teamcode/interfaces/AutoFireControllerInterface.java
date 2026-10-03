@@ -22,38 +22,10 @@ public interface AutoFireControllerInterface {
     }
 
     /**
-     * Binds the Vision Subsystem interface dependency for AprilTag geometry acquisition.
-     *
-     * @param vision VisionSubsystemInterface implementation
-     */
-    void setVisionSubsystem(VisionSubsystemInterface vision);
-
-    /**
-     * Binds the Drivetrain interface dependency for auto-positioning and orientation.
-     *
-     * @param drivetrain DrivetrainInterface implementation
-     */
-    void setDrivetrain(DrivetrainInterface drivetrain);
-
-    /**
-     * Binds the Shooter interface dependency for flywheel spin-up.
-     *
-     * @param shooter ShooterInterface implementation
-     */
-    void setShooter(ShooterInterface shooter);
-
-    /**
-     * Binds the Hopper interface dependency for ball feeding.
-     *
-     * @param hopper HopperInterface implementation
-     */
-    void setHopper(HopperInterface hopper);
-
-    /**
      * Updates and advances the non-blocking auto-fire state machine.
-     * Must be called continuously in the main TeleOp loop.
+     * Must be called continuously in the TeleOp loop.
      *
-     * @param isFireTriggerHeld true if driver is holding the fire button (Right Trigger > 0.2)
+     * @param isFireTriggerHeld true if driver is holding the fire button
      * @param isDriverSteering  true if driver is touching joysticks (manual override)
      */
     void update(boolean isFireTriggerHeld, boolean isDriverSteering);

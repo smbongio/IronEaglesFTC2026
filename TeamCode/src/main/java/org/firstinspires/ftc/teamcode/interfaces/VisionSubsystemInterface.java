@@ -55,6 +55,14 @@ public interface VisionSubsystemInterface {
     AprilTagDetection getTargetDetection();
 
     /**
+     * Function call to request spatial AprilTag geometry (range, bearing, elevation, yaw, X, Y).
+     * Returns null if no valid target AprilTag is currently acquired.
+     *
+     * @return TargetGeometryInterface or null
+     */
+    TargetGeometryInterface getTargetGeometry();
+
+    /**
      * Shuts down or pauses the vision streaming portal to save CPU resources when not in use.
      */
     void stopStreaming();
