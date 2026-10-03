@@ -6,7 +6,7 @@ import java.util.Set;
 
 /**
  * Interface contract for the Vision Subsystem.
- * Manages AprilTag detection, alliance target filtering, and target geometry retrieval.
+ * Manages multi-AprilTag detection, alliance target filtering, and target geometry retrieval.
  */
 public interface VisionSubsystemInterface {
 
@@ -33,34 +33,41 @@ public interface VisionSubsystemInterface {
     void setActiveTargetTagIds(Set<Integer> activeTargetTagIds);
 
     /**
-     * Returns all currently detected AprilTags visible to the camera.
+     * Returns all raw AprilTagDetection objects currently visible in the camera frame (0 to 16+ tags).
      *
      * @return List of active AprilTagDetection objects
      */
     List<AprilTagDetection> getRawDetections();
 
     /**
-     * Checks if a valid, alliance-matching active target tag is currently detected and in range.
+     * Returns spatial geometry for ALL AprilTags currently visible in the camera frame (0, 8, 13, 16+ tags).
+     *
+     * @return List of TargetGeometryInterface objects for every visible tag
+     */
+    List<TargetGeometryInterface> getAllTargetGeometries();
+
+    /**
+     * Returns spatial geometries filtered for the active team alliance (Red or Blue).
+     *
+     * @return List of TargetGeometryInterface objects matching active alliance
+     */
+    List<TargetGeometryInterface> getAllianceTargetGeometries();
+
+    /**
+     * Checks if at least one valid, alliance-matching active target tag is currently detected and in range.
      *
      * @return true if a valid target AprilTag is acquired
      */
     boolean isTargetAcquired();
 
     /**
-     * Retrieves the AprilTagDetection object for the best/closest valid target AprilTag.
-     * Returns null if no valid alliance target tag is currently acquired.
-     *
-     * @return AprilTagDetection or null
-     */
-    AprilTagDetection getTargetDetection();
-
-    /**
-     * Function call to request spatial AprilTag geometry (range, bearing, elevation, yaw, X, Y).
+     * Function call to request spatial geometry for the best/closest valid target AprilTag.
+     * Evaluates all visible tags, filters for active alliance & active hive IDs, and returns the closest target.
      * Returns null if no valid target AprilTag is currently acquired.
      *
-     * @return TargetGeometryInterface or null
+     * @return Best TargetGeometryInterface or null
      */
-    TargetGeometryInterface getTargetGeometry();
+    TargetGeometryInterface getBestTargetGeometry();
 
     /**
      * Shuts down or pauses the vision streaming portal to save CPU resources when not in use.
