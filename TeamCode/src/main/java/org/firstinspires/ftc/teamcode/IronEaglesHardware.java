@@ -10,7 +10,10 @@ import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
 import org.firstinspires.ftc.teamcode.interfaces.IntakeInterface;
 import org.firstinspires.ftc.teamcode.interfaces.RobotHardwareInterface;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
-import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
+import org.firstinspires.ftc.teamcode.subsystems.HopperSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.MecanumDrivetrain;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +38,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
 
     public final List<String> missingDevices = new ArrayList<>();
 
-    private DrivetrainSubsystem drivetrainSubsystem;
+    private MecanumDrivetrain drivetrainSubsystem;
     private IntakeSubsystem intakeSubsystem;
     private HopperSubsystem hopperSubsystem;
     private ShooterSubsystem shooterSubsystem;
@@ -103,8 +106,8 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         if (backLeft != null)   backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         if (backRight != null)  backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        // Instantiate Subsystems
-        drivetrainSubsystem = new DrivetrainSubsystem(frontLeft, frontRight, backLeft, backRight);
+        // Instantiate Subsystems from dedicated subsystem classes
+        drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
         intakeSubsystem     = new IntakeSubsystem(intake);
         hopperSubsystem     = new HopperSubsystem(hopper);
         shooterSubsystem    = new ShooterSubsystem(shooter);
@@ -128,158 +131,5 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     @Override
     public ShooterInterface getShooter() {
         return shooterSubsystem;
-    }
-
-    // Subsystem implementations
-    public static class DrivetrainSubsystem implements DrivetrainInterface {
-        private final DcMotor fl, fr, bl, br;
-
-        public DrivetrainSubsystem(DcMotor fl, DcMotor fr, DcMotor bl, DcMotor br) {
-            this.fl = fl;
-            this.fr = fr;
-            this.bl = bl;
-            this.br = br;
-        }
-
-        @Override
-        public void drive(double x, double y, double rx) {
-            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1.0);
-            double flP = ((y + x + rx) / denominator) * IronEaglesTeleOp2026.FRONT_LEFT_DIR;
-            double blP = ((y - x + rx) / denominator) * IronEaglesTeleOp2026.BACK_LEFT_DIR;
-            double frP = ((y - x - rx) / denominator) * IronEaglesTeleOp2026.FRONT_RIGHT_DIR;
-            double brP = ((y + x - rx) / denominator) * IronEaglesTeleOp2026.BACK_RIGHT_DIR;
-
-            if (fl != null) fl.setPower(flP);
-            if (fr != null) fr.setPower(frP);
-            if (bl != null) bl.setPower(blP);
-            if (br != null) br.setPower(brP);
-        }
-
-        @Override
-        public boolean alignToTarget(TargetGeometryInterface target) {
-            if (target == null) {
-                stop();
-                return false;
-            }
-
-            double rangeError   = target.getRangeInches() - 24.0; // Target distance 24 inches
-            double bearingError = target.getBearingDegrees();    // Target angle 0 degrees
-
-            // Proportional Gain Constants (Kp)
-            double Kp_forward = 0.03;
-            double Kp_turn    = 0.02;
-
-            double forwardPower = rangeError * Kp_forward;
-            double turnPower    = bearingError * Kp_turn;
-
-            drive(0, forwardPower, turnPower);
-
-            // Returns true when aligned within tolerance (+/- 1.0 inch and +/- 2.0 degrees)
-            return Math.abs(rangeError) < 1.0 && Math.abs(bearingError) < 2.0;
-        }
-
-        @Override
-        public void stop() {
-            if (fl != null) fl.setPower(0);
-            if (fr != null) fr.setPower(0);
-            if (bl != null) bl.setPower(0);
-            if (br != null) br.setPower(0);
-        }
-    }
-
-    public static class IntakeSubsystem implements IntakeInterface {
-        private final DcMotor motor;
-
-        public IntakeSubsystem(DcMotor motor) {
-            this.motor = motor;
-        }
-
-        @Override
-        public void runIntake(double speed) {
-            setPower(speed);
-        }
-
-        @Override
-        public void setPower(double power) {
-            if (motor != null) {
-                motor.setPower(power * IronEaglesTeleOp2026.INTAKE_DIR);
-            }
-        }
-
-        @Override
-        public void stop() {
-            if (motor != null) {
-                motor.setPower(0);
-            }
-        }
-
-        @Override
-        public boolean isRunning() {
-            return motor != null && Math.abs(motor.getPower()) > 0.01;
-        }
-    }
-
-    public static class HopperSubsystem implements HopperInterface {
-        private final DcMotor motor;
-
-        public HopperSubsystem(DcMotor motor) {
-            this.motor = motor;
-        }
-
-        @Override
-        public void runHopper(double speed) {
-            setPower(speed);
-        }
-
-        @Override
-        public void setPower(double power) {
-            if (motor != null) {
-                motor.setPower(power * IronEaglesTeleOp2026.HOPPER_DIR);
-            }
-        }
-
-        @Override
-        public void stop() {
-            if (motor != null) {
-                motor.setPower(0);
-            }
-        }
-
-        @Override
-        public boolean isRunning() {
-            return motor != null && Math.abs(motor.getPower()) > 0.01;
-        }
-    }
-
-    public static class ShooterSubsystem implements ShooterInterface {
-        private final DcMotor motor;
-
-        public ShooterSubsystem(DcMotor motor) {
-            this.motor = motor;
-        }
-
-        @Override
-        public void runShooter(double speed) {
-            setPower(speed);
-        }
-
-        @Override
-        public void setPower(double power) {
-            if (motor != null) {
-                motor.setPower(power * IronEaglesTeleOp2026.SHOOTER_DIR);
-            }
-        }
-
-        @Override
-        public void stop() {
-            if (motor != null) {
-                motor.setPower(0);
-            }
-        }
-
-        @Override
-        public boolean isRunning() {
-            return motor != null && Math.abs(motor.getPower()) > 0.01;
-        }
     }
 }
