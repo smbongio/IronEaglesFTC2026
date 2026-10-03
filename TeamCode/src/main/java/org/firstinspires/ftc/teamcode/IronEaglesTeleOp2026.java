@@ -57,55 +57,31 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             double x  = Math.abs(rawX)  > 0.05 ? rawX  : 0.0;
             double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
 
-            boolean isDriverSteering = (y != 0 || x != 0 || rx != 0);
+            robot.getDrivetrain().drive(x, y, rx);
 
-            // High-Level Vision & LED Alert Processing
-            boolean targetAcquired = (vision != null && vision.isTargetAcquired());
-            if (led != null) {
-                if (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE) {
-                    led.showFiring();
-                } else if (targetAcquired) {
-                    led.showTargetLocked(IS_BLUE_ALLIANCE);
-                } else {
-                    led.showSearching();
-                }
+            // Intake (X button momentary)
+            if (gamepad1.x) {
+                robot.getIntake().runIntake(1.0);
+            } else {
+                robot.getIntake().stop();
             }
 
-            // High-Level Automated Firing Controller Execution
-            boolean isFireTriggerHeld = gamepad1.right_trigger > 0.2;
-            if (autoFireController != null) {
-                autoFireController.update(isFireTriggerHeld, isDriverSteering);
+            // Hopper (Left Trigger / L2 threshold > 0.2)
+            if (gamepad1.left_trigger > 0.2) {
+                robot.getHopper().runHopper(gamepad1.left_trigger);
+            } else {
+                robot.getHopper().stop();
             }
 
-            // Manual Drivetrain & Mechanism Controls (Active when autoFireController is IDLE or null)
-            if (autoFireController == null || autoFireController.getCurrentState() == AutoFireControllerInterface.FiringState.IDLE) {
-                robot.getDrivetrain().drive(x, y, rx);
-
-                // Intake (X button momentary)
-                if (gamepad1.x) {
-                    robot.getIntake().runIntake(1.0);
-                } else {
-                    robot.getIntake().stop();
-                }
-
-                // Hopper (Left Trigger / L2 threshold > 0.2)
-                if (gamepad1.left_trigger > 0.2) {
-                    robot.getHopper().runHopper(gamepad1.left_trigger);
-                } else {
-                    robot.getHopper().stop();
-                }
-
-                // Manual Shooter override if trigger pulled and autoFireController is not handling it
-                if (isFireTriggerHeld) {
-                    robot.getShooter().runShooter(gamepad1.right_trigger);
-                } else {
-                    robot.getShooter().stop();
-                }
+            // Shooter (Right Trigger / R2 threshold > 0.2)
+            if (gamepad1.right_trigger > 0.2) {
+                robot.getShooter().runShooter(gamepad1.right_trigger);
+            } else {
+                robot.getShooter().stop();
             }
 
             // Telemetry Output for Live Testing
             telemetry.addData("Status", "Running");
-            telemetry.addData("Target Locked", targetAcquired ? "YES" : "NO");
             telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
             telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
             telemetry.addData("GP1 Buttons", "X: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.a, gamepad1.b, gamepad1.y);
