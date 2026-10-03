@@ -83,32 +83,65 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Apply 5 percent deadzone filter to turn drive input
             double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
 
-            // Calculate and send power values to 4 drive motors
-            robot.getDrivetrain().drive(x, y, rx);
+            // Check if driver is actively pushing joysticks to steer manually
+            boolean isDriverSteering = (y != 0 || x != 0 || rx != 0);
 
-            // If X button is pressed, run intake at 100 percent speed
-            if (gamepad1.x) {
-                robot.getIntake().runIntake(1.0);
-            } else { // Otherwise stop intake motor immediately
-                robot.getIntake().stop();
+            // Check if right trigger is squeezed past 20 percent threshold
+            boolean isFireTriggerHeld = gamepad1.right_trigger > 0.2;
+
+            // Check if vision subsystem has acquired a valid AprilTag target
+            boolean targetAcquired = (vision != null && vision.isTargetAcquired());
+
+            // Process high-level LED visual indicator signals
+            if (led != null) {
+                if (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE) {
+                    led.showFiring();
+                } else if (targetAcquired) {
+                    led.showTargetLocked(IS_BLUE_ALLIANCE);
+                } else {
+                    led.showSearching();
+                }
             }
 
-            // If left trigger is squeezed past 20 percent threshold
-            if (gamepad1.left_trigger > 0.2) { // Run hopper motor at speed proportional to trigger press
-                robot.getHopper().runHopper(gamepad1.left_trigger);
-            } else { // Otherwise stop hopper motor immediately
-                robot.getHopper().stop();
+            // Update high-level automated firing controller state machine
+            if (autoFireController != null) {
+                autoFireController.update(isFireTriggerHeld, isDriverSteering);
             }
 
-            // If right trigger is squeezed past 20 percent threshold
-            if (gamepad1.right_trigger > 0.2) { // Run shooter motor at speed proportional to trigger press
-                robot.getShooter().runShooter(gamepad1.right_trigger);
-            } else { // Otherwise stop shooter motor immediately
-                robot.getShooter().stop();
+            // Execute manual controls if auto-fire is IDLE or unassigned
+            if (autoFireController == null || autoFireController.getCurrentState() == AutoFireControllerInterface.FiringState.IDLE) {
+
+                // Calculate and send power values to 4 drive motors
+                robot.getDrivetrain().drive(x, y, rx);
+
+                // If X button is pressed, run intake at 100 percent speed
+                if (gamepad1.x) {
+                    robot.getIntake().runIntake(1.0);
+                } else { // Otherwise stop intake motor immediately
+                    robot.getIntake().stop();
+                }
+
+                // If left trigger is squeezed past 20 percent threshold
+                if (gamepad1.left_trigger > 0.2) { // Run hopper motor at speed proportional to trigger press
+                    robot.getHopper().runHopper(gamepad1.left_trigger);
+                } else { // Otherwise stop hopper motor immediately
+                    robot.getHopper().stop();
+                }
+
+                // If right trigger is squeezed, run manual shooter override
+                if (isFireTriggerHeld) {
+                    robot.getShooter().runShooter(gamepad1.right_trigger);
+                } else { // Otherwise stop shooter motor immediately
+                    robot.getShooter().stop();
+                }
             }
 
             // Display operational status on Driver Hub telemetry
             telemetry.addData("Status", "Running");
+            // Display target acquisition lock status on Driver Hub
+            telemetry.addData("Target Locked", targetAcquired ? "YES" : "NO");
+            // Display current auto-fire state machine status on Driver Hub
+            telemetry.addData("Fire State", autoFireController != null ? autoFireController.getCurrentState() : "MANUAL");
             // Display raw joystick values for driver testing
             telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
             // Display raw trigger values for driver testing
