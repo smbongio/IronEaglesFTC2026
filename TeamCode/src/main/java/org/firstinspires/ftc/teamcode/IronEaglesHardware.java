@@ -136,6 +136,33 @@ public class IronEaglesHardware {
          * @param x  Strafe input (-1.0 to 1.0, right is positive, left is negative)
          * @param y  Forward input (-1.0 to 1.0, forward is positive, backward is negative)
          * @param rx Rotation input (-1.0 to 1.0, clockwise is positive, counter-clockwise is negative)
+         *
+         * EXAMPLES & MATH DERIVATIONS:
+         * -----------------------------------------------------------------------------------------
+         * Case 1: Full Forward Drive (y = 1.0, x = 0.0, rx = 0.0)
+         *   denominator = max(|1.0| + |0.0| + |0.0|, 1.0) = 1.0
+         *   flP = (( 1.0 + 0.0 + 0.0) / 1.0) * FRONT_LEFT_DIR  (1) = +1.0 (Spin Forward 100%)
+         *   blP = (( 1.0 - 0.0 + 0.0) / 1.0) * BACK_LEFT_DIR   (1) = +1.0 (Spin Forward 100%)
+         *   frP = (( 1.0 - 0.0 - 0.0) / 1.0) * FRONT_RIGHT_DIR (1) = +1.0 (Spin Forward 100%)
+         *   brP = (( 1.0 + 0.0 - 0.0) / 1.0) * BACK_RIGHT_DIR  (1) = +1.0 (Spin Forward 100%)
+         *   Result: All 4 wheels spin forward in unison -> Chassis moves straight forward.
+         *
+         * Case 2: Full Strafe Right (y = 0.0, x = 1.0, rx = 0.0)
+         *   denominator = max(|0.0| + |1.0| + |0.0|, 1.0) = 1.0
+         *   flP = (( 0.0 + 1.0 + 0.0) / 1.0) * FRONT_LEFT_DIR  (1) = +1.0 (Spin Forward)
+         *   blP = (( 0.0 - 1.0 + 0.0) / 1.0) * BACK_LEFT_DIR   (1) = -1.0 (Spin Backward)
+         *   frP = (( 0.0 - 1.0 - 0.0) / 1.0) * FRONT_RIGHT_DIR (1) = -1.0 (Spin Backward)
+         *   brP = (( 0.0 + 1.0 - 0.0) / 1.0) * BACK_RIGHT_DIR  (1) = +1.0 (Spin Forward)
+         *   Result: 45° roller force vectors push the chassis directly to the right.
+         *
+         * Case 3: Clockwise Turn / Rotate Right (y = 0.0, x = 0.0, rx = 1.0)
+         *   denominator = max(|0.0| + |0.0| + |1.0|, 1.0) = 1.0
+         *   flP = (( 0.0 + 0.0 + 1.0) / 1.0) * FRONT_LEFT_DIR  (1) = +1.0 (Spin Forward)
+         *   blP = (( 0.0 - 0.0 + 1.0) / 1.0) * BACK_LEFT_DIR   (1) = +1.0 (Spin Forward)
+         *   frP = (( 0.0 - 0.0 - 1.0) / 1.0) * FRONT_RIGHT_DIR (1) = -1.0 (Spin Backward)
+         *   brP = (( 0.0 + 0.0 - 1.0) / 1.0) * BACK_RIGHT_DIR  (1) = -1.0 (Spin Backward)
+         *   Result: Left side drives forward, right side drives backward -> Chassis spins clockwise.
+         * -----------------------------------------------------------------------------------------
          */
         public void drive(double x, double y, double rx) {
             // Step 1: Calculate the maximum potential power sum across all 3 movement vectors.
