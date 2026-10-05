@@ -90,11 +90,14 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Check if driver is actively pushing joysticks to steer manually
             boolean isDriverSteering = (y != 0 || x != 0 || rx != 0);
 
-            // Check if right trigger is squeezed past 20 percent threshold
-            boolean isFireTriggerHeld = gamepad1.right_trigger > 0.2;
+            // Check if right trigger is squeezed past 20 percent threshold for manual shooter override
+            boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
+
+            // Check if right bumper is pressed to trigger automated firing sequence
+            boolean isAutoShootBumperHeld = gamepad1.right_bumper;
 
             // Check if robot is actively shooting (either manual override or automated sequence)
-            boolean isShooting = (isFireTriggerHeld && robot.getShooter().isRunning()) ||
+            boolean isShooting = (isManualShootTriggerHeld && robot.getShooter().isRunning()) ||
                     (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE);
 
             // Query vision subsystem to check if target is acquired and in valid shooting range
@@ -111,9 +114,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 }
             }
 
-            // Update high-level automated firing controller state machine
+            // Check if auto-fire controller interface is assigned
             if (autoFireController != null) {
-                autoFireController.update(isFireTriggerHeld, isDriverSteering);
+                // Update high-level automated firing controller state machine using right bumper trigger
+                autoFireController.update(isAutoShootBumperHeld, isDriverSteering);
             }
 
             // Execute manual controls if auto-fire is IDLE or unassigned
@@ -140,8 +144,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     robot.getHopper().stop();
                 }
 
-                // Check if right trigger is squeezed past threshold
-                if (isFireTriggerHeld) {
+                // Check if right trigger is squeezed past threshold for manual shooter override
+                if (isManualShootTriggerHeld) {
                     // Run manual shooter motor at speed proportional to trigger press
                     robot.getShooter().runShooter(gamepad1.right_trigger);
                 } else { // Otherwise stop shooter motor immediately
@@ -161,7 +165,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Display raw trigger values for driver testing
             telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
             // Display raw button states for driver testing
-            telemetry.addData("GP1 Buttons", "X: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.a, gamepad1.b, gamepad1.y);
+            telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
 
             // Check if any hardware devices are missing from configuration
             if (!robot.missingDevices.isEmpty()) {
