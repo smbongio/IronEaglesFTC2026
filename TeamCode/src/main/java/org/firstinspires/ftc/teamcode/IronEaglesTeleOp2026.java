@@ -22,7 +22,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     // Set back left motor spin direction multiplier to normal
     public static int BACK_LEFT_DIR   =  1;
     // Set back right motor spin direction multiplier to inverted
-    public static int BACK_RIGHT_DIR  = -1;
+    public static int BACK_RIGHT_DIR  = 1;
     // Set intake motor spin direction multiplier to normal
     public static int INTAKE_DIR      =  1;
     // Set hopper motor spin direction multiplier to normal
@@ -49,16 +49,20 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
 
-        // If vision subsystem exists, set active alliance color
+        // Check if vision subsystem interface is assigned
         if (vision != null) {
+            // Set active alliance team color in vision subsystem for target detection
             vision.setAlliance(IS_BLUE_ALLIANCE ? VisionSubsystemInterface.Alliance.BLUE : VisionSubsystemInterface.Alliance.RED);
         }
 
-        // If all hardware devices were found, report ready status
-        if (robot.missingDevices.isEmpty()) {
+        // Check if all configured hardware devices were successfully found
+        if (robot.missingDevices.isEmpty()) { // If no devices are missing
+            // Display initialization success status message on Driver Hub
             telemetry.addData("Status", "Initialized - All devices found!");
         } else { // Otherwise display warning listing missing device names
+            // Display warning status message for missing hardware
             telemetry.addData("WARNING", "Initialized with missing config devices!");
+            // Display comma-separated list of missing device names
             telemetry.addData("Missing", String.join(", ", robot.missingDevices));
         }
         // Send initialization status message to Driver Hub screen
@@ -89,17 +93,21 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Check if right trigger is squeezed past 20 percent threshold
             boolean isFireTriggerHeld = gamepad1.right_trigger > 0.2;
 
-            // Check if vision subsystem has acquired a valid AprilTag target
-            boolean targetAcquired = (vision != null && vision.isTargetAcquired());
+            // Check if robot is actively shooting (either manual override or automated sequence)
+            boolean isShooting = (isFireTriggerHeld && robot.getShooter().isRunning()) ||
+                    (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE);
 
-            // Process high-level LED visual indicator signals
+            // Query vision subsystem to check if target is acquired and in valid shooting range
+            boolean isInRange = (vision != null && vision.isInShootingRange());
+
+            // Process LED indicator visual signals based on current system state
             if (led != null) {
-                if (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE) {
-                    led.showFiring();
-                } else if (targetAcquired) {
-                    led.showTargetLocked(IS_BLUE_ALLIANCE);
-                } else {
-                    led.showSearching();
+                if (isShooting) { // Solid LED when actively shooting
+                    led.setLedState(LedIndicatorInterface.LedState.SHOOTING, IS_BLUE_ALLIANCE);
+                } else if (isInRange) { // Quickly blinking LED when target is in range and ready to shoot
+                    led.setLedState(LedIndicatorInterface.LedState.IN_RANGE, IS_BLUE_ALLIANCE);
+                } else { // No LED light when not shooting and no target in range
+                    led.setLedState(LedIndicatorInterface.LedState.OFF, IS_BLUE_ALLIANCE);
                 }
             }
 
@@ -114,32 +122,38 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 // Calculate and send power values to 4 drive motors
                 robot.getDrivetrain().drive(x, y, rx);
 
-                // If X button is pressed, run intake at 100 percent speed
-                if (gamepad1.x) {
+                // Check if driver is pressing X button
+                if (gamepad1.x) { // If X button is pressed
+                    // Run intake motor at 100 percent speed
                     robot.getIntake().runIntake(1.0);
                 } else { // Otherwise stop intake motor immediately
+                    // Stop intake motor
                     robot.getIntake().stop();
                 }
 
-                // If left trigger is squeezed past 20 percent threshold
-                if (gamepad1.left_trigger > 0.2) { // Run hopper motor at speed proportional to trigger press
+                // Check if left trigger is squeezed past 20 percent threshold
+                if (gamepad1.left_trigger > 0.2) {
+                    // Run hopper motor at speed proportional to trigger press
                     robot.getHopper().runHopper(gamepad1.left_trigger);
                 } else { // Otherwise stop hopper motor immediately
+                    // Stop hopper motor
                     robot.getHopper().stop();
                 }
 
-                // If right trigger is squeezed, run manual shooter override
+                // Check if right trigger is squeezed past threshold
                 if (isFireTriggerHeld) {
+                    // Run manual shooter motor at speed proportional to trigger press
                     robot.getShooter().runShooter(gamepad1.right_trigger);
                 } else { // Otherwise stop shooter motor immediately
+                    // Stop shooter motor
                     robot.getShooter().stop();
                 }
             }
 
             // Display operational status on Driver Hub telemetry
             telemetry.addData("Status", "Running");
-            // Display target acquisition lock status on Driver Hub
-            telemetry.addData("Target Locked", targetAcquired ? "YES" : "NO");
+            // Display target acquisition and shooting range readiness status on Driver Hub
+            telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
             // Display current auto-fire state machine status on Driver Hub
             telemetry.addData("Fire State", autoFireController != null ? autoFireController.getCurrentState() : "MANUAL");
             // Display raw joystick values for driver testing
@@ -149,8 +163,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Display raw button states for driver testing
             telemetry.addData("GP1 Buttons", "X: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.a, gamepad1.b, gamepad1.y);
 
-            // If any hardware devices are missing, list them on screen
+            // Check if any hardware devices are missing from configuration
             if (!robot.missingDevices.isEmpty()) {
+                // List missing hardware device names on screen
                 telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
             }
             // Update Driver Hub telemetry display for current loop cycle

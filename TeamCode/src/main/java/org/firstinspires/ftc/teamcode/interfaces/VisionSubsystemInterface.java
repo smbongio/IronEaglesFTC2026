@@ -54,11 +54,19 @@ public interface VisionSubsystemInterface {
     List<TargetGeometryInterface> getAllianceTargetGeometries();
 
     /**
-     * Checks if at least one valid, alliance-matching active target tag is currently detected and in range.
+     * Checks if at least one valid, alliance-matching active target tag is currently detected.
      *
      * @return true if a valid target AprilTag is acquired
      */
     boolean isTargetAcquired();
+
+    /**
+     * Checks if the acquired target is within valid physical shooting range and angle alignment.
+     * Encapsulates range (e.g. 18" to 36") and bearing angle evaluation inside the Vision Subsystem.
+     *
+     * @return true if target distance and alignment are optimal for taking a shot
+     */
+    boolean isInShootingRange();
 
     /**
      * Function call to request spatial geometry for the best/closest valid target AprilTag.
