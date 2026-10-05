@@ -96,12 +96,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Check if right bumper is pressed to trigger automated firing sequence
             boolean isAutoShootBumperHeld = gamepad1.right_bumper;
 
-            // Check if robot is actively shooting (either manual override or automated sequence)
-            boolean isShooting = (isManualShootTriggerHeld && robot.getShooter().isRunning()) ||
-                    (autoFireController != null && autoFireController.getCurrentState() != AutoFireControllerInterface.FiringState.IDLE);
-
             // Query vision subsystem to check if target is acquired and in valid shooting range
             boolean isInRange = (vision != null && vision.isInShootingRange());
+
+            // Check if shooter motor is actively running
+            boolean isShooting = robot.getShooter().isRunning();
 
             // Process LED indicator visual signals based on current system state
             if (led != null) {
@@ -114,44 +113,39 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 }
             }
 
-            // Check if auto-fire controller interface is assigned
+            // Update high-level automated firing controller if assigned
             if (autoFireController != null) {
-                // Update high-level automated firing controller state machine using right bumper trigger
                 autoFireController.update(isAutoShootBumperHeld, isDriverSteering);
             }
 
-            // Execute manual controls if auto-fire is IDLE or unassigned
-            if (autoFireController == null || autoFireController.getCurrentState() == AutoFireControllerInterface.FiringState.IDLE) {
+            // Calculate and send power values to 4 drive motors
+            robot.getDrivetrain().drive(x, y, rx);
 
-                // Calculate and send power values to 4 drive motors
-                robot.getDrivetrain().drive(x, y, rx);
+            // Check if driver is pressing X button
+            if (gamepad1.x) { // If X button is pressed
+                // Run intake motor at 100 percent speed
+                robot.getIntake().runIntake(1.0);
+            } else { // Otherwise stop intake motor immediately
+                // Stop intake motor
+                robot.getIntake().stop();
+            }
 
-                // Check if driver is pressing X button
-                if (gamepad1.x) { // If X button is pressed
-                    // Run intake motor at 100 percent speed
-                    robot.getIntake().runIntake(1.0);
-                } else { // Otherwise stop intake motor immediately
-                    // Stop intake motor
-                    robot.getIntake().stop();
-                }
+            // Check if left trigger is squeezed past 20 percent threshold
+            if (gamepad1.left_trigger > 0.2) {
+                // Run hopper motor at speed proportional to trigger press
+                robot.getHopper().runHopper(gamepad1.left_trigger);
+            } else { // Otherwise stop hopper motor immediately
+                // Stop hopper motor
+                robot.getHopper().stop();
+            }
 
-                // Check if left trigger is squeezed past 20 percent threshold
-                if (gamepad1.left_trigger > 0.2) {
-                    // Run hopper motor at speed proportional to trigger press
-                    robot.getHopper().runHopper(gamepad1.left_trigger);
-                } else { // Otherwise stop hopper motor immediately
-                    // Stop hopper motor
-                    robot.getHopper().stop();
-                }
-
-                // Check if right trigger is squeezed past threshold for manual shooter override
-                if (isManualShootTriggerHeld) {
-                    // Run manual shooter motor at speed proportional to trigger press
-                    robot.getShooter().runShooter(gamepad1.right_trigger);
-                } else { // Otherwise stop shooter motor immediately
-                    // Stop shooter motor
-                    robot.getShooter().stop();
-                }
+            // Check if right trigger is squeezed past threshold for manual shooter override
+            if (isManualShootTriggerHeld) {
+                // Run manual shooter motor at speed proportional to trigger press
+                robot.getShooter().runShooter(gamepad1.right_trigger);
+            } else if (autoFireController == null || autoFireController.getCurrentState() == AutoFireControllerInterface.FiringState.IDLE) {
+                // Stop shooter motor when manual trigger is released and auto-fire is not active
+                robot.getShooter().stop();
             }
 
             // Display operational status on Driver Hub telemetry
