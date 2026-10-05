@@ -18,14 +18,6 @@ public interface LedIndicatorInterface {
     /**
      * Sets the active LED indicator state.
      *
-     * @param state          Target LED display mode (OFF, IN_RANGE, or SHOOTING)
-     * @param isBlueAlliance true if on Blue Alliance, false if Red
-     */
-    void setLedState(LedState state, boolean isBlueAlliance);
-
-    /**
-     * Sets the active LED indicator state.
-     *
      * @param state Target LED display mode (OFF, IN_RANGE, or SHOOTING)
      */
     void setLedState(LedState state);

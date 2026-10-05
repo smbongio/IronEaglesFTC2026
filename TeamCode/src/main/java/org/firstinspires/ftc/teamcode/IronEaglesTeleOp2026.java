@@ -105,11 +105,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Process LED indicator visual signals based on current system state
             if (led != null) {
                 if (isShooting) { // Solid LED when actively shooting
-                    led.setLedState(LedIndicatorInterface.LedState.SHOOTING, IS_BLUE_ALLIANCE);
+                    led.setLedState(LedIndicatorInterface.LedState.SHOOTING);
                 } else if (isInRange) { // Quickly blinking LED when target is in range and ready to shoot
-                    led.setLedState(LedIndicatorInterface.LedState.IN_RANGE, IS_BLUE_ALLIANCE);
+                    led.setLedState(LedIndicatorInterface.LedState.IN_RANGE);
                 } else { // No LED light when not shooting and no target in range
-                    led.setLedState(LedIndicatorInterface.LedState.OFF, IS_BLUE_ALLIANCE);
+                    led.setLedState(LedIndicatorInterface.LedState.OFF);
                 }
             }
 
