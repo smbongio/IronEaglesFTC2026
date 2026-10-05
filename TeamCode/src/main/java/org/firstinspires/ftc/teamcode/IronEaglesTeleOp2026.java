@@ -92,8 +92,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Check if right trigger is squeezed past 20 percent threshold for manual shooter override
             boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
 
-            // Check if right bumper is pressed to trigger automated firing sequence
-            boolean isAutoShootBumperHeld = gamepad1.right_bumper;
+            // Flag tracking whether robot is currently operating in Auto-Shoot mode (Right Bumper held)
+            boolean isInAutoShootMode = gamepad1.right_bumper;
 
             // Query vision subsystem to check if target is acquired and in valid shooting range
             boolean isInRange = (vision != null && vision.isInShootingRange());
@@ -113,9 +113,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             }
 
             // =========================================================================
-            // MODE 1: AUTO-SHOOT MODE (Triggered when Right Bumper is held down)
+            // MODE 1: AUTO-SHOOT MODE (Executed when in Auto-Shoot mode)
             // =========================================================================
-            if (isAutoShootBumperHeld) {
+            if (isInAutoShootMode) {
                 // Spin up shooter flywheel motor immediately
                 robot.getShooter().runShooter(1.0);
 
