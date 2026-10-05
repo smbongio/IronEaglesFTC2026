@@ -10,6 +10,8 @@ import org.firstinspires.ftc.teamcode.interfaces.AutoFireControllerInterface;
 import org.firstinspires.ftc.teamcode.interfaces.LedIndicatorInterface;
 // Import high-level vision subsystem interface
 import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
+// Import concrete auto-fire controller subsystem
+import org.firstinspires.ftc.teamcode.subsystems.AutoFireController;
 
 // Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
@@ -48,6 +50,14 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     public void runOpMode() {
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
+
+        // Instantiate concrete auto-fire controller subsystem
+        autoFireController = new AutoFireController(
+                robot.getDrivetrain(),
+                robot.getShooter(),
+                robot.getHopper(),
+                vision
+        );
 
         // Check if vision subsystem interface is assigned
         if (vision != null) {
