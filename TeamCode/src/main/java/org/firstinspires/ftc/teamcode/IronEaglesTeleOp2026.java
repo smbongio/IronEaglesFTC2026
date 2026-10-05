@@ -6,12 +6,12 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 // Import high-level auto-fire controller interface
 import org.firstinspires.ftc.teamcode.interfaces.AutoFireControllerInterface;
+// Import target spatial geometry interface
+import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
 // Import high-level LED indicator interface
 import org.firstinspires.ftc.teamcode.interfaces.LedIndicatorInterface;
 // Import high-level vision subsystem interface
 import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
-// Import concrete auto-fire controller subsystem
-import org.firstinspires.ftc.teamcode.subsystems.AutoFireController;
 
 // Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
@@ -42,22 +42,14 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private VisionSubsystemInterface vision;
     // Declare reference for LED indicator interface
     private LedIndicatorInterface led;
-    // Declare reference for automated firing controller interface
-    private AutoFireControllerInterface autoFireController;
+    // Current firing state for automated shooting sequence
+    private AutoFireControllerInterface.FiringState firingState = AutoFireControllerInterface.FiringState.IDLE;
 
     // Main execution entry point called when driver selects OpMode
     @Override
     public void runOpMode() {
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
-
-        // Instantiate concrete auto-fire controller subsystem
-        autoFireController = new AutoFireController(
-                robot.getDrivetrain(),
-                robot.getShooter(),
-                robot.getHopper(),
-                vision
-        );
 
         // Check if vision subsystem interface is assigned
         if (vision != null) {
@@ -97,9 +89,6 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Apply 5 percent deadzone filter to turn drive input
             double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
 
-            // Check if driver is actively pushing joysticks to steer manually
-            boolean isDriverSteering = (y != 0 || x != 0 || rx != 0);
-
             // Check if right trigger is squeezed past 20 percent threshold for manual shooter override
             boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
 
@@ -127,19 +116,45 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // MODE 1: AUTO-SHOOT MODE (Triggered when Right Bumper is held down)
             // =========================================================================
             if (isAutoShootBumperHeld) {
-                // Execute automated firing controller (orients robot, spins shooter, feeds hopper)
-                if (autoFireController != null) {
-                    autoFireController.update(true, isDriverSteering);
+                // Spin up shooter flywheel motor immediately
+                robot.getShooter().runShooter(1.0);
+
+                // If state is IDLE, start sequence by updating state to ALIGNING
+                if (firingState == AutoFireControllerInterface.FiringState.IDLE) {
+                    firingState = AutoFireControllerInterface.FiringState.ALIGNING;
+                }
+
+                // Check and execute alignment with the goal
+                if (firingState == AutoFireControllerInterface.FiringState.ALIGNING) {
+                    TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
+                    boolean aligned;
+
+                    if (target != null) { // Begin or check alignment with target
+                        aligned = robot.getDrivetrain().alignToTarget(target);
+                    } else { // Fallback if no target visible
+                        aligned = true;
+                        robot.getDrivetrain().stop();
+                    }
+
+                    // Are we aligned? Change state to FEEDING (SHOOT) and stop drivetrain
+                    if (aligned) {
+                        robot.getDrivetrain().stop();
+                        firingState = AutoFireControllerInterface.FiringState.FEEDING;
+                    }
+                }
+
+                // Once aligned, run the hopper and the shooter to feed balls through
+                if (firingState == AutoFireControllerInterface.FiringState.FEEDING) {
+                    robot.getShooter().runShooter(1.0);
+                    robot.getHopper().runHopper(1.0);
                 }
             }
             // =========================================================================
             // MODE 2: ALL MANUAL MODE (Executed when Right Bumper is NOT held down)
             // =========================================================================
             else {
-                // Abort any in-progress automated firing sequence
-                if (autoFireController != null) {
-                    autoFireController.abort();
-                }
+                // Reset auto-shoot state machine to IDLE
+                firingState = AutoFireControllerInterface.FiringState.IDLE;
 
                 // 1. Manual Mecanum Drivetrain Control
                 robot.getDrivetrain().drive(x, y, rx);
@@ -177,7 +192,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // Display target acquisition and shooting range readiness status on Driver Hub
             telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
             // Display current auto-fire state machine status on Driver Hub
-            telemetry.addData("Fire State", autoFireController != null ? autoFireController.getCurrentState() : "MANUAL");
+            telemetry.addData("Fire State", firingState);
             // Display raw joystick values for driver testing
             telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
             // Display raw trigger values for driver testing
