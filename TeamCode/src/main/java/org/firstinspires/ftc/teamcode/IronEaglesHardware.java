@@ -106,6 +106,13 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         if (backLeft != null)   backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         if (backRight != null)  backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        // Configure hopper motor (REV Core Hex Motor) encoder reset and brake behavior
+        if (hopper != null) {
+            hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            hopper.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            hopper.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+
         // Instantiate Subsystems from dedicated subsystem classes
         drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
         intakeSubsystem     = new IntakeSubsystem(intake);

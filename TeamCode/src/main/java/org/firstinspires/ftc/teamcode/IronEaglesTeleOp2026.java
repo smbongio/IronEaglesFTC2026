@@ -26,11 +26,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     // Set back right motor spin direction multiplier to inverted
     public static int BACK_RIGHT_DIR  = 1;
     // Set intake motor spin direction multiplier to normal
-    public static int INTAKE_DIR      =  1;
+    public static int INTAKE_DIR      =  -1;
     // Set hopper motor spin direction multiplier to normal
     public static int HOPPER_DIR      =  1;
     // Set shooter motor spin direction multiplier to normal
-    public static int SHOOTER_DIR     =  1;
+    public static int SHOOTER_DIR     =  -1;
 
     // Set default team alliance flag to blue team
     public static boolean IS_BLUE_ALLIANCE = true;
@@ -172,9 +172,13 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 if (gamepad1.left_trigger > 0.2) { // If left trigger is squeezed
                     // Run hopper motor at speed proportional to trigger press
                     robot.getHopper().runHopper(gamepad1.left_trigger);
-                } else { // Otherwise stop hopper motor immediately
-                    // Stop hopper motor
-                    robot.getHopper().stop();
+                } else { // When not in auto-shoot and hopper button is NOT held
+                    if (!robot.getHopper().isUpright()) { // Check if hopper is in upright 180 degree position
+                        // Put hopper back in 180 degree upright position
+                        robot.getHopper().returnToUpright();
+                    } else { // Hold upright position once reached
+                        robot.getHopper().stop();
+                    }
                 }
 
                 // 4. Manual Shooter Control (Right Trigger)
