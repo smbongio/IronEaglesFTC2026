@@ -8,5 +8,7 @@ dependencies {
     implementation 'org.firstinspires.ftc:FtcCommon:12.0.0'
     implementation 'org.firstinspires.ftc:Vision:12.0.0'
     implementation 'androidx.appcompat:appcompat:1.2.0'
-}
 
+    // Road Runner Core Library
+    implementation 'com.acmerobotics.roadrunner:core:0.5.6'
+}
