@@ -4,11 +4,8 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 // Import FTC TeleOp annotation to register this program on Driver Station menu
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-
-// Road Runner Imports
-import com.acmerobotics.roadrunner.geometry.Pose2d;
-import com.acmerobotics.roadrunner.trajectory.Trajectory;
-import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
+// Import FTC RobotLog utility for logging system events
+import com.qualcomm.robotcore.util.RobotLog;
 
 // Import high-level auto-fire controller interface
 import org.firstinspires.ftc.teamcode.interfaces.AutoFireControllerInterface;
@@ -23,10 +20,15 @@ import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
-    // Set motor directions (Assuming SampleMecanumDrive handles wheel inversions now)
-    public static int INTAKE_DIR      =  -1;
+    // Set wheel motor spin direction multipliers
+    public static int FRONT_LEFT_DIR  =  1;
+    public static int FRONT_RIGHT_DIR = -1;
+    public static int BACK_LEFT_DIR   =  1;
+    public static int BACK_RIGHT_DIR  = -1;
+    // Set motor spin direction multipliers for intake, hopper, and shooter
+    public static int INTAKE_DIR      = -1;
     public static int HOPPER_DIR      =  1;
-    public static int SHOOTER_DIR     =  -1;
+    public static int SHOOTER_DIR     = -1;
 
     // Set default team alliance flag to blue team
     public static boolean IS_BLUE_ALLIANCE = true;
@@ -38,20 +40,23 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private VisionSubsystemInterface vision;
     // Declare reference for LED indicator interface
     private LedIndicatorInterface led;
+
     // Current firing state for automated shooting sequence
     private AutoFireControllerInterface.FiringState firingState = AutoFireControllerInterface.FiringState.IDLE;
 
-    // State tracking for the button edge-detector
-    private boolean wasInAutoShootMode = false;
+    // Updates firing state and logs state transitions to REV Control Hub logcat
+    private void setFiringState(AutoFireControllerInterface.FiringState newState) {
+        if (this.firingState != newState) {
+            RobotLog.i("AutoShoot State Transition: %s -> %s", this.firingState, newState);
+            this.firingState = newState;
+        }
+    }
 
     // Main execution entry point called when driver selects OpMode
     @Override
     public void runOpMode() {
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
-
-        // Initialize Road Runner Drivetrain (This takes ownership of the 4 wheel motors)
-        SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);
 
         // Check if vision subsystem interface is assigned
         if (vision != null) {
@@ -60,9 +65,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         }
 
         // Check if all configured hardware devices were successfully found
-        if (robot.missingDevices.isEmpty()) {
+        if (robot.missingDevices.isEmpty()) { // If no devices are missing
             telemetry.addData("Status", "Initialized - All devices found!");
-        } else {
+        } else { // Otherwise display warning listing missing device names
             telemetry.addData("WARNING", "Initialized with missing config devices!");
             telemetry.addData("Missing", String.join(", ", robot.missingDevices));
         }
@@ -73,134 +78,121 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
         // Loop continuously while match is active until stop is pressed
         while (opModeIsActive()) {
-
-            // =========================================================================
-            // CRITICAL: Update Road Runner Odometry (Must run every loop!)
-            // =========================================================================
-            drive.update();
-
-            // Read joysticks
+            // Read left joystick Y axis and invert for forward drive
             double rawY  = -gamepad1.left_stick_y;
+            // Read left joystick X axis for strafe drive
             double rawX  =  gamepad1.left_stick_x;
+            // Read right joystick X axis for turn drive
             double rawRx =  gamepad1.right_stick_x;
 
-            // Apply 5 percent deadzone filters
+            // Apply 5 percent deadzone filter to forward drive input
             double y  = Math.abs(rawY)  > 0.05 ? rawY  : 0.0;
+            // Apply 5 percent deadzone filter to strafe drive input
             double x  = Math.abs(rawX)  > 0.05 ? rawX  : 0.0;
+            // Apply 5 percent deadzone filter to turn drive input
             double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
 
+            // Check if right trigger is squeezed past 20 percent threshold for manual shooter override
             boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
+
+            // Flag tracking whether robot is currently operating in Auto-Shoot mode (Right Bumper held)
             boolean isInAutoShootMode = gamepad1.right_bumper;
+
+            // Query vision subsystem to check if target is acquired and in valid shooting range
             boolean isInRange = (vision != null && vision.isInShootingRange());
+
+            // Check if shooter motor is actively running
             boolean isShooting = robot.getShooter().isRunning();
 
-            // Process LED indicator visual signals
+            // Process LED indicator visual signals based on current system state
             if (led != null) {
-                if (isShooting) {
+                if (isShooting) { // Solid LED when actively shooting
                     led.setLedState(LedIndicatorInterface.LedState.SHOOTING);
-                } else if (isInRange) {
+                } else if (isInRange) { // Quickly blinking LED when target is in range and ready to shoot
                     led.setLedState(LedIndicatorInterface.LedState.IN_RANGE);
-                } else {
+                } else { // No LED light when not shooting and no target in range
                     led.setLedState(LedIndicatorInterface.LedState.OFF);
                 }
             }
 
             // =========================================================================
-            // SUBSYSTEM 1: FLYWHEEL (Decoupled for instant spool-up)
+            // MODE 1: AUTO-SHOOT MODE (Executed when in Auto-Shoot mode)
             // =========================================================================
             if (isInAutoShootMode) {
+                // Spin up shooter flywheel motor immediately
                 robot.getShooter().runShooter(1.0);
-            } else if (isManualShootTriggerHeld) {
-                robot.getShooter().runShooter(gamepad1.right_trigger);
-            } else {
-                robot.getShooter().stop();
-            }
 
-            // =========================================================================
-            // SUBSYSTEM 2: AUTO-SHOOT STATE MACHINE & DRIVETRAIN
-            // =========================================================================
-            if (isInAutoShootMode) {
-
-                // 1. Edge Detector: The exact moment the button is pressed
-                if (!wasInAutoShootMode) {
-                    TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
-
-                    if (target != null) {
-                        // TAKE THE SNAPSHOT
-                        Pose2d currentPose = drive.getPoseEstimate();
-
-                        // NOTE: You will need to replace getOffsetX() and getOffsetY() with
-                        // the actual method names from your TargetGeometryInterface.
-                        Trajectory alignShot = drive.trajectoryBuilder(currentPose)
-                                .lineToLinearHeading(new Pose2d(
-                                        currentPose.getX() + target.getOffsetX(),
-                                        currentPose.getY() + target.getOffsetY(),
-                                        Math.toRadians(target.getTargetHeading())
-                                ))
-                                .build();
-
-                        // Fire the asynchronous movement
-                        drive.followTrajectoryAsync(alignShot);
-                        firingState = AutoFireControllerInterface.FiringState.ALIGNING;
-                    } else {
-                        // Edge case: Target not found, stay idle
-                        firingState = AutoFireControllerInterface.FiringState.IDLE;
-                    }
+                // If state is IDLE, start sequence by updating state to ALIGNING
+                if (firingState == AutoFireControllerInterface.FiringState.IDLE) {
+                    setFiringState(AutoFireControllerInterface.FiringState.ALIGNING);
                 }
 
-                // 2. Continuous Alignment Check
+                // Check and execute alignment with the goal
                 if (firingState == AutoFireControllerInterface.FiringState.ALIGNING) {
-                    // drive.isBusy() asks Road Runner if the trajectory is still executing
-                    if (!drive.isBusy()) {
-                        // The drivetrain has reached the exact snapshot coordinates
-                        firingState = AutoFireControllerInterface.FiringState.FEEDING;
+                    TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
+                    boolean aligned;
+
+                    if (target != null) { // Begin or check alignment with target
+                        aligned = robot.getDrivetrain().alignToTarget(target);
+                    } else { // Fallback if no target visible
+                        aligned = true;
+                        robot.getDrivetrain().stop();
+                    }
+
+                    // Are we aligned? Change state to FEEDING (SHOOT) and stop drivetrain
+                    if (aligned) {
+                        robot.getDrivetrain().stop();
+                        setFiringState(AutoFireControllerInterface.FiringState.FEEDING);
                     }
                 }
 
-                // 3. Feeding logic
+                // Once aligned, run the hopper and the shooter to feed balls through
                 if (firingState == AutoFireControllerInterface.FiringState.FEEDING) {
-                    // Flywheel is already running from Subsystem 1, just start the hopper
+                    robot.getShooter().runShooter(1.0);
                     robot.getHopper().runHopper(1.0);
                 }
-
             }
             // =========================================================================
-            // MODE 2: ALL MANUAL MODE
+            // MODE 2: ALL MANUAL MODE (Executed when Right Bumper is NOT held down)
             // =========================================================================
             else {
-                firingState = AutoFireControllerInterface.FiringState.IDLE;
+                // Reset auto-shoot state machine to IDLE when exiting auto-shoot mode
+                setFiringState(AutoFireControllerInterface.FiringState.IDLE);
 
-                // 1. Manual Mecanum Drivetrain Control via Road Runner
-                // This replaces robot.getDrivetrain().drive(x, y, rx) so odometry tracks accurately
-                drive.setWeightedDrivePower(
-                        new Pose2d(y, x, rx) // Road Runner maps Y to forward, X to strafe
-                );
+                // 1. Manual Mecanum Drivetrain Control
+                robot.getDrivetrain().drive(x, y, rx);
 
                 // 2. Manual Intake Control (X button)
-                if (gamepad1.x) {
+                if (gamepad1.x) { // If X button is pressed
+                    // Run intake motor at 100 percent speed
                     robot.getIntake().runIntake(1.0);
-                } else {
+                } else { // Otherwise stop intake motor immediately
                     robot.getIntake().stop();
                 }
 
-                // 3. Manual Hopper Control (Left Trigger)
-                if (gamepad1.left_trigger > 0.2) {
+                // 3. Manual Hopper Control (Left Trigger & Automatic Return-to-Upright)
+                if (gamepad1.left_trigger > 0.2) { // If left trigger is squeezed
+                    // Run hopper motor at speed proportional to trigger press
                     robot.getHopper().runHopper(gamepad1.left_trigger);
-                } else {
-                    if (!robot.getHopper().isUpright()) {
+                } else { // When not in auto-shoot and left trigger is NOT held
+                    if (!robot.getHopper().isUpright()) { // Check if hopper is in upright 180 degree position
+                        // Put hopper back in 180 degree upright position
                         robot.getHopper().returnToUpright();
-                    } else {
+                    } else { // Hold upright position once reached
                         robot.getHopper().stop();
                     }
                 }
+
+                // 4. Manual Shooter Control (Right Trigger)
+                if (isManualShootTriggerHeld) { // If right trigger is squeezed
+                    // Run manual shooter motor at speed proportional to trigger press
+                    robot.getShooter().runShooter(gamepad1.right_trigger);
+                } else { // Otherwise stop shooter motor immediately
+                    robot.getShooter().stop();
+                }
             }
 
-            // Update edge detector
-            wasInAutoShootMode = isInAutoShootMode;
-
-            // =========================================================================
-            // TELEMETRY UPDATES
-            // =========================================================================
+            // Display operational status on Driver Hub telemetry
             telemetry.addData("Status", "Running");
             telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
             telemetry.addData("Fire State", firingState);
@@ -208,6 +200,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
             telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
 
+            // Check if any hardware devices are missing from configuration
             if (!robot.missingDevices.isEmpty()) {
                 telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
             }
