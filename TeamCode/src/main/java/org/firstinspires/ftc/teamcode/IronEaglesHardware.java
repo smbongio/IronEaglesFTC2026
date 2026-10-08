@@ -1,8 +1,10 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.hardware.lynx.LynxModule;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.teamcode.interfaces.DrivetrainInterface;
@@ -62,6 +64,20 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         for (Map.Entry<String, DcMotor> entry : hardwareMap.dcMotor.entrySet()) {
             RobotLog.i(" -> Configured DcMotor: '" + entry.getKey() + "'");
         }
+
+        try {
+            RobotLog.i("Total Servos found in active HardwareMap: " + hardwareMap.servo.size());
+            for (Map.Entry<String, Servo> entry : hardwareMap.servo.entrySet()) {
+                RobotLog.i(" -> Configured Servo: '" + entry.getKey() + "'");
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            RobotLog.i("Total CRServos found in active HardwareMap: " + hardwareMap.crservo.size());
+            for (Map.Entry<String, CRServo> entry : hardwareMap.crservo.entrySet()) {
+                RobotLog.i(" -> Configured CRServo: '" + entry.getKey() + "'");
+            }
+        } catch (Exception ignored) {}
 
         try {
             List<WebcamName> webcams = hardwareMap.getAll(WebcamName.class);
