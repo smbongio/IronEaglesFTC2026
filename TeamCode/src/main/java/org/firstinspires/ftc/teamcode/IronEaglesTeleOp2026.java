@@ -50,6 +50,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasFlywheelRunningManual = false;
     // State tracking for LED indicator logging
     private LedIndicatorInterface.LedState currentLedState = null;
+    // State tracking for manual drivetrain logging
+    private boolean wasManualDriving = false;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -235,7 +237,15 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 }
 
                 // 1. Manual Mecanum Drivetrain Control via Road Runner
-                // This replaces robot.getDrivetrain().drive(x, y, rx) so odometry tracks accurately
+                boolean isManualDriving = (x != 0 || y != 0 || rx != 0);
+                if (isManualDriving && !wasManualDriving) {
+                    RobotLog.i("[MANUAL DRIVETRAIN] Joysticks engaged -> Y: %.2f | X: %.2f | Rot: %.2f", y, x, rx);
+                    wasManualDriving = true;
+                } else if (!isManualDriving && wasManualDriving) {
+                    RobotLog.i("[MANUAL DRIVETRAIN] Joysticks released -> Drivetrain stopped.");
+                    wasManualDriving = false;
+                }
+
                 drive.setWeightedDrivePower(
                         new Pose2d(y, x, rx) // Road Runner maps Y to forward, X to strafe
                 );
