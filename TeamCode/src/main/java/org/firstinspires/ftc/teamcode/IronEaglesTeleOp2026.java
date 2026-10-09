@@ -230,6 +230,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // =========================================================================
             else {
                 if (firingState != AutoFireControllerInterface.FiringState.IDLE) {
+                    RobotLog.i("[MANUAL MODE] Exited Aim-Assist: Resetting state machine from %s back to IDLE.", firingState);
                     setFiringState(AutoFireControllerInterface.FiringState.IDLE);
                 }
 
