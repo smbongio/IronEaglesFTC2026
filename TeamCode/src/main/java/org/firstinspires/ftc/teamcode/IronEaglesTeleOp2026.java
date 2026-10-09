@@ -4,6 +4,8 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 // Import FTC TeleOp annotation to register this program on Driver Station menu
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+// Import FTC RobotLog utility for persistent logging
+import com.qualcomm.robotcore.util.RobotLog;
 
 // Road Runner Imports
 import com.acmerobotics.roadrunner.geometry.Pose2d;
@@ -44,9 +46,21 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     // State tracking for the button edge-detector
     private boolean wasInAimAssistMode = false;
 
+    // Helper method to log firing state transitions
+    private void setFiringState(AutoFireControllerInterface.FiringState newState) {
+        if (this.firingState != newState) {
+            RobotLog.i("==================================================");
+            RobotLog.i("[AIM-ASSIST STATE TRANSITION] %s -> %s", this.firingState, newState);
+            RobotLog.i("==================================================");
+            this.firingState = newState;
+        }
+    }
+
     // Main execution entry point called when driver selects OpMode
     @Override
     public void runOpMode() {
+        RobotLog.i("OpMode Initializing: IronEaglesTeleOp2026");
+
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
 
@@ -57,19 +71,25 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         if (vision != null) {
             // Set active alliance team color in vision subsystem for target detection
             vision.setAlliance(IS_BLUE_ALLIANCE ? VisionSubsystemInterface.Alliance.BLUE : VisionSubsystemInterface.Alliance.RED);
+            RobotLog.i("Vision Subsystem Alliance set to: %s", IS_BLUE_ALLIANCE ? "BLUE" : "RED");
+        } else {
+            RobotLog.w("Vision Subsystem interface is NULL upon initialization.");
         }
 
         // Check if all configured hardware devices were successfully found
         if (robot.missingDevices.isEmpty()) { 
             telemetry.addData("Status", "Initialized - All devices found!");
+            RobotLog.i("Hardware Map Initialization Complete: All devices found.");
         } else { 
             telemetry.addData("WARNING", "Initialized with missing config devices!");
             telemetry.addData("Missing", String.join(", ", robot.missingDevices));
+            RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s", String.join(", ", robot.missingDevices));
         }
         telemetry.update();
 
         // Pause execution until driver presses play button on Driver Hub
         waitForStart();
+        RobotLog.i("OpMode Started: Match timer running.");
 
         // Loop continuously while match is active until stop is pressed
         while (opModeIsActive()) {
@@ -93,6 +113,13 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             boolean isInAimAssistMode = gamepad1.right_bumper;
             boolean isInRange = (vision != null && vision.isInShootingRange());
             boolean isShooting = robot.getShooter().isRunning();
+
+            // Mode Transition Logging
+            if (isInAimAssistMode && !wasInAimAssistMode) {
+                RobotLog.i(">>> ENTERING AIM-ASSIST MODE (Right Bumper Pressed) <<<");
+            } else if (!isInAimAssistMode && wasInAimAssistMode) {
+                RobotLog.i("<<< EXITING AIM-ASSIST MODE -> RETURNING TO MANUAL MODE >>>");
+            }
 
             // Process LED indicator visual signals
             if (led != null) {
@@ -123,12 +150,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 
                 // 1. Edge Detector: The exact moment the button is pressed
                 if (!wasInAimAssistMode) {
+                    RobotLog.i("[AIM-ASSIST] Initializing Aim-Assist: Querying Vision Subsystem for target geometry...");
                     TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
                     
                     if (target != null) {
                         // TAKE THE SNAPSHOT
                         Pose2d currentPose = drive.getPoseEstimate();
                         
+                        RobotLog.i("[AIM-ASSIST] Target Acquired! Tag ID: %d | Range: %.2f in | Bearing: %.2f deg | Pose: (X: %.2f, Y: %.2f)",
+                                target.getTagId(), target.getRangeInches(), target.getBearingDegrees(), currentPose.getX(), currentPose.getY());
+
                         Trajectory alignShot = drive.trajectoryBuilder(currentPose)
                                 .lineToLinearHeading(new Pose2d(
                                         currentPose.getX() + target.getXInches(), 
@@ -138,25 +169,30 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                                 .build();
 
                         // Fire the asynchronous movement
+                        RobotLog.i("[AIM-ASSIST] Dispatched Road Runner alignment trajectory asynchronously.");
                         drive.followTrajectoryAsync(alignShot);
-                        firingState = AutoFireControllerInterface.FiringState.ALIGNING;
+                        setFiringState(AutoFireControllerInterface.FiringState.ALIGNING);
                     } else {
                         // Edge case: Target not found, stay idle
-                        firingState = AutoFireControllerInterface.FiringState.IDLE;
+                        RobotLog.w("[AIM-ASSIST WARNING] Target query returned NULL (No AprilTag visible in camera frame).");
+                        setFiringState(AutoFireControllerInterface.FiringState.IDLE);
                     }
                 }
 
                 // 2. Continuous Alignment Check
                 if (firingState == AutoFireControllerInterface.FiringState.ALIGNING) {
+                    RobotLog.i("[AIM-ASSIST ALIGNING] Executing alignment trajectory... drive.isBusy() = %b", drive.isBusy());
                     // drive.isBusy() asks Road Runner if the trajectory is still executing
                     if (!drive.isBusy()) {
                         // The drivetrain has reached the exact snapshot coordinates
-                        firingState = AutoFireControllerInterface.FiringState.FEEDING;
+                        RobotLog.i("[AIM-ASSIST ALIGNED] Trajectory execution complete! Robot in position. Transitioning to FEEDING.");
+                        setFiringState(AutoFireControllerInterface.FiringState.FEEDING);
                     }
                 }
 
                 // 3. Feeding logic
                 if (firingState == AutoFireControllerInterface.FiringState.FEEDING) {
+                    RobotLog.i("[AIM-ASSIST FEEDING] Actuating hopper motor at 100%% power to feed elements into flywheel.");
                     // Flywheel is already running from Subsystem 1, just start the hopper
                     robot.getHopper().runHopper(1.0);
                 }
@@ -166,7 +202,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // MODE 2: ALL MANUAL MODE 
             // =========================================================================
             else {
-                firingState = AutoFireControllerInterface.FiringState.IDLE;
+                if (firingState != AutoFireControllerInterface.FiringState.IDLE) {
+                    setFiringState(AutoFireControllerInterface.FiringState.IDLE);
+                }
 
                 // 1. Manual Mecanum Drivetrain Control via Road Runner
                 // This replaces robot.getDrivetrain().drive(x, y, rx) so odometry tracks accurately
@@ -186,6 +224,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     robot.getHopper().runHopper(gamepad1.left_trigger);
                 } else { 
                     if (!robot.getHopper().isUpright()) { 
+                        RobotLog.i("[MANUAL MODE] Hopper is not upright. Driving hopper back to 180 deg upright position...");
                         robot.getHopper().returnToUpright();
                     } else { 
                         robot.getHopper().stop();
