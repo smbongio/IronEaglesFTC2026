@@ -52,6 +52,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private LedIndicatorInterface.LedState currentLedState = null;
     // State tracking for manual drivetrain logging
     private boolean wasManualDriving = false;
+    // State tracking for manual intake logging
+    private boolean wasIntakeRunning = false;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -252,8 +254,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
                 // 2. Manual Intake Control (X button)
                 if (gamepad1.x) { 
+                    if (!wasIntakeRunning) {
+                        RobotLog.i("[MANUAL INTAKE] X button pressed -> Running intake motor at 100%% power.");
+                        wasIntakeRunning = true;
+                    }
                     robot.getIntake().runIntake(1.0);
                 } else { 
+                    if (wasIntakeRunning) {
+                        RobotLog.i("[MANUAL INTAKE] X button released -> Intake motor stopped.");
+                        wasIntakeRunning = false;
+                    }
                     robot.getIntake().stop();
                 }
 
