@@ -48,6 +48,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     // State tracking for flywheel logging
     private boolean wasFlywheelSpoolingAimAssist = false;
     private boolean wasFlywheelRunningManual = false;
+    // State tracking for LED indicator logging
+    private LedIndicatorInterface.LedState currentLedState = null;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -126,12 +128,19 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
             // Process LED indicator visual signals
             if (led != null) {
+                LedIndicatorInterface.LedState targetLedState;
                 if (isShooting) { 
-                    led.setLedState(LedIndicatorInterface.LedState.SHOOTING);
+                    targetLedState = LedIndicatorInterface.LedState.SHOOTING;
                 } else if (isInRange) { 
-                    led.setLedState(LedIndicatorInterface.LedState.IN_RANGE);
+                    targetLedState = LedIndicatorInterface.LedState.IN_RANGE;
                 } else { 
-                    led.setLedState(LedIndicatorInterface.LedState.OFF);
+                    targetLedState = LedIndicatorInterface.LedState.OFF;
+                }
+
+                if (currentLedState != targetLedState) {
+                    RobotLog.i("[LED INDICATOR] Visual Signal State: %s -> %s", currentLedState, targetLedState);
+                    currentLedState = targetLedState;
+                    led.setLedState(targetLedState);
                 }
             }
 
