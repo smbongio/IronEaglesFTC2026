@@ -20,12 +20,20 @@ import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
 import org.firstinspires.ftc.teamcode.interfaces.LedIndicatorInterface;
 // Import high-level vision subsystem interface
 import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
+// Import concrete subsystem implementations
+import org.firstinspires.ftc.teamcode.subsystems.AprilTagVisionSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
 
 // Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
-    // Set motor directions (Assuming SampleMecanumDrive handles wheel inversions now)
+    // Set wheel motor spin direction multipliers
+    public static int FRONT_LEFT_DIR  =  1;
+    public static int FRONT_RIGHT_DIR = -1;
+    public static int BACK_LEFT_DIR   =  1;
+    public static int BACK_RIGHT_DIR  = -1;
+    // Set motor directions for intake, hopper, and shooter
     public static int INTAKE_DIR      =  -1;
     public static int HOPPER_DIR      =  1;
     public static int SHOOTER_DIR     =  -1;
@@ -72,6 +80,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
+
+        // Instantiate concrete Vision and LED Subsystems
+        vision = new AprilTagVisionSubsystem(hardwareMap, robot.camera);
+        led    = new BlinkinLedSubsystem(hardwareMap, "led");
 
         // Initialize Road Runner Drivetrain (This takes ownership of the 4 wheel motors)
         SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);

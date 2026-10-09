@@ -10,6 +10,11 @@ import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
  */
 public class MecanumDrivetrain implements DrivetrainInterface {
 
+    public static int FRONT_LEFT_DIR  =  1;
+    public static int FRONT_RIGHT_DIR = -1;
+    public static int BACK_LEFT_DIR   =  1;
+    public static int BACK_RIGHT_DIR  = -1;
+
     private final DcMotor fl, fr, bl, br;
 
     public MecanumDrivetrain(DcMotor fl, DcMotor fr, DcMotor bl, DcMotor br) {
@@ -22,10 +27,10 @@ public class MecanumDrivetrain implements DrivetrainInterface {
     @Override
     public void drive(double x, double y, double rx) {
         double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1.0);
-        double flP = ((y + x + rx) / denominator) * IronEaglesTeleOp2026.FRONT_LEFT_DIR;
-        double blP = ((y - x + rx) / denominator) * IronEaglesTeleOp2026.BACK_LEFT_DIR;
-        double frP = ((y - x - rx) / denominator) * IronEaglesTeleOp2026.FRONT_RIGHT_DIR;
-        double brP = ((y + x - rx) / denominator) * IronEaglesTeleOp2026.BACK_RIGHT_DIR;
+        double flP = ((y + x + rx) / denominator) * FRONT_LEFT_DIR;
+        double blP = ((y - x + rx) / denominator) * BACK_LEFT_DIR;
+        double frP = ((y - x - rx) / denominator) * FRONT_RIGHT_DIR;
+        double brP = ((y + x - rx) / denominator) * BACK_RIGHT_DIR;
 
         if (fl != null) fl.setPower(flP);
         if (fr != null) fr.setPower(frP);
