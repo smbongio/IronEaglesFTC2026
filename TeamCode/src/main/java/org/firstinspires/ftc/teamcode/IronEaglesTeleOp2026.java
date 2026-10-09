@@ -45,6 +45,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     // State tracking for the button edge-detector
     private boolean wasInAimAssistMode = false;
+    // State tracking for flywheel logging
+    private boolean wasFlywheelSpoolingAimAssist = false;
+    private boolean wasFlywheelRunningManual = false;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -136,10 +139,25 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // SUBSYSTEM 1: FLYWHEEL (Decoupled for instant spool-up)
             // =========================================================================
             if (isInAimAssistMode) {
+                if (!wasFlywheelSpoolingAimAssist) {
+                    RobotLog.i("[FLYWHEEL] Aim-Assist active: Spooling up flywheel motor to 100%% power.");
+                    wasFlywheelSpoolingAimAssist = true;
+                    wasFlywheelRunningManual = false;
+                }
                 robot.getShooter().runShooter(1.0);
             } else if (isManualShootTriggerHeld) {
+                if (!wasFlywheelRunningManual) {
+                    RobotLog.i("[FLYWHEEL] Manual trigger squeezed (%.2f): Running flywheel motor.", gamepad1.right_trigger);
+                    wasFlywheelRunningManual = true;
+                    wasFlywheelSpoolingAimAssist = false;
+                }
                 robot.getShooter().runShooter(gamepad1.right_trigger);
             } else {
+                if (wasFlywheelSpoolingAimAssist || wasFlywheelRunningManual) {
+                    RobotLog.i("[FLYWHEEL] Flywheel motor stopped.");
+                    wasFlywheelSpoolingAimAssist = false;
+                    wasFlywheelRunningManual = false;
+                }
                 robot.getShooter().stop();
             }
 
