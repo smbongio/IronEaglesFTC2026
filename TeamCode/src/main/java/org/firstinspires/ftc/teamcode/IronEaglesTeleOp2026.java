@@ -42,7 +42,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private AutoFireControllerInterface.FiringState firingState = AutoFireControllerInterface.FiringState.IDLE;
 
     // State tracking for the button edge-detector
-    private boolean wasInAutoShootMode = false;
+    private boolean wasInAimAssistMode = false;
 
     // Main execution entry point called when driver selects OpMode
     @Override
@@ -90,7 +90,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
 
             boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
-            boolean isInAutoShootMode = gamepad1.right_bumper;
+            boolean isInAimAssistMode = gamepad1.right_bumper;
             boolean isInRange = (vision != null && vision.isInShootingRange());
             boolean isShooting = robot.getShooter().isRunning();
 
@@ -108,7 +108,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // =========================================================================
             // SUBSYSTEM 1: FLYWHEEL (Decoupled for instant spool-up)
             // =========================================================================
-            if (isInAutoShootMode) {
+            if (isInAimAssistMode) {
                 robot.getShooter().runShooter(1.0);
             } else if (isManualShootTriggerHeld) {
                 robot.getShooter().runShooter(gamepad1.right_trigger);
@@ -117,12 +117,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             }
 
             // =========================================================================
-            // SUBSYSTEM 2: AUTO-SHOOT STATE MACHINE & DRIVETRAIN
+            // SUBSYSTEM 2: AIM-ASSIST STATE MACHINE & DRIVETRAIN
             // =========================================================================
-            if (isInAutoShootMode) {
+            if (isInAimAssistMode) {
                 
                 // 1. Edge Detector: The exact moment the button is pressed
-                if (!wasInAutoShootMode) {
+                if (!wasInAimAssistMode) {
                     TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
                     
                     if (target != null) {
@@ -194,7 +194,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             }
 
             // Update edge detector
-            wasInAutoShootMode = isInAutoShootMode;
+            wasInAimAssistMode = isInAimAssistMode;
 
             // =========================================================================
             // TELEMETRY UPDATES
