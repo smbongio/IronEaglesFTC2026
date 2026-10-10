@@ -62,6 +62,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasManualDriving = false;
     // State tracking for manual intake logging
     private boolean wasIntakeRunning = false;
+    // State tracking for manual hopper button logging
+    private boolean wasHopperXPressed = false;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -281,10 +283,17 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
                 // 3. Manual Hopper Control (X Button — Steps 180° iteratively & returns upright)
                 if (gamepad1.x) { 
+                    if (!wasHopperXPressed) {
+                        RobotLog.i("[GAMEPAD] X Button PRESSED -> Triggering Hopper 180-deg Step");
+                        wasHopperXPressed = true;
+                    }
                     robot.getHopper().stepForward180();
                 } else { 
+                    if (wasHopperXPressed) {
+                        RobotLog.i("[GAMEPAD] X Button RELEASED");
+                        wasHopperXPressed = false;
+                    }
                     if (!robot.getHopper().isUpright()) { 
-                        RobotLog.i("[MANUAL HOPPER] Returning hopper to 180 deg upright position...");
                         robot.getHopper().returnToUpright();
                     } else { 
                         robot.getHopper().stop();
@@ -301,6 +310,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             telemetry.addData("Status", "Running");
             telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
             telemetry.addData("Fire State", firingState);
+            telemetry.addData("Hopper Pos", robot.hopper != null ? robot.hopper.getCurrentPosition() : "NULL");
+            telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
             telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
             telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
             telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
