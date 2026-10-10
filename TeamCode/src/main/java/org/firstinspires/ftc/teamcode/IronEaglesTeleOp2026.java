@@ -261,7 +261,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 }
 
                 drive.setWeightedDrivePower(
-                        new Pose2d(y, x, rx) // Road Runner maps Y to forward, X to strafe
+                        new Pose2d(x, y, rx) // Pose2d(x, y, heading) -> x is strafe, y is forward
                 );
 
                 // 2. Manual Intake Control (Left Trigger)
