@@ -13,7 +13,13 @@ public interface HopperInterface extends MechanismInterface {
     void runHopper(double speed);
 
     /**
-     * Drives the hopper motor back to the upright 180-degree position (144 encoder ticks) using RUN_TO_POSITION.
+     * Steps the hopper forward by 180 degrees (144 encoder ticks for REV Core Hex Motor).
+     * If called continuously while holding a button, it steps 180 degrees iteratively.
+     */
+    void stepForward180();
+
+    /**
+     * Drives the hopper motor back to the nearest upright 180-degree position using RUN_TO_POSITION.
      */
     void returnToUpright();
 

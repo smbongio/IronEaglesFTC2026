@@ -264,27 +264,27 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                         new Pose2d(y, x, rx) // Road Runner maps Y to forward, X to strafe
                 );
 
-                // 2. Manual Intake Control (X button)
-                if (gamepad1.x) { 
+                // 2. Manual Intake Control (Left Trigger)
+                if (gamepad1.left_trigger > 0.2) { 
                     if (!wasIntakeRunning) {
-                        RobotLog.i("[MANUAL INTAKE] X button pressed -> Running intake motor at 100%% power.");
+                        RobotLog.i("[MANUAL INTAKE] Left trigger squeezed (%.2f) -> Running intake motor.", gamepad1.left_trigger);
                         wasIntakeRunning = true;
                     }
-                    robot.getIntake().runIntake(1.0);
+                    robot.getIntake().runIntake(gamepad1.left_trigger);
                 } else { 
                     if (wasIntakeRunning) {
-                        RobotLog.i("[MANUAL INTAKE] X button released -> Intake motor stopped.");
+                        RobotLog.i("[MANUAL INTAKE] Left trigger released -> Intake motor stopped.");
                         wasIntakeRunning = false;
                     }
                     robot.getIntake().stop();
                 }
 
-                // 3. Manual Hopper Control (Left Trigger & Automatic Return-to-Upright)
-                if (gamepad1.left_trigger > 0.2) { 
-                    robot.getHopper().runHopper(gamepad1.left_trigger);
+                // 3. Manual Hopper Control (X Button — Steps 180° iteratively & returns upright)
+                if (gamepad1.x) { 
+                    robot.getHopper().stepForward180();
                 } else { 
                     if (!robot.getHopper().isUpright()) { 
-                        RobotLog.i("[MANUAL MODE] Hopper is not upright. Driving hopper back to 180 deg upright position...");
+                        RobotLog.i("[MANUAL HOPPER] Returning hopper to 180 deg upright position...");
                         robot.getHopper().returnToUpright();
                     } else { 
                         robot.getHopper().stop();
