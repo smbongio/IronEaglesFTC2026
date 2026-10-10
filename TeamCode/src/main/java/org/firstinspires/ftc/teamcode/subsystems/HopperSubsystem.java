@@ -7,16 +7,18 @@ import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
 
 /**
  * Concrete implementation of the Hopper mechanism subsystem (REV Core Hex Motor).
+ * Handles exact 180-degree step indexing (144 encoder ticks) and position holding.
  */
 public class HopperSubsystem implements HopperInterface {
 
     // REV Core Hex Motor has 288 ticks per revolution (360 degrees).
     // 180 degrees corresponds to 144 ticks.
     public static final int TICKS_PER_180_DEGREES = 144;
-    public static final double STEP_POWER           = 0.8;
+    public static final double STEP_POWER           = 0.6;
 
     private final DcMotor motor;
-    private int currentTargetTicks = 0;
+    private int targetTicks = 0;
+    private boolean isStepping = false;
 
     public HopperSubsystem(DcMotor motor) {
         this.motor = motor;
@@ -33,18 +35,23 @@ public class HopperSubsystem implements HopperInterface {
         }
 
         int currentPos = motor.getCurrentPosition();
-        boolean busy = motor.isBusy();
 
-        // If motor is not busy or close to current target, command next 180-degree step (+144 ticks)
-        if (!busy || Math.abs(currentPos - currentTargetTicks) <= 15) {
-            currentTargetTicks += TICKS_PER_180_DEGREES;
-            RobotLog.i("[HOPPER STEP 180] Command -> CurrentPos: %d | New TargetTicks: %d", currentPos, currentTargetTicks);
+        // If not currently stepping, initiate a single 180-degree step (+144 ticks in HOPPER_DIR)
+        if (!isStepping) {
+            targetTicks = currentPos + (TICKS_PER_180_DEGREES * IronEaglesTeleOp2026.HOPPER_DIR);
+            isStepping = true;
 
-            motor.setTargetPosition(currentTargetTicks);
+            RobotLog.i("[HOPPER STEP START] StartPos: %d -> TargetPos: %d", currentPos, targetTicks);
+            motor.setTargetPosition(targetTicks);
             motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            motor.setPower(STEP_POWER * IronEaglesTeleOp2026.HOPPER_DIR);
+            motor.setPower(Math.abs(STEP_POWER));
         } else {
-            RobotLog.i("[HOPPER STEP IN-PROGRESS] CurrentPos: %d | TargetTicks: %d | Busy: %b", currentPos, currentTargetTicks, busy);
+            // Check if active 180-degree step is complete
+            if (!motor.isBusy() || Math.abs(currentPos - targetTicks) <= 5) {
+                RobotLog.i("[HOPPER STEP COMPLETE] Reached TargetPos: %d (CurrentPos: %d). Stopping motor.", targetTicks, currentPos);
+                motor.setPower(0);
+                isStepping = false; // Reset flag so next 180-degree step can trigger if button remains held
+            }
         }
     }
 
@@ -53,30 +60,40 @@ public class HopperSubsystem implements HopperInterface {
         if (motor == null) return;
 
         int currentPos = motor.getCurrentPosition();
-        int remainder = Math.abs(currentPos % TICKS_PER_180_DEGREES);
 
-        if (remainder > 15) {
-            currentTargetTicks = ((currentPos / TICKS_PER_180_DEGREES) + 1) * TICKS_PER_180_DEGREES;
-        } else {
-            currentTargetTicks = (currentPos / TICKS_PER_180_DEGREES) * TICKS_PER_180_DEGREES;
+        // If currently executing a step, allow current 180-degree step to complete before stopping
+        if (isStepping) {
+            if (!motor.isBusy() || Math.abs(currentPos - targetTicks) <= 5) {
+                RobotLog.i("[HOPPER STEP FINISHED ON RELEASE] Reached TargetPos: %d", targetTicks);
+                motor.setPower(0);
+                isStepping = false;
+            }
+            return;
         }
 
-        RobotLog.i("[HOPPER RETURN UPRIGHT] CurrentPos: %d -> Returning to TargetTicks: %d", currentPos, currentTargetTicks);
-        motor.setTargetPosition(currentTargetTicks);
-        motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        motor.setPower(STEP_POWER * IronEaglesTeleOp2026.HOPPER_DIR);
+        // Align target position to nearest 180-degree increment (144 ticks)
+        int nearestTarget = (int) (Math.round((double) currentPos / TICKS_PER_180_DEGREES) * TICKS_PER_180_DEGREES);
+        if (Math.abs(currentPos - nearestTarget) > 5) {
+            RobotLog.i("[HOPPER RETURN UPRIGHT] CurrentPos: %d -> Returning to Nearest TargetTicks: %d", currentPos, nearestTarget);
+            motor.setTargetPosition(nearestTarget);
+            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            motor.setPower(Math.abs(STEP_POWER));
+        } else {
+            motor.setPower(0);
+        }
     }
 
     @Override
     public boolean isUpright() {
         if (motor == null) return true;
         int currentPos = motor.getCurrentPosition();
-        return Math.abs(currentPos % TICKS_PER_180_DEGREES) <= 15;
+        return Math.abs(currentPos % TICKS_PER_180_DEGREES) <= 10;
     }
 
     @Override
     public void runHopper(double speed) {
         if (motor != null) {
+            isStepping = false;
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             setPower(speed);
         }
@@ -92,8 +109,15 @@ public class HopperSubsystem implements HopperInterface {
     @Override
     public void stop() {
         if (motor != null) {
-            if (motor.getMode() != DcMotor.RunMode.RUN_TO_POSITION) {
+            if (motor.getMode() == DcMotor.RunMode.RUN_TO_POSITION) {
+                int currentPos = motor.getCurrentPosition();
+                if (!motor.isBusy() || Math.abs(currentPos - targetTicks) <= 5) {
+                    motor.setPower(0);
+                    isStepping = false;
+                }
+            } else {
                 motor.setPower(0);
+                isStepping = false;
             }
         }
     }
