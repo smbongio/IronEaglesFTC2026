@@ -33,10 +33,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     public static int FRONT_RIGHT_DIR = -1;
     public static int BACK_LEFT_DIR   =  1;
     public static int BACK_RIGHT_DIR  = -1;
-    // Set motor directions for intake, hopper, and shooter
-    public static int INTAKE_DIR      =  -1;
+    // Set motor directions for intake, hopper, and shooter (Intake & Shooter directions reversed)
+    public static int INTAKE_DIR      =  1;
     public static int HOPPER_DIR      =  1;
-    public static int SHOOTER_DIR     =  -1;
+    public static int SHOOTER_DIR     =  1;
 
     // Set default team alliance flag to blue team
     public static boolean IS_BLUE_ALLIANCE = true;

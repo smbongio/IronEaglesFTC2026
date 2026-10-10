@@ -126,6 +126,10 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         if (backLeft != null)   backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         if (backRight != null)  backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        // Configure intake and shooter motor directions (Reversed by default)
+        if (intake != null)  intake.setDirection(DcMotor.Direction.REVERSE);
+        if (shooter != null) shooter.setDirection(DcMotor.Direction.REVERSE);
+
         // Configure hopper motor (REV Core Hex Motor) encoder reset and brake behavior
         if (hopper != null) {
             hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
