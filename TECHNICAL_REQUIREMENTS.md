@@ -173,14 +173,14 @@ The shooter runs at a constant RPM (see Shooter), so shooting from the same dist
 
 **Shooting cone:** the area of the field from which the robot is allowed to shoot at the target cell.
 
-* Picture a triangle lying flat on the field. Its point is directly below the center of the target cell's AprilTag cluster.
+* Picture a triangle lying flat on the field. Its point is at the **center of the target cell**, as seen from above (see Design for how this point is found from the AprilTags).
 * The center line of the triangle points the way the tag cluster faces. The tags are on the underside of the cell and tilt downward, so this means the direction they face when flattened onto the field, ignoring how far they tilt down.
 * Each side of the triangle is **45 degrees** from that center line, so the cone is **90 degrees wide** in total.
 * Put another way: standing under the cell and looking the way its tags face, a position is in the cone if it is no more than 45 degrees to the left or right.
 
 The cone is measured from the cell's point of view, not the robot's. It doesn't matter which way the robot is facing or where the cell appears in the camera image.
 
-**Shooting arc:** the set of positions auto fire shoots from. It is the curved line inside the shooting cone that is exactly the **shooting distance** from the point under the target cell's tag cluster. Every point on the arc gives the same shot. The closest point on the arc to the robot is found like this:
+**Shooting arc:** the set of positions auto fire shoots from. It is the curved line inside the shooting cone that is exactly the **shooting distance** from the center of the target cell (the cone's point). Every point on the arc gives the same shot. The closest point on the arc to the robot is found like this:
 
 * **If the robot is inside the cone:** the point on the arc directly toward or away from the cell. The robot moves straight in or out until it is at the shooting distance.
 * **If the robot is outside the cone:** the nearer end of the arc, at the 45-degree edge of the cone.
@@ -195,7 +195,7 @@ Auto fire navigates using the camera alone. The robot faces the target cell and 
 Auto fire runs these steps:
 
 1. Check whether the camera can see the target cell's tags. If it can't, auto fire does not start.
-2. Measure the target cell's position from the camera: distance, bearing (where the cell is in the camera's view), and yaw (the robot's angle off the cell's center line).
+2. Measure the tag cluster's position from the camera, then calculate the center of the target cell from it (see Cell center below). Find the distance, bearing (where the cell's center is in the camera's view), and yaw (the robot's angle off the cell's center line) to the cell's center.
 3. Work out the closest point on the shooting arc, and how far the robot is from it.
 4. Drive toward that point while turning to face the cell. The mecanum wheels let the robot do all three movements at once, each with its own simple correction:
    * **Forward/back:** proportional to the distance error (current distance minus `SHOOTING_DISTANCE_IN`).
@@ -211,7 +211,13 @@ The SDK sample `RobotAutoDriveToAprilTagOmni` already does most of step 4: it dr
 
 The shooter is already spinning for the whole match (see Shooter), so auto fire does not need to start it.
 
-**Shooting distance.** `SHOOTING_DISTANCE_IN` is measured by the camera, which sits about 6 inches behind the shooter (see Reference: Robot Hardware). Because the value is tuned by testing, the offset is absorbed and needs no correction.
+**Cell center.** The camera measures the position of the tag cluster, not the center of the cell. The tag cluster is on the bottom face of the cell, so from above it sits close to the cell's center, but the opening of a tilted, upward-facing cell may be a few inches away from it. The center of the cell is found by moving from the tag cluster's position a fixed distance, `CELL_CENTER_OFFSET_IN`, along the cone's center line:
+
+* A positive value moves the point away from the robot's side of the cone (deeper into the cell). A negative value moves it toward the robot's side.
+* It starts at 0 and is set by measuring, from above, the distance between the center of the tag cluster and the center of an upward-facing cell's opening.
+* All of auto fire's distances, aim angles, and cone checks are measured to the cell's center, not to the tags. Near the edges of the cone, using the tags directly would put the aim off by a few degrees if the offset is several inches.
+
+**Shooting distance.** `SHOOTING_DISTANCE_IN` is measured from the camera to the cell's center, which sits about 6 inches behind the shooter (see Reference: Robot Hardware). Because the value is tuned by testing, the offset is absorbed and needs no correction.
 
 **Losing sight of the tags.** One tunable value, `TAG_LOSS_TIMEOUT_SEC` (for example, 1 second), controls how long auto fire waits for the tags to come back:
 
@@ -304,7 +310,8 @@ All of these are found or adjusted by testing.
 | `SHOOTER_TARGET_RPM` | Shooter speed for the whole match | To be found by testing |
 | `INTAKE_TARGET_RPM` | Intake inward speed (Left Trigger) | To be found by testing |
 | `INTAKE_REVERSE_RPM` | Intake outward speed (Left Bumper) | To be found by testing |
-| `SHOOTING_DISTANCE_IN` | Distance from the target cell that auto fire shoots from, as measured by the camera | To be found by testing |
+| `SHOOTING_DISTANCE_IN` | Distance from the center of the target cell that auto fire shoots from, measured from the camera | To be found by testing |
+| `CELL_CENTER_OFFSET_IN` | Distance from the tag cluster to the center of the cell, along the cone's center line | 0, then measured on the field |
 | `DISTANCE_TOLERANCE_IN` | How close to the shooting distance the robot must be before auto fire shoots | To be found by testing |
 | `AIM_OFFSET_DEG` | Correction added to the auto-fire aim angle | 0 |
 | `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | To be found by testing |

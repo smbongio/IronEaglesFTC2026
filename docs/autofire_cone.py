@@ -54,10 +54,13 @@ mx, my = pt(-118, 0.5)
 ax.text(mx - 0.06, my, "N", color="#d62828", fontsize=13, ha="right", va="center", fontweight="bold")
 
 # Target cell at the apex
-ax.add_patch(Rectangle((-0.45, 0.02), 0.9, 0.32, facecolor="#e63946", edgecolor="black", lw=1.2))
-ax.text(0, 0.18, "target CELL", color="white", fontsize=10, ha="center", va="center", fontweight="bold")
-ax.plot(0, 0, "ko", ms=6)
-ax.text(0.5, 0.05, "point directly below the\ncenter of the tag cluster", fontsize=9, va="center")
+CELL_W, CELL_D = 0.5, 0.3  # roughly 20 in x 12 in, against a shooting distance of about 40 in
+ax.add_patch(Rectangle((-CELL_W / 2, -CELL_D / 2), CELL_W, CELL_D, facecolor="#e63946", edgecolor="black",
+                       lw=1.2, alpha=0.85, zorder=4))
+ax.text(0, CELL_D / 2 + 0.06, "target CELL", color="#b00020", fontsize=11, ha="center", va="bottom",
+        fontweight="bold")
+ax.plot(0, 0, "ko", ms=6, zorder=5)
+ax.text(CELL_W / 2 + 0.08, 0.0, "center of the CELL\n(tip of the cone)", fontsize=9, va="center")
 
 # Example robots and where auto fire drives them
 robots = [
