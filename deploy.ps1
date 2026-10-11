@@ -26,15 +26,43 @@ $apk = Join-Path $root 'TeamCode\build\outputs\apk\debug\TeamCode-debug.apk'
 function Fail($message) { Write-Host "ERROR: $message" -ForegroundColor Red; exit 1 }
 function Step($message) { Write-Host "`n=== $message ===" -ForegroundColor Cyan }
 
+function Get-AdbRows {
+    @(& $adb devices) | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -match '^\S+\s+\S+' } | ForEach-Object {
+        $parts = $_ -split '\s+', 2
+        [pscustomobject]@{ Serial = $parts[0]; State = (($parts[1] -split '\s+')[0]) }
+    }
+}
+
 function Get-AdbDevices {
-    @(& $adb devices | Select-Object -Skip 1 | Where-Object { $_ -match '\tdevice$' })
+    Get-AdbRows | Where-Object { $_.State -eq 'device' }
+}
+
+function Show-Adb($AdbArgs) {
+    Write-Host "adb $($AdbArgs -join ' ')"
+    & $adb @AdbArgs | ForEach-Object { Write-Host $_ }
 }
 
 function Connect-Adb($hostAddress) {
     $script:serial = if ($hostAddress -match ':') { $hostAddress } else { "${hostAddress}:5555" }
-    Write-Host "adb connect $serial"
-    # adb prints to stdout; keep that out of the function's return value so it is not passed as extra args later.
-    & $adb connect $serial | ForEach-Object { Write-Host $_ }
+    Show-Adb @('connect', $serial)
+
+    $row = Get-AdbRows | Where-Object { $_.Serial -eq $serial } | Select-Object -First 1
+    if ($row -and $row.State -eq 'device') { return }
+
+    # "already connected" often means a stale TCP session; the hub is listed as offline until we reconnect.
+    Write-Host "Device state is $(if ($row) { $row.State } else { 'missing' }); reconnecting."
+    Show-Adb @('disconnect', $serial)
+    Start-Sleep -Seconds 1
+    Show-Adb @('connect', $serial)
+    Start-Sleep -Seconds 1
+
+    $row = Get-AdbRows | Where-Object { $_.Serial -eq $serial } | Select-Object -First 1
+    if ($row -and $row.State -ne 'device') {
+        Show-Adb @('reconnect', 'offline')
+        Start-Sleep -Seconds 1
+        Show-Adb @('connect', $serial)
+        Start-Sleep -Seconds 1
+    }
 }
 
 function Invoke-Adb {
@@ -78,12 +106,15 @@ if (-not $BuildOnly) {
 
     $devices = Get-AdbDevices
     if ($devices.Count -eq 0) {
-        Fail "No robot found. Plug in USB, or join the Control Hub Wi-Fi and retry (tried $defaultAddress)."
+        $rows = Get-AdbRows
+        $detail = if ($rows) { ($rows | ForEach-Object { "$($_.Serial) $($_.State)" }) -join ', ' } else { 'none listed' }
+        Fail "No robot ready (adb devices: $detail). Plug in USB, or join the Control Hub Wi-Fi and retry (tried $defaultAddress)."
     }
     if ($devices.Count -gt 1 -and -not $serial) {
-        Fail "More than one device attached; pass -Address to pick one:`n$($devices -join "`n")"
+        Fail "More than one device attached; pass -Address to pick one:`n$(($devices | ForEach-Object { $_.Serial }) -join "`n")"
     }
-    Write-Host "Device: $(($devices | Select-Object -First 1) -replace '\t.*')"
+    if (-not $serial) { $serial = $devices[0].Serial }
+    Write-Host "Device: $serial"
 }
 
 Step "Building with Gradle $gradleVersion"
