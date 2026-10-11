@@ -185,6 +185,10 @@ The cone is measured from the cell's point of view, not the robot's. It doesn't 
 * **If the robot is inside the cone:** the point on the arc directly toward or away from the cell. The robot moves straight in or out until it is at the shooting distance.
 * **If the robot is outside the cone:** the nearer end of the arc, at the 45-degree edge of the cone.
 
+![Top-down view of the shooting cone and shooting arc, with example robot positions and where auto fire drives each one](docs/images/autofire_cone.png)
+
+*Top-down view. Robots A and B start inside the cone and move straight in or out to the arc. Robots C and D start outside the cone and go to the nearer end of the arc. To redraw this image, run `python docs/autofire_cone.py` (requires matplotlib).*
+
 ### Design
 Auto fire navigates using the camera alone. The robot faces the target cell and keeps its tags in view the whole way, so every loop gets a fresh reading of where the cell is. Road Runner, path following, and wheel odometry are not used.
 
