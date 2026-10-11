@@ -151,9 +151,18 @@ intake.setVelocity(0);                                         // released: stop
 ### Requirement
 * The operator must be notified when **auto fire is available**: an alliance has been chosen, the IMU is working, and the camera can see the target cell's tags. Pulling the Right Trigger at that moment starts auto fire.
 * The notification must be obvious during a match without the operator having to look at the Driver Hub.
+* In addition, the Driver Hub must show whether the target cell is in view and, whenever it is, the target cell's latest geometry from the camera.
 
 ### Design
 * The LED strip flashes quickly while auto fire is available.
+* The Driver Hub telemetry is updated every TeleOp loop with:
+
+| Telemetry line | What it shows |
+|---|---|
+| `TARGET_CELL_IN_VIEW` | `true` when the camera can currently see the target cell (our alliance's color, upward-facing). Otherwise `false`, including when no alliance has been chosen. |
+| Target geometry | The robot's position (x, y, z) and yaw relative to the center of the target cell, plus the distance and aim angle to it. These are the same values auto fire uses. |
+
+* When `TARGET_CELL_IN_VIEW` is `false`, the geometry lines show `--` instead of numbers, so old readings are never mistaken for current ones.
 
 ---
 

@@ -23,6 +23,8 @@ import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
 // Import concrete subsystem implementations
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVisionSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 // Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
@@ -315,6 +317,24 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
             telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
             telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
+
+            // Closest AprilTag with a known position (tags missing from the tag library have no ftcPose)
+            AprilTagSingleDetection closestTag = null;
+            if (vision != null) {
+                for (AprilTagDetection detection : vision.getRawDetections()) {
+                    if (detection instanceof AprilTagSingleDetection && detection.ftcPose != null
+                            && (closestTag == null || detection.ftcPose.range < closestTag.ftcPose.range)) {
+                        closestTag = (AprilTagSingleDetection) detection;
+                    }
+                }
+            }
+            boolean APRIL_TAG_DETECTED = (closestTag != null);
+            telemetry.addData("APRIL_TAG_DETECTED", APRIL_TAG_DETECTED);
+            if (APRIL_TAG_DETECTED) {
+                telemetry.addData("Tag ID", closestTag.id);
+                telemetry.addData("Tag X / Y / Z (in)", "%.1f / %.1f / %.1f", closestTag.ftcPose.x, closestTag.ftcPose.y, closestTag.ftcPose.z);
+                telemetry.addData("Tag Yaw (deg)", "%.1f", closestTag.ftcPose.yaw);
+            }
 
             if (!robot.missingDevices.isEmpty()) {
                 telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
