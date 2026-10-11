@@ -1,5 +1,8 @@
-# FTC 2026 Biobuzz Challenge
+# FTC 2026 Biobuzz Challenge: TeleOp Technical Requirements
 **Reference:** [FIRST Tech Challenge Game and Season](https://www.firstinspires.org/programs/ftc/game-and-season)
+
+## Scope
+This document covers the **TeleOp** period only: the 2-minute driver-controlled part of the match. The autonomous period (AUTO) is out of scope and will need its own document. Anything here about initialization, alliance selection, or the shooter applies to the TeleOp OpMode.
 
 ## How to Read This Document
 Each section is split into two parts:
@@ -18,7 +21,7 @@ Facts we don't control, such as the field layout, the AprilTag IDs, and how our 
 * If any single device cannot be found, it must not cause an error. The robot reports it as a warning on the Driver Hub and completes initialization.
 * With a device missing, the robot keeps as much working as it can:
   * **No webcam:** auto fire and the auto-fire availability notification are disabled. Everything else works normally.
-  * **No IMU:** driving falls back to robot-centric (the sticks move the robot relative to the way it is facing). Auto fire still works, because it navigates using the camera.
+  * **No IMU:** auto fire is disabled, because its movement plans use the IMU to turn. Driving falls back to robot-centric (the sticks move the robot relative to the way it is facing).
 
 ### Design
 * The webcam is named `camera` in the robot configuration.
@@ -58,7 +61,7 @@ The shooter runs continuously for the entire match at one constant speed.
 
 * The shooter starts spinning when the driver presses Play, not during initialization.
 * Nothing in normal operation stops the shooter, including cancelling auto fire. It stops only when the match ends.
-* The speed is a target speed in **RPM**, set by one tunable value, `SHOOTER_TARGET_RPM`, found by testing.
+* The speed is a target speed in **RPM**, set by one tunable value, `SHOOTER_TARGET_RPM`, configured after testing.
 
 The shooter is controlled by target speed, not by motor power. With a fixed power, the shooter slows down as the battery drains over the match, and shots fall short. With a target speed, the motor controller on the hub adjusts the power on its own to hold the RPM. This also brings the wheel back up to speed quickly after each shot.
 
@@ -146,7 +149,7 @@ intake.setVelocity(0);                                         // released: stop
 ## Auto Fire Availability Notification
 
 ### Requirement
-* The operator must be notified when **auto fire is available**: an alliance has been chosen and the camera can see the target cell's tags. Pulling the Right Trigger at that moment starts auto fire.
+* The operator must be notified when **auto fire is available**: an alliance has been chosen, the IMU is working, and the camera can see the target cell's tags. Pulling the Right Trigger at that moment starts auto fire.
 * The notification must be obvious during a match without the operator having to look at the Driver Hub.
 
 ### Design
@@ -162,13 +165,13 @@ Auto fire is a one-press action. A single pull of the Right Trigger on Gamepad 2
 The shooter runs at a constant RPM (see Shooter), so shooting from the same distance every time gives a consistent shot. That is why auto fire moves the robot to a fixed distance from the target cell, not just turns it.
 
 * **Starting:** auto fire starts if the camera can see the target cell's tags when the trigger is pulled, wherever the robot is. If it can't, auto fire does not start and nothing else happens.
-* **Moving:** the robot drives itself to the **closest point on the shooting arc** (defined below) and aims the shooter at the target cell. It confirms that it is at the right distance and still aimed before shooting.
-* **Shooting:** the robot shoots repeatedly, one ball at a time, until auto fire ends.
+* **Moving:** the robot drives itself to the **closest point on the shooting arc** (defined below) and aims the shooter at the target cell. After each move it checks its position again, and it only shoots once it is at the right distance and aimed.
+* **Shooting:** the robot shoots repeatedly, one ball at a time, until manual input is received.
 * **Manual input ends auto fire.** Manual input is any button press, trigger pull, or joystick movement on **either Gamepad 1 or Gamepad 2**, except the Right Trigger on Gamepad 2. A small deadzone applies to joysticks and triggers so stick drift doesn't count as input. Manual input ends auto fire at any point in the sequence.
-* **Losing the target:** the robot must not keep driving while it can't see the target cell. Short interruptions of the camera's view (for example, another robot driving past) must not end auto fire. If the target cell's tags stay out of view for longer than a set time, auto fire ends.
+* **Losing the target:** if the camera can't see the target cell when the robot checks its position (at the start, or after a move), auto fire ends.
 * **When auto fire ends**, for any reason: the robot stops moving, the hopper stops, the shooter keeps spinning, and normal control returns to the drivers.
 * **Pulling the trigger again** while auto fire is running does nothing. It neither restarts nor cancels the sequence.
-* Auto fire does not try to detect when the HIVE tips. It keeps shooting until manual input, unless the target goes out of view as described above.
+* Auto fire does not try to detect when the HIVE tips. Once shooting starts, it keeps shooting until manual input.
 * **Obstacles:** auto fire does not avoid obstacles such as the HIVE frame, the downward-facing CELLS, or other robots. The drivers are responsible for watching the robot's path and cancelling auto fire with any manual input if it is about to hit something.
 
 **Shooting cone:** the area of the field from which the robot is allowed to shoot at the target cell.
@@ -190,26 +193,50 @@ The cone is measured from the cell's point of view, not the robot's. It doesn't 
 *Top-down view. Robots A and B start inside the cone and move straight in or out to the arc. Robots C and D start outside the cone and go to the nearer end of the arc. To redraw this image, run `python docs/autofire_cone.py` (requires matplotlib).*
 
 ### Design
-Auto fire navigates using the camera alone. The robot faces the target cell and keeps its tags in view the whole way, so every loop gets a fresh reading of where the cell is. Road Runner, path following, and wheel odometry are not used.
+Auto fire works in rounds of **measure, then move**. The camera is used only while the robot is stopped. Each move follows a movement plan calculated from the last measurement, using the IMU and the drive wheel encoders; the camera is not checked during the move. Road Runner and path following are not used.
 
 Auto fire runs these steps:
 
-1. Check whether the camera can see the target cell's tags. If it can't, auto fire does not start.
-2. Measure the tag cluster's position from the camera, then calculate the center of the target cell from it (see Cell center below). Find the distance, bearing (where the cell's center is in the camera's view), and yaw (the robot's angle off the cell's center line) to the cell's center.
-3. Work out the closest point on the shooting arc, and how far the robot is from it.
-4. Drive toward that point while turning to face the cell. The mecanum wheels let the robot do all three movements at once, each with its own simple correction:
-   * **Forward/back:** proportional to the distance error (current distance minus `SHOOTING_DISTANCE_IN`).
-   * **Turn:** proportional to the bearing error, so the robot keeps facing the cell. `AIM_OFFSET_DEG` is added to the bearing to correct for shots that consistently miss to one side during testing. It starts at 0.
-   * **Strafe:** only while the robot is outside the cone, proportional to how far past the 45-degree edge it is. Inside the cone, the robot does not strafe.
-5. Verify the robot is in position. If it is not, go back to step 2. The robot is in position when all of these are true:
-   * the distance is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
-   * the aim (bearing, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
+1. **Check the target.** If the camera can't see the target cell, auto fire ends.
+2. **Measure.** Request the geometry of the target cell: the robot's position (x, y, z) and yaw relative to the center of the target cell (see Cell center below). The position is used for the shooting arc, and the height is used to confirm the cell is upward-facing (see Target Cell).
+3. **Check the position.** If the robot is in position, shoot: stop the drive motors and step the hopper 180 degrees at a time until manual input is received. Otherwise, go to step 4. The robot is in position when all of these are true:
+   * the distance to the cell's center is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
+   * the aim (where the shooter points compared with the direction to the cell's center, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
    * the robot is inside the shooting cone.
-6. Stop the drive motors and feed the shooter by turning the hopper 180 degrees and then stopping. Repeat, one 180-degree step at a time, until auto fire ends.
+4. **Plan and move.** Calculate a movement plan from the robot's current position to the closest point on the shooting arc, ending with the shooter aimed at the cell's center. Carry out the plan:
+   * **Turning** is controlled by the IMU heading.
+   * **Driving and strafing distances** are controlled by the drive wheel encoders.
+   * `AIM_OFFSET_DEG` is added to the final aim angle to correct for shots that consistently miss to one side during testing. It starts at 0.
+5. **Repeat.** When the move is finished, go back to step 1.
 
-The SDK sample `RobotAutoDriveToAprilTagOmni` already does most of step 4: it drives to a set distance from a tag while facing it, using the same three corrections. Auto fire differs in one way: the sample always strafes to square up with the tag, while auto fire strafes only until the robot is inside the cone.
+Mecanum wheels slip, especially when strafing, so a move won't land exactly where it was planned. Steps 1 to 3 catch that: after each move the robot measures again and makes a smaller correction if needed. Two or three rounds should be enough.
+
+The SDK samples `RobotAutoDriveByGyro_Linear` (turning to a heading with the IMU) and `RobotAutoDriveByEncoder_Linear` (driving a set distance with the wheel encoders) show the building blocks for step 4.
 
 The shooter is already spinning for the whole match (see Shooter), so auto fire does not need to start it.
+
+**State machine.** Auto fire is built as a state machine that advances one step per TeleOp loop, so driving, telemetry, and cancelling keep working while it runs:
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> MEASURING: Right Trigger pulled
+    MEASURING --> IDLE: target cell not visible
+    MEASURING --> FEEDING: in position
+    MEASURING --> MOVING: not in position (plan calculated)
+    MOVING --> MEASURING: plan finished
+    FEEDING --> IDLE: manual input
+    MOVING --> IDLE: manual input
+```
+
+| State | What the robot is doing | Leaves when |
+|---|---|---|
+| `IDLE` | Nothing; normal driver control | The Right Trigger is pulled, an alliance is set, and the webcam and IMU are present: go to `MEASURING` |
+| `MEASURING` | Stopped; reads the target cell's geometry (steps 1 to 3) | Target not visible: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
+| `MOVING` | Carrying out the movement plan (step 4), without checking the camera | Plan finished: `MEASURING`. Manual input: `IDLE` |
+| `FEEDING` | Stopped; stepping the hopper 180 degrees at a time | Manual input: `IDLE` |
+
+Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the drive motors and the hopper and leaves the shooter running.
 
 **Cell center.** The camera measures the position of the tag cluster, not the center of the cell. The tag cluster is on the bottom face of the cell, so from above it sits close to the cell's center, but the opening of a tilted, upward-facing cell may be a few inches away from it. The center of the cell is found by moving from the tag cluster's position a fixed distance, `CELL_CENTER_OFFSET_IN`, along the cone's center line:
 
@@ -217,14 +244,7 @@ The shooter is already spinning for the whole match (see Shooter), so auto fire 
 * It starts at 0 and is set by measuring, from above, the distance between the center of the tag cluster and the center of an upward-facing cell's opening.
 * All of auto fire's distances, aim angles, and cone checks are measured to the cell's center, not to the tags. Near the edges of the cone, using the tags directly would put the aim off by a few degrees if the offset is several inches.
 
-**Shooting distance.** `SHOOTING_DISTANCE_IN` is measured from the camera to the cell's center, which sits about 6 inches behind the shooter (see Reference: Robot Hardware). Because the value is tuned by testing, the offset is absorbed and needs no correction.
-
-**Losing sight of the tags.** One tunable value, `TAG_LOSS_TIMEOUT_SEC` (for example, 1 second), controls how long auto fire waits for the tags to come back:
-
-* **While driving and verifying (steps 2 to 5):** stop moving and wait. If the tags come back within the timeout, continue from step 2. If not, auto fire ends.
-* **During feeding (step 6):** keep feeding through short losses. If the tags stay out of view for longer than the timeout, auto fire ends.
-
-> **To be written:** auto fire will be built as a state machine. Its states and the transitions between them are still to be designed.
+**Shooting distance.** `SHOOTING_DISTANCE_IN` is measured from the camera to the cell's center. The camera sits about 6 inches behind the shooter (see Reference: Robot Hardware). Because the value is tuned by testing, the offset is absorbed and needs no correction.
 
 ---
 
@@ -288,6 +308,11 @@ An expansion hub connects the intake motor, shooter motor, and hopper motor.
 
 Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 
+**Drive wheel encoders:**
+* Auto fire's movement plans measure driving and strafing distance with the encoders on the four wheel motors, so their encoder cables must be connected.
+* Converting encoder counts to inches needs the wheel diameter and the motor's counts per wheel revolution.
+* **To be filled in:** whether the drive motors' encoder cables are connected, the drive wheel diameter, and the drive motor's gear ratio.
+
 **Webcam:**
 * Plugs into a USB port on the Control Hub.
 * Mounted on top of the robot, at the center of the robot, in line with the shooter (no left/right offset).
@@ -303,19 +328,18 @@ Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn
 ---
 
 ## Tunable Values
-All of these are found or adjusted by testing.
+All of these are configured after testing.
 
 | Value | What it controls | Starting value |
 |---|---|---|
-| `SHOOTER_TARGET_RPM` | Shooter speed for the whole match | To be found by testing |
-| `INTAKE_TARGET_RPM` | Intake inward speed (Left Trigger) | To be found by testing |
-| `INTAKE_REVERSE_RPM` | Intake outward speed (Left Bumper) | To be found by testing |
-| `SHOOTING_DISTANCE_IN` | Distance from the center of the target cell that auto fire shoots from, measured from the camera | To be found by testing |
+| `SHOOTER_TARGET_RPM` | Shooter speed for the whole match | To be configured after testing |
+| `INTAKE_TARGET_RPM` | Intake inward speed (Left Trigger) | To be configured after testing |
+| `INTAKE_REVERSE_RPM` | Intake outward speed (Left Bumper) | To be configured after testing |
+| `SHOOTING_DISTANCE_IN` | Distance from the center of the target cell that auto fire shoots from, measured from the camera | To be configured after testing |
 | `CELL_CENTER_OFFSET_IN` | Distance from the tag cluster to the center of the cell, along the cone's center line | 0, then measured on the field |
-| `DISTANCE_TOLERANCE_IN` | How close to the shooting distance the robot must be before auto fire shoots | To be found by testing |
+| `DISTANCE_TOLERANCE_IN` | How close to the shooting distance the robot must be before auto fire shoots | To be configured after testing |
 | `AIM_OFFSET_DEG` | Correction added to the auto-fire aim angle | 0 |
-| `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | To be found by testing |
-| Auto-fire drive gains and maximum speeds | How hard the forward, strafe, and turn corrections push, and their speed limits | Start from the SDK sample's values |
+| `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | To be configured after testing |
+| Auto-fire drive and turn speeds | How fast the robot drives, strafes, and turns while carrying out a movement plan | Start from the SDK samples' values |
 | `CELL_UP_MIN_HEIGHT_IN` | Tag height above the tiles that counts as an upward-facing CELL | Between the measured up and down heights |
-| `TAG_LOSS_TIMEOUT_SEC` | How long auto fire waits for lost tags to come back | About 1 second |
-| Deadzone | How far a stick or trigger must move to count as input | To be found by testing |
+| Deadzone | How far a stick or trigger must move to count as input | To be configured after testing |
