@@ -10,6 +10,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -26,11 +27,18 @@ public class AprilTagVisionSubsystem implements VisionSubsystemInterface {
     public static double MAX_SHOOTING_RANGE_INCHES = 48.0;
     public static double MAX_SHOOTING_BEARING_DEG  = 15.0;
 
+    // Detection gate: pass when at least X of the last Y samples found the target cell
+    public static int TAG_DETECTION_MIN_HITS = 3;
+    public static int TAG_DETECTION_WINDOW   = 5;
+
     private AprilTagProcessor aprilTagProcessor;
     private VisionPortal visionPortal;
 
     private Alliance activeAlliance = Alliance.BLUE;
     private Set<Integer> activeTargetTagIds = new HashSet<>();
+
+    private final ArrayDeque<Boolean> recentHits = new ArrayDeque<>();
+    private TargetGeometryInterface lastKnownGood;
 
     public AprilTagVisionSubsystem(HardwareMap hardwareMap, WebcamName webcamName) {
         if (webcamName != null) {
@@ -96,8 +104,39 @@ public class AprilTagVisionSubsystem implements VisionSubsystemInterface {
     }
 
     @Override
+    public void update() {
+        TargetGeometryInterface live = findBestLiveGeometry();
+        boolean hit = live != null;
+        if (hit) {
+            lastKnownGood = live;
+        }
+
+        recentHits.addLast(hit);
+        int window = Math.max(1, TAG_DETECTION_WINDOW);
+        while (recentHits.size() > window) {
+            recentHits.removeFirst();
+        }
+    }
+
+    @Override
     public boolean isTargetAcquired() {
-        return !getAllianceTargetGeometries().isEmpty();
+        return isDetectionGatePassing();
+    }
+
+    @Override
+    public int getDetectionHitCount() {
+        int hits = 0;
+        for (boolean hit : recentHits) {
+            if (hit) {
+                hits++;
+            }
+        }
+        return hits;
+    }
+
+    @Override
+    public int getDetectionSampleCount() {
+        return recentHits.size();
     }
 
     @Override
@@ -113,6 +152,19 @@ public class AprilTagVisionSubsystem implements VisionSubsystemInterface {
 
     @Override
     public TargetGeometryInterface getBestTargetGeometry() {
+        if (!isDetectionGatePassing()) {
+            return null;
+        }
+        return lastKnownGood;
+    }
+
+    private boolean isDetectionGatePassing() {
+        int window = Math.max(1, TAG_DETECTION_WINDOW);
+        int minHits = Math.max(1, Math.min(TAG_DETECTION_MIN_HITS, window));
+        return getDetectionHitCount() >= minHits;
+    }
+
+    private TargetGeometryInterface findBestLiveGeometry() {
         List<TargetGeometryInterface> geometries = getAllianceTargetGeometries();
         if (geometries.isEmpty()) return null;
 
@@ -144,5 +196,21 @@ public class AprilTagVisionSubsystem implements VisionSubsystemInterface {
                 visionPortal.resumeStreaming();
             } catch (Exception ignored) {}
         }
+    }
+
+    @Override
+    public String getCameraStateName() {
+        if (visionPortal == null) {
+            return "NONE";
+        }
+        return visionPortal.getCameraState().name();
+    }
+
+    @Override
+    public double getFps() {
+        if (visionPortal == null) {
+            return 0.0;
+        }
+        return visionPortal.getFps();
     }
 }

@@ -54,15 +54,33 @@ public interface VisionSubsystemInterface {
     List<TargetGeometryInterface> getAllianceTargetGeometries();
 
     /**
-     * Checks if at least one valid, alliance-matching active target tag is currently detected.
+     * Records one camera sample for the X-of-Y detection gate.
+     * Must be called once per TeleOp loop so the gate and last-known-good geometry stay current.
+     */
+    void update();
+
+    /**
+     * Checks if the X-of-Y detection gate is passing: at least X of the last Y samples
+     * found a valid, alliance-matching target tag. Last-known-good geometry is usable while this is true.
      *
-     * @return true if a valid target AprilTag is acquired
+     * @return true if the detection gate is passing
      */
     boolean isTargetAcquired();
 
     /**
+     * Number of hits in the current detection window (for telemetry).
+     */
+    int getDetectionHitCount();
+
+    /**
+     * Number of samples currently stored in the detection window, up to Y (for telemetry).
+     */
+    int getDetectionSampleCount();
+
+    /**
      * Checks if the acquired target is within valid physical shooting range and angle alignment.
      * Encapsulates range (e.g. 18" to 36") and bearing angle evaluation inside the Vision Subsystem.
+     * Uses last-known-good geometry while the detection gate is passing.
      *
      * @return true if target distance and alignment are optimal for taking a shot
      */
@@ -70,8 +88,8 @@ public interface VisionSubsystemInterface {
 
     /**
      * Function call to request spatial geometry for the best/closest valid target AprilTag.
-     * Evaluates all visible tags, filters for active alliance & active hive IDs, and returns the closest target.
-     * Returns null if no valid target AprilTag is currently acquired.
+     * While the detection gate is passing, returns the last known good geometry (refreshed on a hit,
+     * reused on a miss). Returns null if the gate is not passing.
      *
      * @return Best TargetGeometryInterface or null
      */
@@ -86,4 +104,14 @@ public interface VisionSubsystemInterface {
      * Resumes vision streaming portal.
      */
     void resumeStreaming();
+
+    /**
+     * Current VisionPortal camera state name (for example STREAMING or ERROR), or NONE if the camera never opened.
+     */
+    String getCameraStateName();
+
+    /**
+     * Latest camera frames-per-second, or 0 if the portal is not running.
+     */
+    double getFps();
 }

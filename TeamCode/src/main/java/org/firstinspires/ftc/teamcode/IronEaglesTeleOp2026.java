@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 // Import FTC TeleOp annotation to register this program on Driver Station menu
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 // Import FTC RobotLog utility for persistent logging
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 
 // Road Runner Imports
@@ -23,8 +24,12 @@ import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
 // Import concrete subsystem implementations
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVisionSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
+
+import java.util.Collections;
+import java.util.List;
 
 // Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
@@ -66,6 +71,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasIntakeRunning = false;
     // State tracking for manual hopper button logging
     private boolean wasHopperXPressed = false;
+    // Vision diagnostic logging
+    private String lastVisionLogKey = "";
+    private final ElapsedTime visionLogTimer = new ElapsedTime();
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -115,6 +123,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         // Pause execution until driver presses play button on Driver Hub
         waitForStart();
         RobotLog.i("OpMode Started: Match timer running.");
+        RobotLog.i("[VISION] camera device=%s missing=%s state=%s",
+                robot.camera != null ? robot.camera.getDeviceName() : "null",
+                robot.missingDevices.contains("camera"),
+                vision != null ? vision.getCameraStateName() : "vision-null");
+        visionLogTimer.reset();
 
         // Loop continuously while match is active until stop is pressed
         while (opModeIsActive()) {
@@ -123,6 +136,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // CRITICAL: Update Road Runner Odometry (Must run every loop!)
             // =========================================================================
             drive.update();
+
+            // Record one camera sample per loop so the X-of-Y detection gate stays current
+            if (vision != null) {
+                vision.update();
+            }
 
             // Read joysticks
             double rawY  = -gamepad1.left_stick_y;
@@ -201,10 +219,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
                     
                     if (target != null) {
-                        // TAKE THE SNAPSHOT
+                        // TAKE THE SNAPSHOT from last-known-good geometry (usable while the X-of-Y gate is passing)
                         Pose2d currentPose = drive.getPoseEstimate();
                         
-                        RobotLog.i("[AIM-ASSIST] Target Acquired! Tag ID: %d | Range: %.2f in | Bearing: %.2f deg | Pose: (X: %.2f, Y: %.2f)",
+                        RobotLog.i("[AIM-ASSIST] Target Acquired (detection gate %d/%d)! Tag ID: %d | Range: %.2f in | Bearing: %.2f deg | Pose: (X: %.2f, Y: %.2f)",
+                                vision.getDetectionHitCount(), vision.getDetectionSampleCount(),
                                 target.getTagId(), target.getRangeInches(), target.getBearingDegrees(), currentPose.getX(), currentPose.getY());
 
                         Trajectory alignShot = drive.trajectoryBuilder(currentPose)
@@ -220,8 +239,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                         drive.followTrajectoryAsync(alignShot);
                         setFiringState(AutoFireControllerInterface.FiringState.ALIGNING);
                     } else {
-                        // Edge case: Target not found, stay idle
-                        RobotLog.w("[AIM-ASSIST WARNING] Target query returned NULL (No AprilTag visible in camera frame).");
+                        // Edge case: Detection gate not passing, stay idle
+                        RobotLog.w("[AIM-ASSIST WARNING] Detection gate not passing (%d/%d). Last known good geometry is not usable.",
+                                vision != null ? vision.getDetectionHitCount() : 0,
+                                vision != null ? vision.getDetectionSampleCount() : 0);
                         setFiringState(AutoFireControllerInterface.FiringState.IDLE);
                     }
                 }
@@ -318,28 +339,99 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
             telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
 
-            // Closest AprilTag with a known position (tags missing from the tag library have no ftcPose)
-            AprilTagSingleDetection closestTag = null;
+            boolean APRIL_TAG_DETECTED = false;
+            AprilTagDetection closestDetection = null;
+            List<AprilTagDetection> detections = Collections.emptyList();
+            String cameraState = vision != null ? vision.getCameraStateName() : "NONE";
+            double cameraFps = vision != null ? vision.getFps() : 0.0;
             if (vision != null) {
-                for (AprilTagDetection detection : vision.getRawDetections()) {
-                    if (detection instanceof AprilTagSingleDetection && detection.ftcPose != null
-                            && (closestTag == null || detection.ftcPose.range < closestTag.ftcPose.range)) {
-                        closestTag = (AprilTagSingleDetection) detection;
+                detections = vision.getRawDetections();
+                APRIL_TAG_DETECTED = !detections.isEmpty();
+                for (AprilTagDetection detection : detections) {
+                    if (detection == null) {
+                        continue;
+                    }
+                    if (closestDetection == null) {
+                        closestDetection = detection;
+                    } else if (detection.ftcPose != null
+                            && (closestDetection.ftcPose == null || detection.ftcPose.range < closestDetection.ftcPose.range)) {
+                        closestDetection = detection;
                     }
                 }
             }
-            boolean APRIL_TAG_DETECTED = (closestTag != null);
+            boolean targetCellInView = vision != null && vision.isTargetAcquired();
+            int detectionHits = vision != null ? vision.getDetectionHitCount() : 0;
+            int detectionSamples = vision != null ? vision.getDetectionSampleCount() : 0;
             telemetry.addData("APRIL_TAG_DETECTED", APRIL_TAG_DETECTED);
-            if (APRIL_TAG_DETECTED) {
-                telemetry.addData("Tag ID", closestTag.id);
-                telemetry.addData("Tag X / Y / Z (in)", "%.1f / %.1f / %.1f", closestTag.ftcPose.x, closestTag.ftcPose.y, closestTag.ftcPose.z);
-                telemetry.addData("Tag Yaw (deg)", "%.1f", closestTag.ftcPose.yaw);
+            telemetry.addData("TARGET_CELL_IN_VIEW", targetCellInView);
+            telemetry.addData("Detection gate", "%d/%d", detectionHits, detectionSamples);
+            telemetry.addData("Camera", "%s  %.1f fps", cameraState, cameraFps);
+            telemetry.addData("Detections", detections.size());
+            if (closestDetection instanceof AprilTagSingleDetection) {
+                AprilTagSingleDetection tag = (AprilTagSingleDetection) closestDetection;
+                telemetry.addData("Tag ID", tag.id);
+                if (tag.ftcPose != null) {
+                    telemetry.addData("Tag X / Y / Z (in)", "%.1f / %.1f / %.1f", tag.ftcPose.x, tag.ftcPose.y, tag.ftcPose.z);
+                    telemetry.addData("Tag Yaw (deg)", "%.1f", tag.ftcPose.yaw);
+                } else {
+                    telemetry.addData("Tag pose", "none (not in tag library)");
+                }
+            } else if (closestDetection instanceof AprilTagClusterDetection) {
+                AprilTagClusterDetection cluster = (AprilTagClusterDetection) closestDetection;
+                telemetry.addData("Tag ID", "cluster %s (%d%%)", cluster.metadata.name, cluster.percentClusterFound);
+                if (cluster.ftcPose != null) {
+                    telemetry.addData("Tag X / Y / Z (in)", "%.1f / %.1f / %.1f", cluster.ftcPose.x, cluster.ftcPose.y, cluster.ftcPose.z);
+                    telemetry.addData("Tag Yaw (deg)", "%.1f", cluster.ftcPose.yaw);
+                }
             }
+            TargetGeometryInterface usableTarget = (vision != null) ? vision.getBestTargetGeometry() : null;
+            if (usableTarget != null) {
+                telemetry.addData("Last good X / Y / range (in)", "%.1f / %.1f / %.1f",
+                        usableTarget.getXInches(), usableTarget.getYInches(), usableTarget.getRangeInches());
+                telemetry.addData("Last good yaw / bearing (deg)", "%.1f / %.1f",
+                        usableTarget.getYawDegrees(), usableTarget.getBearingDegrees());
+            } else {
+                telemetry.addData("Last good geometry", "--");
+            }
+            logVisionDiagnostics(cameraState, cameraFps, detections, APRIL_TAG_DETECTED,
+                    targetCellInView, detectionHits, detectionSamples);
 
             if (!robot.missingDevices.isEmpty()) {
                 telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
             }
             telemetry.update();
         }
+    }
+
+    private void logVisionDiagnostics(String cameraState, double cameraFps,
+                                      List<AprilTagDetection> detections, boolean detected,
+                                      boolean gatePassing, int detectionHits, int detectionSamples) {
+        StringBuilder details = new StringBuilder();
+        for (int i = 0; i < detections.size(); i++) {
+            AprilTagDetection detection = detections.get(i);
+            if (i > 0) {
+                details.append(" | ");
+            }
+            if (detection instanceof AprilTagSingleDetection) {
+                AprilTagSingleDetection tag = (AprilTagSingleDetection) detection;
+                details.append(String.format("single id=%d meta=%b pose=%b",
+                        tag.id, tag.metadata != null, tag.ftcPose != null));
+            } else if (detection instanceof AprilTagClusterDetection) {
+                AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
+                details.append(String.format("cluster %s pct=%d pose=%b",
+                        cluster.metadata.name, cluster.percentClusterFound, cluster.ftcPose != null));
+            } else {
+                details.append(detection == null ? "null" : detection.getClass().getSimpleName());
+            }
+        }
+        String key = cameraState + "|" + detections.size() + "|" + gatePassing + "|" + detectionHits + "|" + details;
+        if (key.equals(lastVisionLogKey) && visionLogTimer.seconds() < 2.0) {
+            return;
+        }
+        lastVisionLogKey = key;
+        visionLogTimer.reset();
+        RobotLog.i("[VISION] detected=%b gate=%b %d/%d state=%s fps=%.1f count=%d %s",
+                detected, gatePassing, detectionHits, detectionSamples,
+                cameraState, cameraFps, detections.size(), details);
     }
 }

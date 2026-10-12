@@ -28,6 +28,8 @@ Facts we don't control, such as the field layout, the AprilTag IDs, and how our 
 * The IMU is named `imu` in the robot configuration. The Driver Hub adds this entry automatically (on I2C port 0), and it must not be deleted or renamed.
 * The code must be told how the Control Hub is mounted (see Reference: Robot Hardware) so that the IMU measures the robot's heading correctly.
 
+> **Note:** The intake and shooter vibrate the mounted webcam enough to drop AprilTag detections. That is a hardware/mounting issue; see Reference: Robot Hardware. Auto fire and the availability notification ride through short dropouts with the X-of-Y detection gate.
+
 ---
 
 ## Alliance Selection
@@ -149,9 +151,9 @@ intake.setVelocity(0);                                         // released: stop
 ## Auto Fire Availability Notification
 
 ### Requirement
-* The operator must be notified when **auto fire is available**: an alliance has been chosen, the IMU is working, and the camera can see the target cell's tags. Pulling the Right Trigger at that moment starts auto fire.
+* The operator must be notified when **auto fire is available**: an alliance has been chosen, the IMU is working, and the target-cell detection gate is passing. The gate passes when at least **X** of the last **Y** camera samples found the target cell's tags (see Design). Pulling the Right Trigger at that moment starts auto fire.
 * The notification must be obvious during a match without the operator having to look at the Driver Hub.
-* In addition, the Driver Hub must show whether the target cell is in view and, whenever it is, the target cell's latest geometry from the camera.
+* In addition, the Driver Hub must show whether the detection gate is passing and, whenever it is, the last known good geometry from the camera.
 
 ### Design
 * The LED strip flashes quickly while auto fire is available.
@@ -159,10 +161,20 @@ intake.setVelocity(0);                                         // released: stop
 
 | Telemetry line | What it shows |
 |---|---|
-| `TARGET_CELL_IN_VIEW` | `true` when the camera can currently see the target cell (our alliance's color, upward-facing). Otherwise `false`, including when no alliance has been chosen. |
-| Target geometry | The robot's position (x, y, z) and yaw relative to the center of the target cell, plus the distance and aim angle to it. These are the same values auto fire uses. |
+| `TARGET_CELL_IN_VIEW` | `true` when the detection gate is passing (at least X of the last Y samples found the target cell). Otherwise `false`, including when no alliance has been chosen. |
+| Detection gate | How many of the last Y samples found the tags, for example `3/5`. |
+| Target geometry | The last known good position (x, y, z) and yaw relative to the center of the target cell, plus the distance and aim angle to it. These are the same values auto fire uses. |
 
-* When `TARGET_CELL_IN_VIEW` is `false`, the geometry lines show `--` instead of numbers, so old readings are never mistaken for current ones.
+* When `TARGET_CELL_IN_VIEW` is `true`, the geometry lines show the last known good reading. That reading may be from the current sample, or from a recent sample that is still inside the gate.
+* When `TARGET_CELL_IN_VIEW` is `false`, the geometry lines show `--` instead of numbers, so a stale reading that has fallen out of the gate is never shown as current.
+
+**Detection gate (X of Y).** Intake and shooter vibration can make the mounted webcam miss tags for a sample or two even when the target cell is still in front of the robot (see Reference: Robot Hardware). To ride through those dropouts, every TeleOp loop records one camera sample:
+
+* A sample is a **hit** if it found the target cell's tags, and a **miss** if it did not.
+* The robot keeps the last **Y** samples, and the last geometry from a hit (the **last known good** reading).
+* The gate **passes** when at least **X** of those Y samples were hits. X and Y are tunable (see Tunable Values).
+* While the gate is passing, the notification stays on and uses the last known good reading, even if the current sample missed.
+* When the gate fails, the notification turns off and the last known good reading is no longer used.
 
 ---
 
@@ -173,11 +185,11 @@ Auto fire is a one-press action. A single pull of the Right Trigger on Gamepad 2
 
 The shooter runs at a constant RPM (see Shooter), so shooting from the same distance every time gives a consistent shot. That is why auto fire moves the robot to a fixed distance from the target cell, not just turns it.
 
-* **Starting:** auto fire starts if the camera can see the target cell's tags when the trigger is pulled, wherever the robot is. If it can't, auto fire does not start and nothing else happens.
+* **Starting:** auto fire starts if the detection gate is passing when the trigger is pulled (at least X of the last Y samples found the target cell), wherever the robot is. It then uses the last known good geometry to plan the first move. If the gate is not passing, auto fire does not start and nothing else happens.
 * **Moving:** the robot drives itself to the **closest point on the shooting arc** (defined below) and aims the shooter at the target cell. After each move it checks its position again, and it only shoots once it is at the right distance and aimed.
 * **Shooting:** the robot shoots repeatedly, one ball at a time, until manual input is received.
 * **Manual input ends auto fire.** Manual input is any button press, trigger pull, or joystick movement on **either Gamepad 1 or Gamepad 2**, except the Right Trigger on Gamepad 2. A small deadzone applies to joysticks and triggers so stick drift doesn't count as input. Manual input ends auto fire at any point in the sequence.
-* **Losing the target:** if the camera can't see the target cell when the robot checks its position (at the start, or after a move), auto fire ends.
+* **Losing the target:** if the detection gate is not passing when the robot checks its position (at the start, or after a move), auto fire ends.
 * **When auto fire ends**, for any reason: the robot stops moving, the hopper stops, the shooter keeps spinning, and normal control returns to the drivers.
 * **Pulling the trigger again** while auto fire is running does nothing. It neither restarts nor cancels the sequence.
 * Auto fire does not try to detect when the HIVE tips. Once shooting starts, it keeps shooting until manual input.
@@ -206,8 +218,8 @@ Auto fire works in rounds of **measure, then move**. The camera is used only whi
 
 Auto fire runs these steps:
 
-1. **Check the target.** If the camera can't see the target cell, auto fire ends.
-2. **Measure.** Request the geometry of the target cell: the robot's position (x, y, z) and yaw relative to the center of the target cell (see Cell center below). The position is used for the shooting arc, and the height is used to confirm the cell is upward-facing (see Target Cell).
+1. **Check the target.** If the detection gate is not passing, auto fire ends. If it is passing, use the last known good geometry. That geometry is refreshed whenever a sample finds the tags, and is reused on a miss as long as the gate still passes.
+2. **Measure.** Read the last known good geometry of the target cell: the robot's position (x, y, z) and yaw relative to the center of the target cell (see Cell center below). The position is used for the shooting arc, and the height is used to confirm the cell is upward-facing (see Target Cell).
 3. **Check the position.** If the robot is in position, shoot: stop the drive motors and step the hopper 180 degrees at a time until manual input is received. Otherwise, go to step 4. The robot is in position when all of these are true:
    * the distance to the cell's center is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
    * the aim (where the shooter points compared with the direction to the cell's center, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
@@ -230,7 +242,7 @@ The shooter is already spinning for the whole match (see Shooter), so auto fire 
 stateDiagram-v2
     [*] --> IDLE
     IDLE --> MEASURING: Right Trigger pulled
-    MEASURING --> IDLE: target cell not visible
+    MEASURING --> IDLE: detection gate not passing
     MEASURING --> FEEDING: in position
     MEASURING --> MOVING: not in position (plan calculated)
     MOVING --> MEASURING: plan finished
@@ -241,7 +253,7 @@ stateDiagram-v2
 | State | What the robot is doing | Leaves when |
 |---|---|---|
 | `IDLE` | Nothing; normal driver control | The Right Trigger is pulled, an alliance is set, and the webcam and IMU are present: go to `MEASURING` |
-| `MEASURING` | Stopped; reads the target cell's geometry (steps 1 to 3) | Target not visible: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
+| `MEASURING` | Stopped; reads the last known good target-cell geometry (steps 1 to 3) | Detection gate not passing: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
 | `MOVING` | Carrying out the movement plan (step 4), without checking the camera | Plan finished: `MEASURING`. Manual input: `IDLE` |
 | `FEEDING` | Stopped; stepping the hopper 180 degrees at a time | Manual input: `IDLE` |
 
@@ -277,6 +289,24 @@ Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the dr
 
 * A CELL of our alliance's color counts as upward-facing if its tag height is above a tunable value, `CELL_UP_MIN_HEIGHT_IN`. This value is set between the heights of an upward-facing and a downward-facing CELL's tags, measured on the field.
 * This height is calculated every time the code reads the target cell's geometry.
+
+---
+
+## Vision
+
+### Requirement
+When the robot is stopped and the target cell's tags are in view, the webcam must deliver fresh geometry quickly enough that auto fire can measure, then move, without waiting on a slow camera pipeline. The Driver Hub's display of that geometry may lag behind what the robot itself has already read.
+
+### Design
+On 11 Oct 2026 we timed the path from the Logitech C920 webcam to geometry in `IronEaglesTeleOp2026`, with the robot running on the field and the official red scoring tag cluster in view.
+
+* The camera streams at about **30 frames per second** (a new image every ~33 ms) while it is open.
+* The TeleOp loop reads the latest detections faster than that, so it does not drop frames.
+* When a tag appears or disappears, the robot has the new result in about **one or two frames**, typically ~60 ms. The fastest changes we logged were 13–14 ms apart.
+* The Driver Hub updates more slowly than the robot. Watching the Hub understates how often the code actually has a new reading.
+* The SDK reports the sticker as a **cluster** (`RED SCORING`) with a pose, not as four separate tags. In this test it usually saw 25–50% of the cluster at a time.
+
+The refresh rate is not the remaining vision risk. The remaining risk is the camera's narrow view of the tags. Losing the lock when the image is shaken is a confirmed hardware issue (see Reference: Robot Hardware). Auto fire and the availability notification ride through short dropouts with the X-of-Y detection gate (see Auto Fire Availability Notification).
 
 ---
 
@@ -327,6 +357,7 @@ Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn
 * Mounted on top of the robot, at the center of the robot, in line with the shooter (no left/right offset).
 * The shooter is about 6 inches in front of the camera. Distances measured by the camera are therefore about 6 inches longer than the actual distance from the shooter. Auto fire's shooting distance is measured by the camera and tuned by testing, so no correction is needed.
 * The AprilTags face down from the underside of the CELLS, so the camera must be tilted up enough to see them from where the robot shoots.
+* **Vibration:** the intake and shooter shake the robot. With the webcam mounted, that shake stops AprilTag detections. We confirmed this on 12 Oct 2026 by unmounting the webcam and running the intake and shooter at full speed: the camera then kept a lock for 10 seconds with no misses. This is a mounting issue, not a camera or lighting issue. A stiffer or isolated mount is the hardware fix. Until then, auto fire and the availability notification use the X-of-Y detection gate so brief dropouts do not immediately disable them (see Auto Fire Availability Notification).
 * **To be filled in:** the camera's height above the tiles and its upward tilt angle. Both are needed to tell which CELL is up (see Target Cell).
 
 **IMU:**
@@ -351,4 +382,6 @@ All of these are configured after testing.
 | `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | To be configured after testing |
 | Auto-fire drive and turn speeds | How fast the robot drives, strafes, and turns while carrying out a movement plan | Start from the SDK samples' values |
 | `CELL_UP_MIN_HEIGHT_IN` | Tag height above the tiles that counts as an upward-facing CELL | Between the measured up and down heights |
+| `TAG_DETECTION_MIN_HITS` (X) | Hits needed in the last Y camera samples for the detection gate to pass | 3, then tuned on the field with the intake and shooter running |
+| `TAG_DETECTION_WINDOW` (Y) | How many recent camera samples the detection gate looks at | 5, then tuned on the field with the intake and shooter running |
 | Deadzone | How far a stick or trigger must move to count as input | To be configured after testing |
