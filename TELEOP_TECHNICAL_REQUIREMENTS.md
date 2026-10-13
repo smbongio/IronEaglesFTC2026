@@ -151,49 +151,61 @@ intake.setVelocity(0);                                         // released: stop
 ## Auto Fire Availability Notification
 
 ### Requirement
-* The operator must be notified when **auto fire is available**: an alliance has been chosen, the IMU is working, and the target-cell detection gate is passing. The gate passes when at least **X** of the last **Y** camera samples found the target cell's tags (see Design). Pulling the Right Trigger at that moment starts auto fire.
+* The operator must be notified when **auto fire is available**: an alliance has been chosen, the IMU is working, the target-cell detection gate is passing, and the robot is **inside the shooting cone**. Pulling the Right Trigger at that moment starts auto fire.
 * The notification must be obvious during a match without the operator having to look at the Driver Hub.
-* In addition, the Driver Hub must show whether the detection gate is passing and, whenever it is, the last known good geometry from the camera.
+* The Driver Hub must show two separate booleans, so we can tell "we see the tags" apart from "we are in the cone":
+
+| Telemetry line | What it shows |
+|---|---|
+| `TARGET_CELL_IN_VIEW` | `true` when the current camera sample found **at least one** AprilTag (or the cluster) of the target cell. Otherwise `false`. |
+| `AUTO_FIRE_AVAILABLE` | `true` when auto fire can start: alliance chosen, IMU working, detection gate passing, and the robot is inside the shooting cone. Otherwise `false`. |
+
+* The Driver Hub must also show the last known good geometry whenever the detection gate is passing.
 
 ### Design
-* The LED strip flashes quickly while auto fire is available.
+* The LED strip flashes quickly while `AUTO_FIRE_AVAILABLE` is `true`. It does not flash merely because the tags are visible.
 * The Driver Hub telemetry is updated every TeleOp loop with:
 
 | Telemetry line | What it shows |
 |---|---|
-| `TARGET_CELL_IN_VIEW` | `true` when the detection gate is passing (at least X of the last Y samples found the target cell). Otherwise `false`, including when no alliance has been chosen. |
+| `TARGET_CELL_IN_VIEW` | `true` when this sample found at least one tag of the target cell. This is the raw camera result, for debugging. It can flicker when the intake or shooter shakes the webcam. |
+| `AUTO_FIRE_AVAILABLE` | `true` when the robot is inside the shooting cone and auto fire is allowed to start (alliance, IMU, and detection gate). This is what the LED follows. |
 | Detection gate | How many of the last Y samples found the tags, for example `3/5`. |
 | Target geometry | The last known good position (x, y, z) and yaw relative to the center of the target cell, plus the distance and aim angle to it. These are the same values auto fire uses. |
 
-* When `TARGET_CELL_IN_VIEW` is `true`, the geometry lines show the last known good reading. That reading may be from the current sample, or from a recent sample that is still inside the gate.
-* When `TARGET_CELL_IN_VIEW` is `false`, the geometry lines show `--` instead of numbers, so a stale reading that has fallen out of the gate is never shown as current.
+* When the detection gate is passing, the geometry lines show the last known good reading. That reading may be from the current sample, or from a recent sample that is still inside the gate.
+* When the detection gate is not passing, the geometry lines show `--` instead of numbers, so a stale reading is never shown as current.
+* `TARGET_CELL_IN_VIEW` can be `false` while `AUTO_FIRE_AVAILABLE` is still `true`: the current sample missed, but the gate is still passing and the last known good reading puts the robot in the cone. That is expected during a short vibration dropout.
+* `TARGET_CELL_IN_VIEW` can be `true` while `AUTO_FIRE_AVAILABLE` is `false`: we see the target cell, but the robot is outside the cone (or alliance / IMU is missing). Auto fire does not start. The driver must move into the cone.
 
 **Detection gate (X of Y).** Intake and shooter vibration can make the mounted webcam miss tags for a sample or two even when the target cell is still in front of the robot (see Reference: Robot Hardware). To ride through those dropouts, every TeleOp loop records one camera sample:
 
-* A sample is a **hit** if it found the target cell's tags, and a **miss** if it did not.
+* A sample is a **hit** if it found at least one tag of the target cell, and a **miss** if it did not. A hit is what `TARGET_CELL_IN_VIEW` reports.
 * The robot keeps the last **Y** samples, and the last geometry from a hit (the **last known good** reading).
 * The gate **passes** when at least **X** of those Y samples were hits. X and Y are tunable (see Tunable Values).
-* While the gate is passing, the notification stays on and uses the last known good reading, even if the current sample missed.
-* When the gate fails, the notification turns off and the last known good reading is no longer used.
+* `AUTO_FIRE_AVAILABLE` uses the last known good reading to decide whether the robot is inside the cone, and stays `true` through a miss as long as the gate still passes and that reading is still in the cone.
+* When the gate fails, `AUTO_FIRE_AVAILABLE` is `false` and the last known good reading is no longer used.
 
 ---
 
 ## Auto Fire
 
 ### Requirement
-Auto fire is a one-press action. A single pull of the Right Trigger on Gamepad 2 starts the whole sequence: the robot drives itself to a shooting position, aims at the target cell, and keeps shooting until a driver takes over. It doesn't matter whether the trigger is held down or released after the pull.
+Auto fire is a one-press action. A single pull of the Right Trigger on Gamepad 2 starts the whole sequence: the robot drives itself to the shooting distance on the arc, aims at the target cell, and keeps shooting until a driver takes over. It doesn't matter whether the trigger is held down or released after the pull.
 
 The shooter runs at a constant RPM (see Shooter), so shooting from the same distance every time gives a consistent shot. That is why auto fire moves the robot to a fixed distance from the target cell, not just turns it.
 
-* **Starting:** auto fire starts if the detection gate is passing when the trigger is pulled (at least X of the last Y samples found the target cell), wherever the robot is. It then uses the last known good geometry to plan the first move. If the gate is not passing, auto fire does not start and nothing else happens.
-* **Moving:** the robot drives itself to the **closest point on the shooting arc** (defined below) and aims the shooter at the target cell. After each move it checks its position again, and it only shoots once it is at the right distance and aimed.
+The driver is responsible for getting the robot **into the shooting cone**. Auto fire does not drive in from outside the cone, and it does not path around the HIVE frame. Other robots also stay the driver's problem.
+
+* **Starting:** auto fire starts only if `AUTO_FIRE_AVAILABLE` is `true` when the trigger is pulled (inside the cone, detection gate passing, alliance and IMU ready). It then uses the last known good geometry to plan the first move. If `AUTO_FIRE_AVAILABLE` is `false`, auto fire does not start and nothing else happens.
+* **Moving:** the robot drives itself straight in or out to the **shooting arc** (defined below) and aims the shooter at the target cell. After each move it checks its position again, and it only shoots once it is at the right distance and aimed.
 * **Shooting:** the robot shoots repeatedly, one ball at a time, until manual input is received.
 * **Manual input ends auto fire.** Manual input is any button press, trigger pull, or joystick movement on **either Gamepad 1 or Gamepad 2**, except the Right Trigger on Gamepad 2. A small deadzone applies to joysticks and triggers so stick drift doesn't count as input. Manual input ends auto fire at any point in the sequence.
-* **Losing the target:** if the detection gate is not passing when the robot checks its position (at the start, or after a move), auto fire ends.
-* **When auto fire ends**, for any reason: the robot stops moving, the hopper stops, the shooter keeps spinning, and normal control returns to the drivers.
+* **Losing the target or leaving the cone:** if `AUTO_FIRE_AVAILABLE` is `false` when the robot checks its position (at the start, or after a move), auto fire ends. That covers the detection gate failing and the robot no longer being inside the cone.
+* **When auto fire ends**, the hopper stops, the shooter keeps spinning, and normal driver control resumes on the same loop. If the input that ended auto fire is a drive direction (a stick past the deadzone), the drive motors immediately move that way. They are not stopped first. If there is no drive input (the target was lost, or the cancel was a button or trigger), the drive motors stop.
 * **Pulling the trigger again** while auto fire is running does nothing. It neither restarts nor cancels the sequence.
 * Auto fire does not try to detect when the HIVE tips. Once shooting starts, it keeps shooting until manual input.
-* **Obstacles:** auto fire does not avoid obstacles such as the HIVE frame, the downward-facing CELLS, or other robots. The drivers are responsible for watching the robot's path and cancelling auto fire with any manual input if it is about to hit something.
+* **Obstacles:** auto fire's only move is in or out along a line to the cell, while already inside the cone. It does not avoid the HIVE frame, the downward-facing CELLS, or other robots. The drivers watch the path and cancel with any manual input if the robot is about to hit something.
 
 **Shooting cone:** the area of the field from which the robot is allowed to shoot at the target cell.
 
@@ -204,27 +216,26 @@ The shooter runs at a constant RPM (see Shooter), so shooting from the same dist
 
 The cone is measured from the cell's point of view, not the robot's. It doesn't matter which way the robot is facing or where the cell appears in the camera image.
 
-**Shooting arc:** the set of positions auto fire shoots from. It is the curved line inside the shooting cone that is exactly the **shooting distance** from the center of the target cell (the cone's point). Every point on the arc gives the same shot. The closest point on the arc to the robot is found like this:
+**Shooting arc:** the set of positions auto fire shoots from. It is the curved line inside the shooting cone that is exactly the **shooting distance** from the center of the target cell (the cone's point). Every point on the arc gives the same shot.
 
-* **If the robot is inside the cone:** the point on the arc directly toward or away from the cell. The robot moves straight in or out until it is at the shooting distance.
-* **If the robot is outside the cone:** the nearer end of the arc, at the 45-degree edge of the cone.
+Because auto fire only starts inside the cone, the destination is always the point on the arc **directly toward or away from the cell**. The robot moves straight in or out until it is at the shooting distance.
 
 ![Top-down view of the shooting cone and shooting arc, with example robot positions and where auto fire drives each one](docs/images/autofire_cone.png)
 
-*Top-down view. Robots A and B start inside the cone and move straight in or out to the arc. Robots C and D start outside the cone and go to the nearer end of the arc. To redraw this image, run `python docs/autofire_cone.py` (requires matplotlib).*
+*Top-down view. Auto fire only starts inside the cone. Robot A is too far and moves straight in to the arc. Robot B is too close and moves straight out. To redraw this image, run `python docs/autofire_cone.py` (requires matplotlib).*
 
 ### Design
 Auto fire works in rounds of **measure, then move**. The camera is used only while the robot is stopped. Each move follows a movement plan calculated from the last measurement, using the IMU and the drive wheel encoders; the camera is not checked during the move. Road Runner and path following are not used.
 
 Auto fire runs these steps:
 
-1. **Check the target.** If the detection gate is not passing, auto fire ends. If it is passing, use the last known good geometry. That geometry is refreshed whenever a sample finds the tags, and is reused on a miss as long as the gate still passes.
+1. **Check the target.** If `AUTO_FIRE_AVAILABLE` is `false` (detection gate not passing, or the last known good reading is no longer inside the cone), auto fire ends. Otherwise use the last known good geometry. That geometry is refreshed whenever a sample finds the tags, and is reused on a miss as long as the gate still passes.
 2. **Measure.** Read the last known good geometry of the target cell: the robot's position (x, y, z) and yaw relative to the center of the target cell (see Cell center below). The position is used for the shooting arc, and the height is used to confirm the cell is upward-facing (see Target Cell).
 3. **Check the position.** If the robot is in position, shoot: stop the drive motors and step the hopper 180 degrees at a time until manual input is received. Otherwise, go to step 4. The robot is in position when all of these are true:
    * the distance to the cell's center is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
    * the aim (where the shooter points compared with the direction to the cell's center, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
    * the robot is inside the shooting cone.
-4. **Plan and move.** Calculate a movement plan from the robot's current position to the closest point on the shooting arc, ending with the shooter aimed at the cell's center. Carry out the plan:
+4. **Plan and move.** Calculate a movement plan from the robot's current position to the point on the shooting arc directly toward or away from the cell, ending with the shooter aimed at the cell's center. Carry out the plan:
    * **Turning** is controlled by the IMU heading.
    * **Driving and strafing distances** are controlled by the drive wheel encoders.
    * `AIM_OFFSET_DEG` is added to the final aim angle to correct for shots that consistently miss to one side during testing. It starts at 0.
@@ -241,8 +252,8 @@ The shooter is already spinning for the whole match (see Shooter), so auto fire 
 ```mermaid
 stateDiagram-v2
     [*] --> IDLE
-    IDLE --> MEASURING: Right Trigger pulled
-    MEASURING --> IDLE: detection gate not passing
+    IDLE --> MEASURING: Right Trigger pulled and AUTO_FIRE_AVAILABLE
+    MEASURING --> IDLE: AUTO_FIRE_AVAILABLE is false
     MEASURING --> FEEDING: in position
     MEASURING --> MOVING: not in position (plan calculated)
     MOVING --> MEASURING: plan finished
@@ -252,12 +263,12 @@ stateDiagram-v2
 
 | State | What the robot is doing | Leaves when |
 |---|---|---|
-| `IDLE` | Nothing; normal driver control | The Right Trigger is pulled, an alliance is set, and the webcam and IMU are present: go to `MEASURING` |
-| `MEASURING` | Stopped; reads the last known good target-cell geometry (steps 1 to 3) | Detection gate not passing: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
+| `IDLE` | Nothing; normal driver control | The Right Trigger is pulled and `AUTO_FIRE_AVAILABLE` is `true`: go to `MEASURING` |
+| `MEASURING` | Stopped; reads the last known good target-cell geometry (steps 1 to 3) | `AUTO_FIRE_AVAILABLE` is `false`: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
 | `MOVING` | Carrying out the movement plan (step 4), without checking the camera | Plan finished: `MEASURING`. Manual input: `IDLE` |
 | `FEEDING` | Stopped; stepping the hopper 180 degrees at a time | Manual input: `IDLE` |
 
-Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the drive motors and the hopper and leaves the shooter running.
+Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the hopper and leaves the shooter running. Drive is handed back to Gamepad 1 on that same loop: if a stick is already held, the robot starts moving in that direction immediately. The drive motors are only stopped when there is no drive input.
 
 **Cell center.** The camera measures the position of the tag cluster, not the center of the cell. The tag cluster is on the bottom face of the cell, so from above it sits close to the cell's center, but the opening of a tilted, upward-facing cell may be a few inches away from it. The center of the cell is found by moving from the tag cluster's position a fixed distance, `CELL_CENTER_OFFSET_IN`, along the cone's center line:
 
@@ -266,6 +277,11 @@ Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the dr
 * All of auto fire's distances, aim angles, and cone checks are measured to the cell's center, not to the tags. Near the edges of the cone, using the tags directly would put the aim off by a few degrees if the offset is several inches.
 
 **Shooting distance.** `SHOOTING_DISTANCE_IN` is measured from the camera to the cell's center. The camera sits about 6 inches behind the shooter (see Reference: Robot Hardware). Because the value is tuned by testing, the offset is absorbed and needs no correction.
+
+**Future improvements.** Not in this TeleOp. Written down so we do not lose the ideas:
+
+1. **Start from outside the cone.** If the tags are visible but the robot is outside the cone, auto fire would drive to the nearer 45-degree end of the shooting arc, then aim and shoot. The driver would no longer have to get into the cone first.
+2. **Path around the HIVE frame.** The frame is a fixed structure. Once we have the target cell's pose, we know where the frame is and could plan a path that goes around it instead of through it. Other robots still cannot be avoided this way; the driver would still cancel if another robot is in the way.
 
 ---
 

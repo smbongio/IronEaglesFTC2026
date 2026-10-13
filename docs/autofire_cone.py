@@ -62,12 +62,10 @@ ax.text(0, CELL_D / 2 + 0.06, "target CELL", color="#b00020", fontsize=11, ha="c
 ax.plot(0, 0, "ko", ms=6, zorder=5)
 ax.text(CELL_W / 2 + 0.08, 0.0, "center of the CELL\n(tip of the cone)", fontsize=9, va="center")
 
-# Example robots and where auto fire drives them
+# Example robots and where auto fire drives them (starts only inside the cone)
 robots = [
     ("A", (-100, 2.2), (-100, N), "inside cone, too far:\nmoves straight in"),
     ("B", (-62, 0.42), (-62, N), "inside cone, too close:\nmoves straight out"),
-    ("C", (-12, 1.9), (right_edge, N), "outside cone:\ngoes to nearer end of arc"),
-    ("D", (-172, 1.35), (left_edge, N), "outside cone:\ngoes to nearer end of arc"),
 ]
 for name, (ra, rr), (ta, tr), label in robots:
     rxy, txy = pt(ra, rr), pt(ta, tr)
@@ -77,10 +75,8 @@ for name, (ra, rr), (ta, tr), label in robots:
                            edgecolor="black", lw=1.2, zorder=5))
     ax.text(rxy[0], rxy[1], name, fontsize=9, ha="center", va="center", fontweight="bold", zorder=6)
     ax.plot(*txy, "o", color="#d62828", ms=8, markeredgecolor="black", zorder=6)
-    off = {"A": (0.15, -0.05), "B": (0.14, 0.0), "C": (0.0, 0.17), "D": (0.0, 0.17)}[name]
-    ha = "left" if name in ("A", "B") else "center"
-    ax.text(rxy[0] + off[0], rxy[1] + off[1], label, fontsize=8.5, ha=ha,
-            va="bottom" if name in ("C", "D") else "center")
+    off = {"A": (0.15, -0.05), "B": (0.14, 0.0)}[name]
+    ax.text(rxy[0] + off[0], rxy[1] + off[1], label, fontsize=8.5, ha="left", va="center")
 
 ax.text(-2.9, -3.75, "N = shooting distance (SHOOTING_DISTANCE_IN). The cone has no maximum distance; dashed lines show it continues.\n"
         "Yellow squares: robot positions when the trigger is pulled.  Red dots: where auto fire drives the robot.",
