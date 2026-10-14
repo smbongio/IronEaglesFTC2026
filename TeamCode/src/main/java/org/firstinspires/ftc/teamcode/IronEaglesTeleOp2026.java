@@ -1,411 +1,236 @@
 package org.firstinspires.ftc.teamcode;
 
-// Import FTC linear OpMode base class for sequential program execution
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-// Import FTC TeleOp annotation to register this program on Driver Station menu
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-// Import FTC RobotLog utility for persistent logging
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.RobotLog;
-
-// Road Runner Imports
-import com.acmerobotics.roadrunner.geometry.Pose2d;
-import com.acmerobotics.roadrunner.trajectory.Trajectory;
-import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
-
-// Import high-level auto-fire controller interface
-import org.firstinspires.ftc.teamcode.interfaces.AutoFireControllerInterface;
-// Import target spatial geometry interface
-import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
-// Import high-level LED indicator interface
-import org.firstinspires.ftc.teamcode.interfaces.LedIndicatorInterface;
-// Import high-level vision subsystem interface
-import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
-// Import concrete subsystem implementations
-import org.firstinspires.ftc.teamcode.subsystems.AprilTagVisionSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
+import org.firstinspires.ftc.teamcode.config.TunableValues;
+import org.firstinspires.ftc.teamcode.geometry.CellGeometry;
+import org.firstinspires.ftc.teamcode.interfaces.AllianceInterface;
+import org.firstinspires.ftc.teamcode.interfaces.LedInterface;
+import org.firstinspires.ftc.teamcode.subsystems.AllianceSelector;
+import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
+import org.firstinspires.ftc.teamcode.subsystems.AutoFireAvailability;
+import org.firstinspires.ftc.teamcode.subsystems.AutoFireController;
+import org.firstinspires.ftc.teamcode.subsystems.ControlHubImu;
+import org.firstinspires.ftc.teamcode.subsystems.HopperSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.MecanumDrivetrain;
+import org.firstinspires.ftc.teamcode.subsystems.NoOpLed;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ShootingGeometry;
+import org.firstinspires.ftc.teamcode.subsystems.TargetCellTracker;
+import org.firstinspires.ftc.teamcode.util.RobotLogger;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
-import java.util.Collections;
 import java.util.List;
 
-// Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
-
-    // Set wheel motor spin direction multipliers
-    public static int FRONT_LEFT_DIR  =  1;
-    public static int FRONT_RIGHT_DIR = -1;
-    public static int BACK_LEFT_DIR   =  1;
-    public static int BACK_RIGHT_DIR  = -1;
-    // Set motor directions for intake, hopper, and shooter (Hopper direction reversed)
-    public static int INTAKE_DIR      =  1;
-    public static int HOPPER_DIR      = -1;
-    public static int SHOOTER_DIR     =  1;
-
-    // Set default team alliance flag to blue team
-    public static boolean IS_BLUE_ALLIANCE = true;
-
-    // Create instance of main robot hardware manager
-    private final IronEaglesHardware robot = new IronEaglesHardware();
-
-    // Declare reference for vision subsystem interface
-    private VisionSubsystemInterface vision;
-    // Declare reference for LED indicator interface
-    private LedIndicatorInterface led;
-    // Current firing state for automated shooting sequence
-    private AutoFireControllerInterface.FiringState firingState = AutoFireControllerInterface.FiringState.IDLE;
-
-    // State tracking for the button edge-detector
-    private boolean wasInAimAssistMode = false;
-    // State tracking for flywheel logging
-    private boolean wasFlywheelSpoolingAimAssist = false;
-    private boolean wasFlywheelRunningManual = false;
-    // State tracking for LED indicator logging
-    private LedIndicatorInterface.LedState currentLedState = null;
-    // State tracking for manual drivetrain logging
-    private boolean wasManualDriving = false;
-    // State tracking for manual intake logging
-    private boolean wasIntakeRunning = false;
-    // State tracking for manual hopper button logging
-    private boolean wasHopperXPressed = false;
-    // Vision diagnostic logging
-    private String lastVisionLogKey = "";
+    private final RobotLogger log = new RobotLogger("TELEOP");
     private final ElapsedTime visionLogTimer = new ElapsedTime();
+    private String lastVisionLogKey = "";
+    private boolean wasGp2RightTrigger;
 
-    // Helper method to log firing state transitions
-    private void setFiringState(AutoFireControllerInterface.FiringState newState) {
-        if (this.firingState != newState) {
-            RobotLog.i("==================================================");
-            RobotLog.i("[AIM-ASSIST STATE TRANSITION] %s -> %s", this.firingState, newState);
-            RobotLog.i("==================================================");
-            this.firingState = newState;
-        }
-    }
+    private AllianceSelector alliance;
+    private ControlHubImu imu;
+    private AprilTagVision vision;
+    private TargetCellTracker tracker;
+    private ShootingGeometry shooting;
+    private MecanumDrivetrain drive;
+    private HopperSubsystem hopper;
+    private IntakeSubsystem intake;
+    private ShooterSubsystem shooter;
+    private NoOpLed led;
+    private AutoFireAvailability availability;
+    private AutoFireController autoFire;
+    private IronEaglesHardware robot;
 
-    // Main execution entry point called when driver selects OpMode
     @Override
     public void runOpMode() {
-        RobotLog.i("OpMode Initializing: IronEaglesTeleOp2026");
+        log.i("OpMode initializing IronEaglesTeleOp2026");
+        logTunables();
 
-        // Initialize all hardware motors and camera on REV hubs
+        robot = new IronEaglesHardware();
         robot.init(hardwareMap);
 
-        // Instantiate concrete Vision and LED Subsystems
-        vision = new AprilTagVisionSubsystem(hardwareMap, robot.camera);
-        led    = new BlinkinLedSubsystem(hardwareMap, "led");
+        alliance = new AllianceSelector();
+        imu = new ControlHubImu(hardwareMap);
+        vision = new AprilTagVision(hardwareMap, robot.camera);
+        tracker = new TargetCellTracker();
+        shooting = new ShootingGeometry();
+        drive = new MecanumDrivetrain(robot.frontLeft, robot.frontRight, robot.backLeft, robot.backRight, imu);
+        hopper = new HopperSubsystem(robot.hopper);
+        intake = new IntakeSubsystem(robot.intake);
+        shooter = new ShooterSubsystem(robot.shooter);
+        led = new NoOpLed();
+        availability = new AutoFireAvailability(alliance, imu, vision, drive, tracker, shooting);
+        autoFire = new AutoFireController(availability, tracker, shooting, drive, hopper);
 
-        // Initialize Road Runner Drivetrain (This takes ownership of the 4 wheel motors)
-        SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);
-
-        // Check if vision subsystem interface is assigned
-        if (vision != null) {
-            // Set active alliance team color in vision subsystem for target detection
-            vision.setAlliance(IS_BLUE_ALLIANCE ? VisionSubsystemInterface.Alliance.BLUE : VisionSubsystemInterface.Alliance.RED);
-            RobotLog.i("Vision Subsystem Alliance set to: %s", IS_BLUE_ALLIANCE ? "BLUE" : "RED");
-        } else {
-            RobotLog.w("Vision Subsystem interface is NULL upon initialization.");
-        }
-
-        // Check if all configured hardware devices were successfully found
-        if (robot.missingDevices.isEmpty()) { 
-            telemetry.addData("Status", "Initialized - All devices found!");
-            RobotLog.i("Hardware Map Initialization Complete: All devices found.");
-        } else { 
-            telemetry.addData("WARNING", "Initialized with missing config devices!");
-            telemetry.addData("Missing", String.join(", ", robot.missingDevices));
-            RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s", String.join(", ", robot.missingDevices));
-        }
-        telemetry.update();
-
-        // Pause execution until driver presses play button on Driver Hub
-        waitForStart();
-        RobotLog.i("OpMode Started: Match timer running.");
-        RobotLog.i("[VISION] camera device=%s missing=%s state=%s",
-                robot.camera != null ? robot.camera.getDeviceName() : "null",
-                robot.missingDevices.contains("camera"),
-                vision != null ? vision.getCameraStateName() : "vision-null");
-        visionLogTimer.reset();
-
-        // Loop continuously while match is active until stop is pressed
-        while (opModeIsActive()) {
-            
-            // =========================================================================
-            // CRITICAL: Update Road Runner Odometry (Must run every loop!)
-            // =========================================================================
-            drive.update();
-
-            // Record one camera sample per loop so the X-of-Y detection gate stays current
-            if (vision != null) {
-                vision.update();
-            }
-
-            // Read joysticks
-            double rawY  = -gamepad1.left_stick_y;
-            double rawX  =  gamepad1.left_stick_x;
-            double rawRx =  gamepad1.right_stick_x;
-
-            // Apply 5 percent deadzone filters
-            double y  = Math.abs(rawY)  > 0.05 ? rawY  : 0.0;
-            double x  = Math.abs(rawX)  > 0.05 ? rawX  : 0.0;
-            double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
-
-            boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
-            boolean isInAimAssistMode = gamepad1.right_bumper;
-            boolean isInRange = (vision != null && vision.isInShootingRange());
-            boolean isShooting = robot.getShooter().isRunning();
-
-            // Mode Transition Logging
-            if (isInAimAssistMode && !wasInAimAssistMode) {
-                RobotLog.i(">>> ENTERING AIM-ASSIST MODE (Right Bumper Pressed) <<<");
-            } else if (!isInAimAssistMode && wasInAimAssistMode) {
-                RobotLog.i("<<< EXITING AIM-ASSIST MODE -> RETURNING TO MANUAL MODE >>>");
-            }
-
-            // Process LED indicator visual signals
-            if (led != null) {
-                LedIndicatorInterface.LedState targetLedState;
-                if (isShooting) { 
-                    targetLedState = LedIndicatorInterface.LedState.SHOOTING;
-                } else if (isInRange) { 
-                    targetLedState = LedIndicatorInterface.LedState.IN_RANGE;
-                } else { 
-                    targetLedState = LedIndicatorInterface.LedState.OFF;
-                }
-
-                if (currentLedState != targetLedState) {
-                    RobotLog.i("[LED INDICATOR] Visual Signal State: %s -> %s", currentLedState, targetLedState);
-                    currentLedState = targetLedState;
-                    led.setLedState(targetLedState);
-                }
-            }
-
-            // =========================================================================
-            // SUBSYSTEM 1: FLYWHEEL (Decoupled for instant spool-up)
-            // =========================================================================
-            if (isInAimAssistMode) {
-                if (!wasFlywheelSpoolingAimAssist) {
-                    RobotLog.i("[FLYWHEEL] Aim-Assist active: Spooling up flywheel motor to 100%% power.");
-                    wasFlywheelSpoolingAimAssist = true;
-                    wasFlywheelRunningManual = false;
-                }
-                robot.getShooter().runShooter(1.0);
-            } else if (isManualShootTriggerHeld) {
-                if (!wasFlywheelRunningManual) {
-                    RobotLog.i("[FLYWHEEL] Manual trigger squeezed (%.2f): Running flywheel motor.", gamepad1.right_trigger);
-                    wasFlywheelRunningManual = true;
-                    wasFlywheelSpoolingAimAssist = false;
-                }
-                robot.getShooter().runShooter(gamepad1.right_trigger);
-            } else {
-                if (wasFlywheelSpoolingAimAssist || wasFlywheelRunningManual) {
-                    RobotLog.i("[FLYWHEEL] Flywheel motor stopped.");
-                    wasFlywheelSpoolingAimAssist = false;
-                    wasFlywheelRunningManual = false;
-                }
-                robot.getShooter().stop();
-            }
-
-            // =========================================================================
-            // SUBSYSTEM 2: AIM-ASSIST STATE MACHINE & DRIVETRAIN
-            // =========================================================================
-            if (isInAimAssistMode) {
-                
-                // 1. Edge Detector: The exact moment the button is pressed
-                if (!wasInAimAssistMode) {
-                    RobotLog.i("[AIM-ASSIST] Initializing Aim-Assist: Querying Vision Subsystem for target geometry...");
-                    TargetGeometryInterface target = (vision != null) ? vision.getBestTargetGeometry() : null;
-                    
-                    if (target != null) {
-                        // TAKE THE SNAPSHOT from last-known-good geometry (usable while the X-of-Y gate is passing)
-                        Pose2d currentPose = drive.getPoseEstimate();
-                        
-                        RobotLog.i("[AIM-ASSIST] Target Acquired (detection gate %d/%d)! Tag ID: %d | Range: %.2f in | Bearing: %.2f deg | Pose: (X: %.2f, Y: %.2f)",
-                                vision.getDetectionHitCount(), vision.getDetectionSampleCount(),
-                                target.getTagId(), target.getRangeInches(), target.getBearingDegrees(), currentPose.getX(), currentPose.getY());
-
-                        Trajectory alignShot = drive.trajectoryBuilder(currentPose)
-                                .lineToLinearHeading(new Pose2d(
-                                        currentPose.getX() + target.getXInches(), 
-                                        currentPose.getY() + target.getYInches(), 
-                                        Math.toRadians(target.getBearingDegrees())
-                                ))
-                                .build();
-
-                        // Fire the asynchronous movement
-                        RobotLog.i("[AIM-ASSIST] Dispatched Road Runner alignment trajectory asynchronously.");
-                        drive.followTrajectoryAsync(alignShot);
-                        setFiringState(AutoFireControllerInterface.FiringState.ALIGNING);
-                    } else {
-                        // Edge case: Detection gate not passing, stay idle
-                        RobotLog.w("[AIM-ASSIST WARNING] Detection gate not passing (%d/%d). Last known good geometry is not usable.",
-                                vision != null ? vision.getDetectionHitCount() : 0,
-                                vision != null ? vision.getDetectionSampleCount() : 0);
-                        setFiringState(AutoFireControllerInterface.FiringState.IDLE);
-                    }
-                }
-
-                // 2. Continuous Alignment Check
-                if (firingState == AutoFireControllerInterface.FiringState.ALIGNING) {
-                    RobotLog.i("[AIM-ASSIST ALIGNING] Executing alignment trajectory... drive.isBusy() = %b", drive.isBusy());
-                    // drive.isBusy() asks Road Runner if the trajectory is still executing
-                    if (!drive.isBusy()) {
-                        // The drivetrain has reached the exact snapshot coordinates
-                        RobotLog.i("[AIM-ASSIST ALIGNED] Trajectory execution complete! Robot in position. Transitioning to FEEDING.");
-                        setFiringState(AutoFireControllerInterface.FiringState.FEEDING);
-                    }
-                }
-
-                // 3. Feeding logic
-                if (firingState == AutoFireControllerInterface.FiringState.FEEDING) {
-                    RobotLog.i("[AIM-ASSIST FEEDING] Actuating hopper motor at 100%% power to feed elements into flywheel.");
-                    // Flywheel is already running from Subsystem 1, just start the hopper
-                    robot.getHopper().runHopper(1.0);
-                }
-
-            } 
-            // =========================================================================
-            // MODE 2: ALL MANUAL MODE 
-            // =========================================================================
-            else {
-                if (firingState != AutoFireControllerInterface.FiringState.IDLE) {
-                    RobotLog.i("[MANUAL MODE] Exited Aim-Assist: Resetting state machine from %s back to IDLE.", firingState);
-                    setFiringState(AutoFireControllerInterface.FiringState.IDLE);
-                }
-
-                // 1. Manual Mecanum Drivetrain Control via Road Runner
-                boolean isManualDriving = (x != 0 || y != 0 || rx != 0);
-                if (isManualDriving && !wasManualDriving) {
-                    RobotLog.i("[MANUAL DRIVETRAIN] Joysticks engaged -> Y: %.2f | X: %.2f | Rot: %.2f", y, x, rx);
-                    wasManualDriving = true;
-                } else if (!isManualDriving && wasManualDriving) {
-                    RobotLog.i("[MANUAL DRIVETRAIN] Joysticks released -> Drivetrain stopped.");
-                    wasManualDriving = false;
-                }
-
-                drive.setWeightedDrivePower(
-                        new Pose2d(x, y, rx) // Pose2d(x, y, heading) -> x is strafe, y is forward
-                );
-
-                // 2. Manual Intake Control (Left Trigger)
-                if (gamepad1.left_trigger > 0.2) { 
-                    if (!wasIntakeRunning) {
-                        RobotLog.i("[MANUAL INTAKE] Left trigger squeezed (%.2f) -> Running intake motor.", gamepad1.left_trigger);
-                        wasIntakeRunning = true;
-                    }
-                    robot.getIntake().runIntake(gamepad1.left_trigger);
-                } else { 
-                    if (wasIntakeRunning) {
-                        RobotLog.i("[MANUAL INTAKE] Left trigger released -> Intake motor stopped.");
-                        wasIntakeRunning = false;
-                    }
-                    robot.getIntake().stop();
-                }
-
-                // 3. Manual Hopper Control (X Button — Steps 180° iteratively & returns upright)
-                if (gamepad1.x) { 
-                    if (!wasHopperXPressed) {
-                        RobotLog.i("[GAMEPAD] X Button PRESSED -> Triggering Hopper 180-deg Step");
-                        wasHopperXPressed = true;
-                    }
-                    robot.getHopper().stepForward180();
-                } else { 
-                    if (wasHopperXPressed) {
-                        RobotLog.i("[GAMEPAD] X Button RELEASED");
-                        wasHopperXPressed = false;
-                    }
-                    if (!robot.getHopper().isUpright()) { 
-                        robot.getHopper().returnToUpright();
-                    } else { 
-                        robot.getHopper().stop();
-                    }
-                }
-            }
-
-            // Update edge detector
-            wasInAimAssistMode = isInAimAssistMode;
-
-            // =========================================================================
-            // TELEMETRY UPDATES
-            // =========================================================================
-            telemetry.addData("Status", "Running");
-            telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
-            telemetry.addData("Fire State", firingState);
-            telemetry.addData("Hopper Pos", robot.hopper != null ? robot.hopper.getCurrentPosition() : "NULL");
-            telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
-            telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
-            telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
-            telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
-
-            boolean APRIL_TAG_DETECTED = false;
-            AprilTagDetection closestDetection = null;
-            List<AprilTagDetection> detections = Collections.emptyList();
-            String cameraState = vision != null ? vision.getCameraStateName() : "NONE";
-            double cameraFps = vision != null ? vision.getFps() : 0.0;
-            if (vision != null) {
-                detections = vision.getRawDetections();
-                APRIL_TAG_DETECTED = !detections.isEmpty();
-                for (AprilTagDetection detection : detections) {
-                    if (detection == null) {
-                        continue;
-                    }
-                    if (closestDetection == null) {
-                        closestDetection = detection;
-                    } else if (detection.ftcPose != null
-                            && (closestDetection.ftcPose == null || detection.ftcPose.range < closestDetection.ftcPose.range)) {
-                        closestDetection = detection;
-                    }
-                }
-            }
-            boolean targetCellInView = vision != null && vision.isTargetAcquired();
-            int detectionHits = vision != null ? vision.getDetectionHitCount() : 0;
-            int detectionSamples = vision != null ? vision.getDetectionSampleCount() : 0;
-            telemetry.addData("APRIL_TAG_DETECTED", APRIL_TAG_DETECTED);
-            telemetry.addData("TARGET_CELL_IN_VIEW", targetCellInView);
-            telemetry.addData("Detection gate", "%d/%d", detectionHits, detectionSamples);
-            telemetry.addData("Camera", "%s  %.1f fps", cameraState, cameraFps);
-            telemetry.addData("Detections", detections.size());
-            if (closestDetection instanceof AprilTagSingleDetection) {
-                AprilTagSingleDetection tag = (AprilTagSingleDetection) closestDetection;
-                telemetry.addData("Tag ID", tag.id);
-                if (tag.ftcPose != null) {
-                    telemetry.addData("Tag X / Y / Z (in)", "%.1f / %.1f / %.1f", tag.ftcPose.x, tag.ftcPose.y, tag.ftcPose.z);
-                    telemetry.addData("Tag Yaw (deg)", "%.1f", tag.ftcPose.yaw);
-                } else {
-                    telemetry.addData("Tag pose", "none (not in tag library)");
-                }
-            } else if (closestDetection instanceof AprilTagClusterDetection) {
-                AprilTagClusterDetection cluster = (AprilTagClusterDetection) closestDetection;
-                telemetry.addData("Tag ID", "cluster %s (%d%%)", cluster.metadata.name, cluster.percentClusterFound);
-                if (cluster.ftcPose != null) {
-                    telemetry.addData("Tag X / Y / Z (in)", "%.1f / %.1f / %.1f", cluster.ftcPose.x, cluster.ftcPose.y, cluster.ftcPose.z);
-                    telemetry.addData("Tag Yaw (deg)", "%.1f", cluster.ftcPose.yaw);
-                }
-            }
-            TargetGeometryInterface usableTarget = (vision != null) ? vision.getBestTargetGeometry() : null;
-            if (usableTarget != null) {
-                telemetry.addData("Last good X / Y / range (in)", "%.1f / %.1f / %.1f",
-                        usableTarget.getXInches(), usableTarget.getYInches(), usableTarget.getRangeInches());
-                telemetry.addData("Last good yaw / bearing (deg)", "%.1f / %.1f",
-                        usableTarget.getYawDegrees(), usableTarget.getBearingDegrees());
-            } else {
-                telemetry.addData("Last good geometry", "--");
-            }
-            logVisionDiagnostics(cameraState, cameraFps, detections, APRIL_TAG_DETECTED,
-                    targetCellInView, detectionHits, detectionSamples);
-
-            if (!robot.missingDevices.isEmpty()) {
-                telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
-            }
+        while (opModeInInit()) {
+            chooseAllianceIfPressed();
+            writeTelemetry("INIT");
             telemetry.update();
+        }
+
+        if (alliance.isSet()) {
+            alliance.lock();
+            tracker.setAlliance(alliance.getColor());
+            log.i("Play. Alliance locked %s", alliance.getColor());
+        } else {
+            log.w("Play with alliance NOT SET. Auto fire disabled until X=Blue or B=Red.");
+        }
+        shooter.start();
+        visionLogTimer.reset();
+        log.i("Match started. shooter started, heading=%.1f camera=%s",
+                imu.getHeadingDegrees(), vision.getCameraStateName());
+
+        while (opModeIsActive()) {
+            chooseAllianceIfPressed();
+            if (gamepad1.backWasPressed()) {
+                imu.resetYaw();
+            }
+
+            List<AprilTagDetection> detections = vision.sample();
+            tracker.update(detections);
+
+            boolean available = availability.isAutoFireAvailable();
+            led.setState(available ? LedInterface.State.AUTO_FIRE_AVAILABLE : LedInterface.State.OFF);
+
+            boolean gp2Rt = gamepad2.right_trigger > TunableValues.DEADZONE;
+            if (autoFire.isActive() && hasManualInput()) {
+                log.i("Manual input cancelled auto fire from %s", autoFire.getState());
+                autoFire.abort();
+            } else if (!autoFire.isActive() && gp2Rt && !wasGp2RightTrigger) {
+                autoFire.start();
+            }
+            wasGp2RightTrigger = gp2Rt;
+
+            if (autoFire.isActive()) {
+                autoFire.update();
+            } else {
+                applyManualControls();
+            }
+
+            writeTelemetry("RUN");
+            logVision(detections);
+            telemetry.update();
+        }
+        log.i("OpMode stopped");
+    }
+
+    private void chooseAllianceIfPressed() {
+        if (alliance.isLocked()) {
+            return;
+        }
+        if (gamepad1.xWasPressed()) {
+            alliance.choose(AllianceInterface.Color.BLUE);
+            tracker.setAlliance(AllianceInterface.Color.BLUE);
+            if (!opModeInInit()) {
+                alliance.lock();
+            }
+        } else if (gamepad1.bWasPressed()) {
+            alliance.choose(AllianceInterface.Color.RED);
+            tracker.setAlliance(AllianceInterface.Color.RED);
+            if (!opModeInInit()) {
+                alliance.lock();
+            }
         }
     }
 
-    private void logVisionDiagnostics(String cameraState, double cameraFps,
-                                      List<AprilTagDetection> detections, boolean detected,
-                                      boolean gatePassing, int detectionHits, int detectionSamples) {
+    private void applyManualControls() {
+        double y = deadzone(-gamepad1.left_stick_y);
+        double x = deadzone(gamepad1.left_stick_x);
+        double rx = deadzone(gamepad1.right_stick_x);
+        double heading = imu.isPresent() ? imu.getHeadingDegrees() : 0.0;
+        drive.driveFieldCentric(x, y, rx, heading);
+
+        if (gamepad2.left_trigger > TunableValues.DEADZONE) {
+            intake.runInward();
+        } else if (gamepad2.left_bumper) {
+            intake.runOutward();
+        } else {
+            intake.stop();
+        }
+
+        if (gamepad2.x) {
+            hopper.stepForward180();
+        } else if (gamepad2.y) {
+            hopper.stepReverse180();
+        }
+        hopper.update();
+    }
+
+    private boolean hasManualInput() {
+        return stick(gamepad1.left_stick_x) || stick(gamepad1.left_stick_y) || stick(gamepad1.right_stick_x)
+                || stick(gamepad1.right_stick_y) || stick(gamepad2.left_stick_x) || stick(gamepad2.left_stick_y)
+                || stick(gamepad2.right_stick_x) || stick(gamepad2.right_stick_y)
+                || gamepad1.left_trigger > TunableValues.DEADZONE
+                || gamepad1.right_trigger > TunableValues.DEADZONE
+                || gamepad2.left_trigger > TunableValues.DEADZONE
+                || gamepad1.a || gamepad1.b || gamepad1.x || gamepad1.y
+                || gamepad1.left_bumper || gamepad1.right_bumper
+                || gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.dpad_left || gamepad1.dpad_right
+                || gamepad1.back || gamepad1.start || gamepad1.left_stick_button || gamepad1.right_stick_button
+                || gamepad2.a || gamepad2.b || gamepad2.x || gamepad2.y
+                || gamepad2.left_bumper || gamepad2.right_bumper
+                || gamepad2.dpad_up || gamepad2.dpad_down || gamepad2.dpad_left || gamepad2.dpad_right
+                || gamepad2.back || gamepad2.start || gamepad2.left_stick_button || gamepad2.right_stick_button;
+    }
+
+    private static boolean stick(double value) {
+        return Math.abs(value) > TunableValues.DEADZONE;
+    }
+
+    private static double deadzone(double value) {
+        return stick(value) ? value : 0.0;
+    }
+
+    private void writeTelemetry(String phase) {
+        String allianceName = alliance.isSet() ? alliance.getColor().name() : "NOT SET";
+        String reason = availability.unavailableReason();
+        boolean available = reason == null;
+        CellGeometry geometry = tracker.getLastKnownGood();
+
+        telemetry.addData("Phase", phase);
+        telemetry.addData("Alliance", allianceName + (alliance.isLocked() ? " (locked)" : ""));
+        telemetry.addData("TARGET_CELL_IN_VIEW", tracker.isTargetCellInView());
+        telemetry.addData("AUTO_FIRE_AVAILABLE", available);
+        telemetry.addData("AUTO_FIRE reason", available ? "ok" : reason);
+        telemetry.addData("LED", led.getState());
+        telemetry.addData("Auto fire", autoFire.getState());
+        telemetry.addData("IMU", imu.isPresent() ? String.format("%.1f deg", imu.getHeadingDegrees()) : "MISSING");
+        telemetry.addData("Camera", "%s  %.1f fps", vision.getCameraStateName(), vision.getFps());
+        telemetry.addData("Detection gate", "%d/%d", tracker.getGateHits(), tracker.getGateWindow());
+        telemetry.addData("Drive auto-fire ready", drive.areDriveMotorsPresent());
+        telemetry.addData("Intake", intake.isUsingVelocity() ? "velocity RPM" : "100% power fallback");
+        telemetry.addData("Hopper stepping", hopper.isStepping());
+        if (geometry != null) {
+            telemetry.addData("Last good source", geometry.source);
+            telemetry.addData("Last good x/y/z (in)", "%.1f / %.1f / %.1f", geometry.xIn, geometry.yIn, geometry.zIn);
+            telemetry.addData("Last good range/yaw/bearing", "%.1f in / %.1f / %.1f",
+                    geometry.rangeIn, geometry.yawDeg, geometry.bearingDeg);
+            telemetry.addData("Last good height/upright", "%.1f in / %b", geometry.tagHeightIn, geometry.upright);
+            telemetry.addData("In cone", shooting.isInsideCone(geometry));
+        } else {
+            telemetry.addData("Last good geometry", "--");
+        }
+        if (!robot.missingDevices.isEmpty()) {
+            telemetry.addData("Missing devices", String.join(", ", robot.missingDevices));
+        }
+        if (!drive.areDriveMotorsPresent()) {
+            telemetry.addData("WARNING", "Drive motors/encoders missing. Auto fire disabled.");
+        }
+        if (!intake.isUsingVelocity()) {
+            telemetry.addData("WARNING intake", "Encoder/motor type missing. Intake at 100% power.");
+        }
+        if (!alliance.isSet()) {
+            telemetry.addData("WARNING alliance", "Press GP1 X=Blue or B=Red");
+        }
+    }
+
+    private void logVision(List<AprilTagDetection> detections) {
         StringBuilder details = new StringBuilder();
         for (int i = 0; i < detections.size(); i++) {
             AprilTagDetection detection = detections.get(i);
@@ -414,24 +239,38 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             }
             if (detection instanceof AprilTagSingleDetection) {
                 AprilTagSingleDetection tag = (AprilTagSingleDetection) detection;
-                details.append(String.format("single id=%d meta=%b pose=%b",
-                        tag.id, tag.metadata != null, tag.ftcPose != null));
+                details.append(String.format("single id=%d pose=%b", tag.id, tag.ftcPose != null));
             } else if (detection instanceof AprilTagClusterDetection) {
                 AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
+                String name = cluster.metadata == null ? "?" : cluster.metadata.name;
                 details.append(String.format("cluster %s pct=%d pose=%b",
-                        cluster.metadata.name, cluster.percentClusterFound, cluster.ftcPose != null));
+                        name, cluster.percentClusterFound, cluster.ftcPose != null));
             } else {
                 details.append(detection == null ? "null" : detection.getClass().getSimpleName());
             }
         }
-        String key = cameraState + "|" + detections.size() + "|" + gatePassing + "|" + detectionHits + "|" + details;
+        String key = vision.getCameraStateName() + "|" + detections.size() + "|" + tracker.isGatePassing()
+                + "|" + tracker.getGateHits() + "|" + details;
         if (key.equals(lastVisionLogKey) && visionLogTimer.seconds() < 2.0) {
             return;
         }
         lastVisionLogKey = key;
         visionLogTimer.reset();
-        RobotLog.i("[VISION] detected=%b gate=%b %d/%d state=%s fps=%.1f count=%d %s",
-                detected, gatePassing, detectionHits, detectionSamples,
-                cameraState, cameraFps, detections.size(), details);
+        log.i("detected=%b inView=%b gate=%b %d/%d state=%s fps=%.1f count=%d %s",
+                !detections.isEmpty(), tracker.isTargetCellInView(), tracker.isGatePassing(),
+                tracker.getGateHits(), tracker.getGateWindow(),
+                vision.getCameraStateName(), vision.getFps(), detections.size(), details);
+    }
+
+    private void logTunables() {
+        log.i("Tunables shooterFrac=%.2f intakeFrac=%.2f shootDist=%.1f camH=%.1f camTilt=%.1f wheel=%.1f cellUp=%.1f",
+                TunableValues.SHOOTER_TARGET_RPM_FRACTION, TunableValues.INTAKE_TARGET_RPM_FRACTION,
+                TunableValues.SHOOTING_DISTANCE_IN, TunableValues.CAMERA_HEIGHT_IN,
+                TunableValues.CAMERA_TILT_DEG, TunableValues.WHEEL_DIAMETER_IN,
+                TunableValues.CELL_UP_MIN_HEIGHT_IN);
+        log.i("Tunables imu logo=%s usb=%s gate=%d/%d deadzone=%.2f",
+                TunableValues.IMU_LOGO_DIRECTION, TunableValues.IMU_USB_DIRECTION,
+                TunableValues.TAG_DETECTION_MIN_HITS, TunableValues.TAG_DETECTION_WINDOW,
+                TunableValues.DEADZONE);
     }
 }

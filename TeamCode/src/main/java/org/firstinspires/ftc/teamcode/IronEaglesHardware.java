@@ -3,164 +3,131 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
-import org.firstinspires.ftc.teamcode.interfaces.DrivetrainInterface;
-import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
-import org.firstinspires.ftc.teamcode.interfaces.IntakeInterface;
-import org.firstinspires.ftc.teamcode.interfaces.RobotHardwareInterface;
-import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
-import org.firstinspires.ftc.teamcode.subsystems.HopperSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.MecanumDrivetrain;
-import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
+import org.firstinspires.ftc.teamcode.util.RobotLogger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Concrete hardware implementation mapping Control Hub and Expansion Hub peripherals.
+ * Maps Control Hub and Expansion Hub devices. Subsystems are constructed by TeleOp.
  */
-public class IronEaglesHardware implements RobotHardwareInterface {
-
-    // Control Hub Motors
+public class IronEaglesHardware {
     public DcMotor frontRight;
     public DcMotor backRight;
     public DcMotor backLeft;
     public DcMotor frontLeft;
     public WebcamName camera;
-
-    // Expansion Hub Motors
     public DcMotor intake;
     public DcMotor hopper;
     public DcMotor shooter;
-
     public final List<String> missingDevices = new ArrayList<>();
 
-    private MecanumDrivetrain drivetrainSubsystem;
-    private IntakeSubsystem intakeSubsystem;
-    private HopperSubsystem hopperSubsystem;
-    private ShooterSubsystem shooterSubsystem;
+    private final RobotLogger log = new RobotLogger("HARDWARE");
 
     private <T> T getHardwareSafely(HardwareMap hardwareMap, Class<T> clazz, String name) {
         try {
             T device = hardwareMap.tryGet(clazz, name);
             if (device == null) {
                 missingDevices.add(name);
+                log.w("Missing device '%s'", name);
             }
             return device;
         } catch (Exception e) {
             missingDevices.add(name);
+            log.w("Missing device '%s': %s", name, e.getMessage());
             return null;
         }
     }
 
     public void logDiagnostics(HardwareMap hardwareMap) {
-        RobotLog.i("=================== HARDWARE DIAGNOSTICS ===================");
-        RobotLog.i("Total DcMotors found in active HardwareMap: " + hardwareMap.dcMotor.size());
+        log.i("=================== HARDWARE DIAGNOSTICS ===================");
+        log.i("Total DcMotors found in active HardwareMap: %d", hardwareMap.dcMotor.size());
         for (Map.Entry<String, DcMotor> entry : hardwareMap.dcMotor.entrySet()) {
-            RobotLog.i(" -> Configured DcMotor: '" + entry.getKey() + "'");
+            log.i(" -> Configured DcMotor: '%s'", entry.getKey());
         }
-
         try {
-            RobotLog.i("Total Servos found in active HardwareMap: " + hardwareMap.servo.size());
+            log.i("Total Servos found in active HardwareMap: %d", hardwareMap.servo.size());
             for (Map.Entry<String, Servo> entry : hardwareMap.servo.entrySet()) {
-                RobotLog.i(" -> Configured Servo: '" + entry.getKey() + "'");
+                log.i(" -> Configured Servo: '%s'", entry.getKey());
             }
-        } catch (Exception ignored) {}
-
+        } catch (Exception ignored) {
+        }
         try {
-            RobotLog.i("Total CRServos found in active HardwareMap: " + hardwareMap.crservo.size());
+            log.i("Total CRServos found in active HardwareMap: %d", hardwareMap.crservo.size());
             for (Map.Entry<String, CRServo> entry : hardwareMap.crservo.entrySet()) {
-                RobotLog.i(" -> Configured CRServo: '" + entry.getKey() + "'");
+                log.i(" -> Configured CRServo: '%s'", entry.getKey());
             }
-        } catch (Exception ignored) {}
-
+        } catch (Exception ignored) {
+        }
         try {
             List<WebcamName> webcams = hardwareMap.getAll(WebcamName.class);
-            RobotLog.i("Total Webcams found in active HardwareMap: " + webcams.size());
+            log.i("Total Webcams found in active HardwareMap: %d", webcams.size());
         } catch (Exception e) {
-            RobotLog.i("No webcams found in active HardwareMap.");
+            log.i("No webcams found in active HardwareMap.");
         }
-        RobotLog.i("============================================================");
+        log.i("============================================================");
     }
 
-    @Override
     public void init(HardwareMap hardwareMap) {
         missingDevices.clear();
         logDiagnostics(hardwareMap);
 
-        // Enable AUTO Bulk Caching Mode for all REV Hubs to optimize cycle speed
         try {
             List<LynxModule> allHubs = hardwareMap.getAll(LynxModule.class);
             for (LynxModule hub : allHubs) {
                 hub.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
             }
-        } catch (Exception ignored) {
+            log.i("Bulk caching AUTO on %d hub(s)", hardwareMap.getAll(LynxModule.class).size());
+        } catch (Exception e) {
+            log.w("Bulk caching setup failed: %s", e.getMessage());
         }
 
-        // Control Hub Motors
         frontRight = getHardwareSafely(hardwareMap, DcMotor.class, "frontRight");
-        backRight  = getHardwareSafely(hardwareMap, DcMotor.class, "backRight");
-        backLeft   = getHardwareSafely(hardwareMap, DcMotor.class, "backLeft");
-        frontLeft  = getHardwareSafely(hardwareMap, DcMotor.class, "frontLeft");
-
-        // Expansion Hub Motors
-        intake  = getHardwareSafely(hardwareMap, DcMotor.class, "intake");
-        hopper  = getHardwareSafely(hardwareMap, DcMotor.class, "hopper");
+        backRight = getHardwareSafely(hardwareMap, DcMotor.class, "backRight");
+        backLeft = getHardwareSafely(hardwareMap, DcMotor.class, "backLeft");
+        frontLeft = getHardwareSafely(hardwareMap, DcMotor.class, "frontLeft");
+        intake = getHardwareSafely(hardwareMap, DcMotor.class, "intake");
+        hopper = getHardwareSafely(hardwareMap, DcMotor.class, "hopper");
         shooter = getHardwareSafely(hardwareMap, DcMotor.class, "shooter");
-
-        // Webcam
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
 
-        // Configure brake behavior and direction on drivetrain motors if present
-        if (frontLeft != null)  frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         if (frontRight != null) {
-            frontRight.setDirection(DcMotor.Direction.REVERSE); // Front Right wheel is mounted reversed relative to other wheels
-            frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            frontRight.setDirection(DcMotor.Direction.REVERSE);
         }
-        if (backLeft != null)   backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        if (backRight != null)  backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        // Configure intake and shooter motor directions (Reversed by default)
-        if (intake != null)  intake.setDirection(DcMotor.Direction.REVERSE);
-        if (shooter != null) shooter.setDirection(DcMotor.Direction.REVERSE);
-
-        // Configure hopper motor (REV Core Hex Motor) encoder reset and brake behavior
-        if (hopper != null) {
-            hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            hopper.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            hopper.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        if (intake != null) {
+            intake.setDirection(DcMotor.Direction.REVERSE);
+        }
+        if (shooter != null) {
+            shooter.setDirection(DcMotor.Direction.REVERSE);
         }
 
-        // Instantiate Subsystems from dedicated subsystem classes
-        drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
-        intakeSubsystem     = new IntakeSubsystem(intake);
-        hopperSubsystem     = new HopperSubsystem(hopper);
-        shooterSubsystem    = new ShooterSubsystem(shooter);
+        logDriveEncoderCheck("frontLeft", frontLeft);
+        logDriveEncoderCheck("frontRight", frontRight);
+        logDriveEncoderCheck("backLeft", backLeft);
+        logDriveEncoderCheck("backRight", backRight);
+        if (frontLeft == null || frontRight == null || backLeft == null || backRight == null) {
+            log.w("Drive motor(s) missing. Auto fire will be disabled.");
+        } else {
+            log.i("Drive motors present. Encoder cables assumed connected; unplugged encoders cannot be proven at rest.");
+        }
     }
 
-    @Override
-    public DrivetrainInterface getDrivetrain() {
-        return drivetrainSubsystem;
-    }
-
-    @Override
-    public IntakeInterface getIntake() {
-        return intakeSubsystem;
-    }
-
-    @Override
-    public HopperInterface getHopper() {
-        return hopperSubsystem;
-    }
-
-    @Override
-    public ShooterInterface getShooter() {
-        return shooterSubsystem;
+    private void logDriveEncoderCheck(String name, DcMotor motor) {
+        if (motor == null) {
+            log.w("Drive encoder check %s: motor missing", name);
+            return;
+        }
+        double ticksPerRev = motor.getMotorType().getTicksPerRev();
+        int ticks = motor.getCurrentPosition();
+        if (ticksPerRev <= 1) {
+            log.w("Drive encoder check %s: motor type has no ticks/rev. Auto fire will be disabled.", name);
+        } else {
+            log.i("Drive encoder check %s: ticks=%d ticks/rev=%.1f type=%s",
+                    name, ticks, ticksPerRev, motor.getMotorType().getName());
+        }
     }
 }

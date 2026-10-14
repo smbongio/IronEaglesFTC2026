@@ -22,6 +22,7 @@ Facts we don't control, such as the field layout, the AprilTag IDs, and how our 
 * With a device missing, the robot keeps as much working as it can:
   * **No webcam:** auto fire and the auto-fire availability notification are disabled. Everything else works normally.
   * **No IMU:** auto fire is disabled, because its movement plans use the IMU to turn. Driving falls back to robot-centric (the sticks move the robot relative to the way it is facing).
+  * **No drive encoders:** auto fire is disabled (it cannot measure the in/out move). The Driver Hub shows a warning. Driving still works.
 
 ### Design
 * The webcam is named `camera` in the robot configuration.
@@ -29,6 +30,9 @@ Facts we don't control, such as the field layout, the AprilTag IDs, and how our 
 * The code must be told how the Control Hub is mounted (see Reference: Robot Hardware) so that the IMU measures the robot's heading correctly.
 
 > **Note:** The intake and shooter vibrate the mounted webcam enough to drop AprilTag detections. That is a hardware/mounting issue; see Reference: Robot Hardware. Auto fire and the availability notification ride through short dropouts with the X-of-Y detection gate.
+
+### Logging
+Robot logs (`RobotLog`) are **verbose for the whole TeleOp** while we are bringing this up: every interface logs init, missing hardware, state changes, and the values it used for a decision. The same facts that drive the LED also go to the Driver Hub. We can later turn the volume down with a verbosity setting.
 
 ---
 
@@ -143,8 +147,7 @@ intake.setVelocity(0);                                         // released: stop
 ```
 
 * As with the shooter, the intake motor's **encoder cable must be connected** to the expansion hub, and the motor must be set to the correct motor type in the robot configuration.
-
-> **Note:** It is not yet confirmed whether the intake motor's encoder cable is connected. If it is not, velocity control will not work, and the intake will need to use fixed power values instead of RPM.
+* If the intake encoder (or a usable motor type) is missing, the intake runs at **100% power** instead of RPM. The Driver Hub shows a warning.
 
 ---
 
@@ -163,7 +166,7 @@ intake.setVelocity(0);                                         // released: stop
 * The Driver Hub must also show the last known good geometry whenever the detection gate is passing.
 
 ### Design
-* The LED strip flashes quickly while `AUTO_FIRE_AVAILABLE` is `true`. It does not flash merely because the tags are visible.
+* The LED strip flashes quickly while `AUTO_FIRE_AVAILABLE` is `true`. It does not flash merely because the tags are visible. The LED hardware is not in the robot configuration yet, so the LED interface is a no-op for the strip itself. Every LED state is still written to the Driver Hub and the robot log.
 * The Driver Hub telemetry is updated every TeleOp loop with:
 
 | Telemetry line | What it shows |
@@ -293,7 +296,8 @@ Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the ho
 
 ### Design
 * The target cell is found using the AprilTags on the CELLS (see Reference: Field for the IDs).
-* All four tags in a cluster are on the same sticker, so any of them gives the cluster's position. When more than one is visible, the code can combine them for a steadier reading.
+* A sample is a hit if it sees **at least one** of: the alliance's tag cluster (name contains RED or BLUE), or a single tag whose ID is in that alliance's eight IDs, **and** the tag height says the cell is up.
+* All four tags in a cluster are on the same sticker, so any of them gives the cluster's position. When more than one is visible, the SDK combines them for a steadier reading.
 
 **Telling which CELL is up.** The upward-facing CELL's tags sit much higher above the tiles than the downward-facing CELL's, so the code uses the height of the tags:
 
@@ -364,40 +368,60 @@ An expansion hub connects the intake motor, shooter motor, and hopper motor.
 Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 
 **Drive wheel encoders:**
-* Auto fire's movement plans measure driving and strafing distance with the encoders on the four wheel motors, so their encoder cables must be connected.
-* Converting encoder counts to inches needs the wheel diameter and the motor's counts per wheel revolution.
-* **To be filled in:** whether the drive motors' encoder cables are connected, the drive wheel diameter, and the drive motor's gear ratio.
+* Auto fire's movement plans measure driving and strafing distance with the encoders on the four wheel motors, so their encoder cables must be connected. We assume they are plugged in. Init checks that the four drive motors are present; if any is missing, auto fire is disabled and the Driver Hub shows a warning.
+* Wheel diameter starts at **3 in** (`WHEEL_DIAMETER_IN`). Encoder counts per revolution come from the motor type in the robot configuration.
 
 **Webcam:**
 * Plugs into a USB port on the Control Hub.
 * Mounted on top of the robot, at the center of the robot, in line with the shooter (no left/right offset).
 * The shooter is about 6 inches in front of the camera. Distances measured by the camera are therefore about 6 inches longer than the actual distance from the shooter. Auto fire's shooting distance is measured by the camera and tuned by testing, so no correction is needed.
 * The AprilTags face down from the underside of the CELLS, so the camera must be tilted up enough to see them from where the robot shoots.
+* **Height above tiles:** `CAMERA_HEIGHT_IN`, starting at **11 in**.
+* **Upward tilt:** `CAMERA_TILT_DEG`, starting at **15 deg** (nearly level with the robot).
 * **Vibration:** the intake and shooter shake the robot. With the webcam mounted, that shake stops AprilTag detections. We confirmed this on 12 Oct 2026 by unmounting the webcam and running the intake and shooter at full speed: the camera then kept a lock for 10 seconds with no misses. This is a mounting issue, not a camera or lighting issue. A stiffer or isolated mount is the hardware fix. Until then, auto fire and the availability notification use the X-of-Y detection gate so brief dropouts do not immediately disable them (see Auto Fire Availability Notification).
-* **To be filled in:** the camera's height above the tiles and its upward tilt angle. Both are needed to tell which CELL is up (see Target Cell).
 
 **IMU:**
 * Built into the Control Hub, so there is no wiring.
-* The code needs to know how the Control Hub is mounted, given as two directions: which way the REV logo on the hub faces, and which way the hub's USB ports face (each one of up, down, forward, backward, left, or right).
-* **To be filled in:** the Control Hub's logo direction and USB direction on our robot.
+* The Control Hub is mounted on the **right side** of the robot with the logo **upright** (not upside down). The code uses logo facing **up**. USB direction is assumed **forward** until we measure it on the robot (`IMU_LOGO_DIRECTION`, `IMU_USB_DIRECTION`).
+
+---
+
+## Design Decisions (13 Oct 2026)
+
+Answers that change the TeleOp implementation. Tunable starting values are in the table below.
+
+1. **Replace `IronEaglesTeleOp2026` in place.** Yes. The Road Runner / right-bumper aim-assist TeleOp is deleted. The Driver Hub entry stays `IronEaglesTeleOp2026`.
+2. **Missing measurements.** Keep the upright-cell height filter. Use named tunables for RPM, shooting distance, camera height/tilt, wheel diameter, and IMU orientation. Shooter/intake RPM starts at 75% of the motor type's max (no RPM in existing logs). Shooting distance starts at 2 ft. Camera height 11 in, tilt 15 deg. Control Hub is on the right side, logo upright; USB is assumed forward. Wheel diameter starts at 3 in. Drive encoders are assumed plugged in; init checks that the four drive motors (and a usable motor type) are present and disables auto fire if they are not. Robot logging is verbose across the whole TeleOp.
+3. **LED.** Hardware is unknown / not in the config. Keep `LedInterface` with a no-op implementation. Every LED state is also written to the Driver Hub and the robot log.
+4. **Intake without an encoder.** Fall back to 100% power and show a Hub warning. Do not leave the intake stopped.
+5. **Drive encoders missing.** Disable auto fire and notify the driver. Driving still works.
+6. **Cluster names vs IDs.** A hit is the alliance cluster name (RED / BLUE) **or** any single tag whose ID is in that alliance's eight IDs, **and** the height filter says the cell is up. One matching tag is enough.
+7. **Hopper Y.** `stepReverse180()` is a true −180° step, same hold-to-repeat as X.
+8. **Manual cancel vs operator actions.** Any controller input except Gamepad 2 Right Trigger cancels auto fire, then that same loop performs the inputted action (sticks drive immediately; a held intake trigger starts the intake immediately).
 
 ---
 
 ## Tunable Values
-All of these are configured after testing.
+All of these are configured after testing. They live in `TunableValues.java`.
 
 | Value | What it controls | Starting value |
 |---|---|---|
-| `SHOOTER_TARGET_RPM` | Shooter speed for the whole match | To be configured after testing |
-| `INTAKE_TARGET_RPM` | Intake inward speed (Left Trigger) | To be configured after testing |
-| `INTAKE_REVERSE_RPM` | Intake outward speed (Left Bumper) | To be configured after testing |
-| `SHOOTING_DISTANCE_IN` | Distance from the center of the target cell that auto fire shoots from, measured from the camera | To be configured after testing |
+| `SHOOTER_TARGET_RPM_FRACTION` | Shooter speed for the whole match (fraction of motor-type max RPM) | **0.75** (no log RPM available) |
+| `INTAKE_TARGET_RPM_FRACTION` | Intake inward speed (Left Trigger) | **0.75** of max RPM; **100% power** if the intake encoder is missing |
+| `INTAKE_REVERSE_RPM_FRACTION` | Intake outward speed (Left Bumper) | Same as inward; **100% power** if the intake encoder is missing |
+| `IMU_LOGO_DIRECTION` | Control Hub logo facing, for IMU heading | **UP** (hub on the right side, logo upright) |
+| `IMU_USB_DIRECTION` | Control Hub USB facing, for IMU heading | **FORWARD** (assumed until measured) |
+| `SHOOTING_DISTANCE_IN` | Distance from the center of the target cell that auto fire shoots from, measured from the camera | **24 in** (2 ft) |
 | `CELL_CENTER_OFFSET_IN` | Distance from the tag cluster to the center of the cell, along the cone's center line | 0, then measured on the field |
-| `DISTANCE_TOLERANCE_IN` | How close to the shooting distance the robot must be before auto fire shoots | To be configured after testing |
+| `DISTANCE_TOLERANCE_IN` | How close to the shooting distance the robot must be before auto fire shoots | **2 in** |
 | `AIM_OFFSET_DEG` | Correction added to the auto-fire aim angle | 0 |
-| `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | To be configured after testing |
-| Auto-fire drive and turn speeds | How fast the robot drives, strafes, and turns while carrying out a movement plan | Start from the SDK samples' values |
-| `CELL_UP_MIN_HEIGHT_IN` | Tag height above the tiles that counts as an upward-facing CELL | Between the measured up and down heights |
+| `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | **5 deg** |
+| `AUTO_FIRE_DRIVE_POWER` | Drive/strafe power while carrying out a movement plan | **0.4** |
+| `AUTO_FIRE_TURN_POWER` | Turn power while carrying out a movement plan | **0.3** |
+| `CELL_UP_MIN_HEIGHT_IN` | Tag height above the tiles that counts as an upward-facing CELL | **16 in** (between an expected up cell and a down cell; tune on the field) |
+| `CAMERA_HEIGHT_IN` | Camera height above the tiles, for the up-cell height test | **11 in** |
+| `CAMERA_TILT_DEG` | Camera upward tilt, for the up-cell height test | **15 deg** |
+| `WHEEL_DIAMETER_IN` | Drive wheel diameter, for encoder inches | **3 in** |
 | `TAG_DETECTION_MIN_HITS` (X) | Hits needed in the last Y camera samples for the detection gate to pass | 3, then tuned on the field with the intake and shooter running |
 | `TAG_DETECTION_WINDOW` (Y) | How many recent camera samples the detection gate looks at | 5, then tuned on the field with the intake and shooter running |
-| Deadzone | How far a stick or trigger must move to count as input | To be configured after testing |
+| `DEADZONE` | How far a stick or trigger must move to count as input | **0.05** |
