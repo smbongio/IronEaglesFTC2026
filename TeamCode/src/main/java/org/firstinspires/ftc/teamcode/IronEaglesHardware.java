@@ -98,6 +98,9 @@ public class IronEaglesHardware {
         if (frontRight != null) {
             frontRight.setDirection(DcMotor.Direction.REVERSE);
         }
+        if (backLeft != null) {
+            backLeft.setDirection(DcMotor.Direction.REVERSE);
+        }
         if (intake != null) {
             intake.setDirection(DcMotor.Direction.REVERSE);
         }

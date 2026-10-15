@@ -398,7 +398,7 @@ Each HIVE pivots like a seesaw and is always in one of two positions, with exact
 
 An expansion hub connects the intake motor, shooter motor, and hopper motor.
 
-Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
+Due to the way the wheels are mounted, the **FRONT RIGHT** and **BACK LEFT** wheel motors must turn in the inverse direction as the other two. Confirmed 15 Oct 2026: with forward held, back left spun backward until it was reversed in code.
 
 **Drive wheel encoders:**
 * Auto fire measures drive/strafe distance with the four wheel encoders. Init requires the four drive motors to be **present in the hardware map**. If any is missing, auto fire is disabled.
@@ -438,6 +438,7 @@ Answers that change the TeleOp implementation. Tunable starting values are in th
 12. **Held intake plus Right Trigger (14 Oct 2026).** Buttons and triggers already held when auto fire starts do not cancel it. Sticks still cancel immediately. A new button press after start cancels.
 13. **Gate frozen during MOVING (14 Oct 2026).** Last-known-good is only reused on a miss while the robot is stopped. Driving clears a miss so the LED cannot stay on from a stale in-cone pose.
 14. **Speeds are RPM numbers (15 Oct 2026).** Coach-set starting targets: shooter **2000 RPM**, intake **500 RPM** (inward and reverse). Converted to ticks/s with `RPM / 60 × ticksPerRev`. If the motor type has no ticks/rev, the intake falls back to 100% power and the shooter falls back to a power estimated from the motor type's max ticks/s.
+15. **Back left drive motor reversed (15 Oct 2026).** Holding forward spun the back left wheel backward. `backLeft` is now `Direction.REVERSE` in hardware, same as `frontRight`. Retract this if a later test shows a different wheel was mis-wired.
 
 ---
 
