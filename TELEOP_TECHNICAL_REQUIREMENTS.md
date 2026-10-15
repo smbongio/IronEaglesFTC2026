@@ -58,28 +58,24 @@ The SDK supports this directly: `opModeInInit()` keeps a loop running until Play
 ## Shooter
 
 ### Requirement
-* The robot must be able to shoot at any time during TeleOp, with no wait for the shooter to spin up.
-* Shot strength must stay consistent for the whole match, including as the battery drains.
+* Shot strength must stay consistent for the whole match, including as the battery drains and as balls are launched.
 * The operator can run the shooter forward, reverse it if it jams, and stop it.
+* Auto fire starts the shooter only after the robot is aligned, waits until it is at the target RPM, then feeds. Manual hopper feed still needs the shooter already spinning.
 
 ### Design
-The intended match behavior is that the shooter runs continuously at one constant speed (`SHOOTER_RUN_ENTIRE_MATCH = true`). **For testing (15 Oct 2026) that flag is `false`:** the shooter does not start at Play and only runs while the operator holds a button.
+A **gearbox** sits between the shooter motor and the wheel. That gives faster spin-up and spin-down, and more torque so the wheel does not sag as much when a ball goes through. Because spin-up is fast, the shooter does **not** run the whole match. Auto fire starts it after alignment (see Auto Fire).
 
-**When `SHOOTER_RUN_ENTIRE_MATCH` is `false` (current testing):**
-* Gamepad 2 **A** (hold) runs the shooter forward at `SHOOTER_TARGET_RPM`. Release stops it.
-* Gamepad 2 **Right Bumper** (hold) runs the shooter in reverse (jam clear). Release stops it. Right Bumper wins if both are held.
-* Auto fire and hopper feed do not start the shooter. Hold A if a shot is needed.
+Gamepad 2 still has a manual shooter:
+* **A** (hold) runs forward at `SHOOTER_TARGET_RPM`. Release stops it.
+* **Right Bumper** (hold) runs reverse (jam clear). Release stops it. Right Bumper wins if both are held.
+* Manual hopper **X** does not start the shooter. Hold A if you are launching by hand.
 
-**When `SHOOTER_RUN_ENTIRE_MATCH` is `true` (intended match):**
-* The shooter starts spinning when the driver presses Play, not during initialization.
-* Every TeleOp loop re-sends that speed command. A dropped command is recovered without the operator doing anything.
-* Gamepad 2 **A** respools: send the forward target again and log it. Use this if the wheel has stopped and the Hub shows `SHOOTER STOPPED`.
-* Gamepad 2 **Right Bumper** (hold) runs the shooter in reverse. Release resumes forward at the target RPM.
-* Cancelling auto fire does not stop the shooter. It stops only when the match ends, unless the operator is holding reverse.
+`SHOOTER_RUN_ENTIRE_MATCH` still exists and starts **false**. If it is set true, the shooter also runs from Play until the match ends. That is no longer the intended match plan.
 
-In both modes:
+* The speed is a target speed in **RPM** at the **motor shaft**, `SHOOTER_TARGET_RPM` (starts at **2000**). Reverse uses the same RPM the other way.
+* The gearbox means the wheel turns at a different RPM than the motor. Velocity control uses the motor encoder, so the code commands motor RPM. The wheel ratio is a hardware fact (see Reference: Robot Hardware).
+* Auto fire treats the shooter as ready when measured motor RPM is at least `SHOOTER_READY_RPM_FRACTION` of the target (starts at **0.90**). If the motor type has no ticks/rev, auto fire cannot measure RPM and proceeds as soon as the power command is sent.
 * The code does **not** auto-restart just because measured speed is near zero. A jam or a hand near the wheel should not fight the operator.
-* The speed is a target speed in **RPM**, `SHOOTER_TARGET_RPM` (starts at **2000**). Reverse uses the same RPM the other way.
 
 The shooter is controlled by target speed, not by motor power. With a fixed power, the shooter slows down as the battery drains over the match, and shots fall short. With a target speed, the motor controller on the hub adjusts the power on its own to hold the speed. This also brings the wheel back up to speed quickly after each shot.
 
@@ -94,9 +90,9 @@ shooter.setVelocity(SHOOTER_TARGET_RPM / 60.0 * ticksPerRev); // ticks per secon
 
 * The shooter motor's **encoder cable must be connected** to the expansion hub. Without it, velocity control does not work.
 * The shooter motor must be set to the correct motor type in the robot configuration on the Driver Station. `getTicksPerRev()` depends on it, so the wrong motor type gives the wrong speed.
-* The RPM is measured at the motor's output shaft. If there is gearing or a belt between the motor and the shooter wheel, the wheel spins at a different speed.
+* The RPM is measured at the motor's output shaft. The gearbox changes wheel speed relative to that. Set the motor type on the Driver Station to the **motor**, not the wheel.
 
-> **Note:** Running the shooter all match is still the intended result, but it is turned off for testing (`SHOOTER_RUN_ENTIRE_MATCH = false`). The main remaining risk of always-on is battery drain, which we don't expect to be a problem.
+> **Note:** Always-on (`SHOOTER_RUN_ENTIRE_MATCH`) is kept as a switch, default **false**. The gearbox is why we spool after alignment instead of running all match.
 
 ---
 
@@ -121,8 +117,8 @@ Any input except Gamepad 2 Right Trigger cancels auto fire, then that same loop 
 | Right Trigger | Start auto fire (aim to the arc, then feed) |
 | Left Trigger | Intake in (hold) |
 | Left Bumper | Intake out (hold) |
-| A | Shooter forward (hold; testing). Respool if always-on is re-enabled |
-| Right Bumper | Shooter reverse (hold; release stops in testing, or resumes forward if always-on) |
+| A | Shooter forward (hold). Not required for auto fire |
+| Right Bumper | Shooter reverse (hold; jam clear) |
 | X | Manual hopper feed +180° (hold to repeat). Can launch from anywhere. |
 | Y | Hopper −180° (hold to repeat) |
 
@@ -160,8 +156,8 @@ The IMU only measures how far the robot has turned since it was last zeroed, so 
 * **Right Trigger:** start auto fire (see Auto Fire). This is the only way to start the aim-and-feed sequence.
 * **Left Trigger:** while held, run the intake inward at a predefined speed. Stops when released.
 * **Left Bumper:** while held, run the intake outward at a predefined reverse speed. Stops when released.
-* **A Button:** while held, run the shooter forward at the target RPM. Stops when released (testing; see Shooter). If always-on is re-enabled, A respools instead.
-* **Right Bumper:** while held, run the shooter in reverse. Release stops it (testing). If always-on is re-enabled, release resumes forward.
+* **A Button:** while held, run the shooter forward at the target RPM. Stops when released. Manual hopper feed needs this. Auto fire starts the shooter itself after alignment.
+* **Right Bumper:** while held, run the shooter in reverse. Stops when released.
 * **X Button:** manual hopper feed — step 180 degrees in the feeding direction. With the shooter spinning, this can launch a ball from anywhere.
 * **Y Button:** step the hopper 180 degrees in the opposite direction (-180 degrees).
 
@@ -230,7 +226,7 @@ intake.setVelocity(0);                                         // released: stop
 * The gate **passes** when at least **X** of those Y samples were hits. X and Y are tunable (see Tunable Values).
 * `AUTO_FIRE_AVAILABLE` uses the last known good reading to decide whether the robot is inside the cone and inside the start range, and stays `true` through a miss as long as the gate still passes, the robot is **not being driven**, and that reading is still valid.
 * Last-known-good is for vibration dropouts **while the robot is stopped**. If the driver is moving the sticks, a miss clears last-known-good so the LED and availability cannot stay on from a stale in-cone pose.
-* During `MOVING`, the tracker and gate are **frozen**. Vibration during the encoder move cannot fail the gate. After the move, `MEASURING` uses a fresh sample.
+* During `MOVING`, `SPOOLING`, and `FEEDING`, the tracker and gate are **frozen**. Vibration from the drive or the shooter cannot fail the gate mid-sequence. After a move, `MEASURING` uses a fresh sample.
 * When the gate fails, `AUTO_FIRE_AVAILABLE` is `false` and the last known good reading is no longer used.
 
 ---
@@ -240,16 +236,17 @@ intake.setVelocity(0);                                         // released: stop
 ### Requirement
 Auto fire is a one-press action. A single pull of the Right Trigger on Gamepad 2 starts the whole sequence: the robot drives itself to the shooting distance on the arc, aims at the target cell, and keeps shooting until a driver takes over. It doesn't matter whether the trigger is held down or released after the pull.
 
-The shooter runs at a constant RPM (see Shooter), so shooting from the same distance every time gives a consistent shot. That is why auto fire moves the robot to a fixed distance from the target cell, not just turns it.
+The shooter is held at a constant motor RPM (see Shooter) once it is up to speed, so shooting from the same distance every time gives a consistent shot. That is why auto fire moves the robot to a fixed distance from the target cell, not just turns it. The gearbox is why we can wait until we are aligned before spinning up.
 
 The driver is responsible for getting the robot **into the shooting cone**. Auto fire does not drive in from outside the cone, and it does not path around the HIVE frame. Other robots also stay the driver's problem.
 
 * **Starting:** auto fire starts only if `AUTO_FIRE_AVAILABLE` is `true` when the trigger is pulled (inside the cone, close enough to start, detection gate passing, alliance and IMU ready). It then uses the last known good geometry to plan the first move. If `AUTO_FIRE_AVAILABLE` is `false`, auto fire does not start and nothing else happens.
-* **Moving:** the robot drives itself straight in or out to the **shooting arc** (defined below) and aims the shooter at the target cell. After each move it checks its position again, and it only shoots once it is at the right distance and aimed.
-* **Shooting:** the robot shoots repeatedly, one ball at a time, until manual input is received.
+* **Moving:** the robot drives itself straight in or out to the **shooting arc** (defined below) and aims the shooter at the target cell. The shooter stays off during the move. After each move it checks its position again.
+* **Spooling:** once the robot is at the right distance and aimed, auto fire starts the shooter and waits until measured RPM is at least `SHOOTER_READY_RPM_FRACTION` of `SHOOTER_TARGET_RPM`.
+* **Shooting:** then it steps the hopper 180 degrees at a time, while keeping the shooter at the target RPM, until manual input is received.
 * **Manual input ends auto fire.** Manual input is any button press, trigger pull, or joystick movement on **either Gamepad 1 or Gamepad 2**, except the Right Trigger on Gamepad 2. A small deadzone applies to joysticks and triggers so stick drift doesn't count as input. Manual input ends auto fire at any point in the sequence.
-* **Losing the target or leaving the cone:** if `AUTO_FIRE_AVAILABLE` is `false` when the robot checks its position (at the start, or after a move — `MEASURING` only), auto fire ends. That covers the detection gate failing and the robot no longer being inside the cone. Once `FEEDING` has started, availability is ignored.
-* **When auto fire ends**, the hopper stops, the shooter follows the operator (keeps spinning if always-on, or only if A / Right Bumper is still held in testing), and normal driver control resumes on the same loop. If the input that ended auto fire is a drive direction (a stick past the deadzone), the drive motors immediately move that way. They are not stopped first. If there is no drive input (the target was lost, or the cancel was a button or trigger), the drive motors stop.
+* **Losing the target or leaving the cone:** if `AUTO_FIRE_AVAILABLE` is `false` when the robot checks its position (at the start, or after a move — `MEASURING` only), auto fire ends. That covers the detection gate failing and the robot no longer being inside the cone. Once `SPOOLING` or `FEEDING` has started, availability is ignored.
+* **When auto fire ends**, the hopper stops and the shooter stops, then the same loop applies manual shooter control (so A still held would start it again). Normal driver control resumes on that loop. If the input that ended auto fire is a drive direction (a stick past the deadzone), the drive motors immediately move that way. They are not stopped first. If there is no drive input (the target was lost, or the cancel was a button or trigger), the drive motors stop.
 * **Pulling the trigger again** while auto fire is running does nothing. It neither restarts nor cancels the sequence.
 * Auto fire does not try to detect when the HIVE tips. Once shooting starts, it keeps shooting until manual input.
 * **Obstacles:** auto fire's only move is in or out along a line to the cell, while already inside the cone. It does not avoid the HIVE frame, the downward-facing CELLS, or other robots. The drivers watch the path and cancel with any manual input if the robot is about to hit something.
@@ -275,23 +272,25 @@ Auto fire works in rounds of **measure, then move**. The camera is used only whi
 
 Auto fire runs these steps:
 
-1. **Check the target.** Used in `MEASURING` only (the start of a measure-then-move round, including after a move). If `AUTO_FIRE_AVAILABLE` is `false` (detection gate not passing, outside the cone, or beyond the start range), auto fire ends. Otherwise use the last known good geometry. That geometry is refreshed whenever a sample finds the cluster, and is reused on a miss as long as the gate still passes. `FEEDING` does not run this check.
+1. **Check the target.** Used in `MEASURING` only (the start of a measure-then-move round, including after a move). If `AUTO_FIRE_AVAILABLE` is `false` (detection gate not passing, outside the cone, or beyond the start range), auto fire ends. Otherwise use the last known good geometry. That geometry is refreshed whenever a sample finds the cluster, and is reused on a miss as long as the gate still passes. `SPOOLING` and `FEEDING` do not run this check.
 2. **Measure.** Read the last known good geometry of the target cell: the robot's position (x, y, z) and yaw relative to the **cell opening** (see Cell opening below). The position is used for the shooting arc. Roll has already decided that this cluster is the upward-facing cell (see Target Cell).
-3. **Check the position.** If the robot is in position, shoot: stop the drive motors and step the hopper 180 degrees at a time until manual input is received. Otherwise, go to step 4. The robot is in position when all of these are true:
+3. **Check the position.** If the robot is in position, stop the drive motors and go to step 6. Otherwise, go to step 4. The robot is in position when all of these are true:
    * the distance to the cell opening is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
    * the aim (where the shooter points compared with the direction to the opening, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
    * the robot is inside the shooting cone.
-4. **Plan and move.** Calculate a movement plan from the robot's current position to the point on the shooting arc directly toward or away from the opening, ending with the shooter aimed at the opening. Carry out the plan:
+4. **Plan and move.** Calculate a movement plan from the robot's current position to the point on the shooting arc directly toward or away from the opening, ending with the shooter aimed at the opening. The shooter stays off. Carry out the plan:
    * **Turning** is controlled by the IMU heading.
    * **Driving and strafing distances** are controlled by the drive wheel encoders.
    * `AIM_OFFSET_DEG` is added to the final aim angle to correct for shots that consistently miss to one side during testing. It starts at 0.
 5. **Repeat.** When the move is finished, go back to step 1.
+6. **Spool.** Start the shooter at `SHOOTER_TARGET_RPM`. Stay here until measured motor RPM is at least `SHOOTER_READY_RPM_FRACTION` of the target. Then go to step 7.
+7. **Feed.** Keep the shooter at the target RPM and step the hopper 180 degrees at a time until manual input is received.
 
 Mecanum wheels slip, especially when strafing, so a move won't land exactly where it was planned. Steps 1 to 3 catch that: after each move the robot measures again and makes a smaller correction if needed. Two or three rounds should be enough.
 
 The SDK samples `RobotAutoDriveByGyro_Linear` (turning to a heading with the IMU) and `RobotAutoDriveByEncoder_Linear` (driving a set distance with the wheel encoders) show the building blocks for step 4.
 
-Auto fire does not start or stop the shooter. If `SHOOTER_RUN_ENTIRE_MATCH` is `true`, the shooter is already spinning. If it is `false` (current testing), the operator must hold Gamepad 2 **A** to spool before a shot will launch.
+Auto fire owns the shooter while it is active: off during `MEASURING` and `MOVING`, on during `SPOOLING` and `FEEDING`. Manual Gamepad 2 A is ignored until auto fire ends.
 
 **State machine.** Auto fire is built as a state machine that advances one step per TeleOp loop, so driving, telemetry, and cancelling keep working while it runs:
 
@@ -300,9 +299,11 @@ stateDiagram-v2
     [*] --> IDLE
     IDLE --> MEASURING: Right Trigger pulled and AUTO_FIRE_AVAILABLE
     MEASURING --> IDLE: AUTO_FIRE_AVAILABLE is false
-    MEASURING --> FEEDING: in position
+    MEASURING --> SPOOLING: in position
     MEASURING --> MOVING: not in position (plan calculated)
     MOVING --> MEASURING: plan finished
+    SPOOLING --> FEEDING: shooter at target RPM
+    SPOOLING --> IDLE: manual input
     FEEDING --> IDLE: manual input only
     MOVING --> IDLE: manual input
 ```
@@ -310,11 +311,12 @@ stateDiagram-v2
 | State | What the robot is doing | Leaves when |
 |---|---|---|
 | `IDLE` | Nothing; normal driver control | The Right Trigger is pulled and `AUTO_FIRE_AVAILABLE` is `true`: go to `MEASURING` |
-| `MEASURING` | Stopped; reads the last known good target-cell geometry (steps 1 to 3) | `AUTO_FIRE_AVAILABLE` is `false`: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
-| `MOVING` | Carrying out the movement plan (step 4), without checking the camera | Plan finished: `MEASURING`. Manual input: `IDLE` |
-| `FEEDING` | Stopped; stepping the hopper 180 degrees at a time | Manual input: `IDLE`. A HIVE tip or `AUTO_FIRE_AVAILABLE` going false does **not** end this state. |
+| `MEASURING` | Stopped; shooter off; reads the last known good target-cell geometry (steps 1 to 3) | `AUTO_FIRE_AVAILABLE` is `false`: `IDLE`. In position: `SPOOLING`. Otherwise: calculate a plan and go to `MOVING` |
+| `MOVING` | Carrying out the movement plan (step 4), shooter off, without checking the camera | Plan finished: `MEASURING`. Manual input: `IDLE` |
+| `SPOOLING` | Stopped; shooter spinning up to `SHOOTER_TARGET_RPM` | At ready RPM: `FEEDING`. Manual input: `IDLE`. Availability is ignored. |
+| `FEEDING` | Stopped; shooter at target RPM; stepping the hopper 180 degrees at a time | Manual input: `IDLE`. A HIVE tip or `AUTO_FIRE_AVAILABLE` going false does **not** end this state. |
 
-Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the hopper. The shooter is left as the operator is commanding it (always-on, or hold-A / stopped in testing). Drive is handed back to Gamepad 1 on that same loop: if a stick is already held, the robot starts moving in that direction immediately. The drive motors are only stopped when there is no drive input.
+Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the hopper and the shooter, then that same loop applies manual shooter control. Drive is handed back to Gamepad 1 on that same loop: if a stick is already held, the robot starts moving in that direction immediately. The drive motors are only stopped when there is no drive input.
 
 **Cell opening.** On BIOBUZZ, the SDK's cluster `ftcPose` is already the **cell opening**, not the sticker. FIRST places the cluster origin at a virtual point in the mouth of the goal ([AprilTag Clusters](https://ftc-docs.firstinspires.org/en/latest/tech_tips/tech-tips/tech-tip-apriltag-clusters/tech-tip-apriltag-clusters.html)). Seeing any one of the four member tags is enough: the SDK returns one `AprilTagClusterDetection` whose pose is that opening. More visible tags only make the same pose steadier. There is no sticker-to-opening offset.
 
@@ -398,7 +400,7 @@ Each HIVE pivots like a seesaw and is always in one of two positions, with exact
 ### Robot Hardware
 * **4 wheel motors** (REV DC motor)
 * **1 intake motor** (REV DC motor, spins rapidly to intake balls into the robot)
-* **1 shooter motor** (REV DC motor, spins rapidly to launch balls into the CELLS)
+* **1 shooter motor** (REV DC motor) with a **gearbox** to the shooter wheel. The gearbox is for faster spin-up/spin-down and to hold speed as balls fire. **To be filled in:** gearbox ratio. `SHOOTER_TARGET_RPM` is motor-shaft RPM.
 * **1 hopper motor** (REV Core Hex motor, feeds balls into the shooter)
 * **An LED strip**
 * **A webcam** (sees the AprilTags on the CELLS)
@@ -442,12 +444,13 @@ Answers that change the TeleOp implementation. Tunable starting values are in th
 8. **Manual cancel vs operator actions.** Any controller input except Gamepad 2 Right Trigger cancels auto fire, then that same loop performs the inputted action (sticks drive immediately; a held intake trigger starts the intake immediately).
 9. **Shooting cone is a sector, not a triangle (14 Oct 2026).** The cone is an infinite 90° sector (angle only). Auto fire also requires range ≤ `AUTO_FIRE_MAX_START_RANGE_IN` so a start cannot begin a long encoder drive. The shooting arc is the only range at which we shoot.
 10. **Manual shooter and hopper feed (14 Oct 2026).** Right Trigger is the only way to start auto fire, not the only way to launch. Gamepad 2 X is a manual hopper feed. A runs the shooter forward; Right Bumper holds reverse. The loop re-sends the shooter command. A near-zero velocity warning is shown; we do not auto-restart.
-11. **FEEDING ends only on manual input (14 Oct 2026).** `AUTO_FIRE_AVAILABLE` is checked at start and in `MEASURING` only. Once `FEEDING` starts, a HIVE tip or a lost cluster does not stop the hopper. The driver cancels.
+11. **SPOOLING and FEEDING end only on manual input (15 Oct 2026).** `AUTO_FIRE_AVAILABLE` is checked at start and in `MEASURING` only. Once `SPOOLING` starts, a HIVE tip or a lost cluster does not stop the sequence. The driver cancels.
 12. **Held intake plus Right Trigger (14 Oct 2026).** Buttons and triggers already held when auto fire starts do not cancel it. Sticks still cancel immediately. A new button press after start cancels.
-13. **Gate frozen during MOVING (14 Oct 2026).** Last-known-good is only reused on a miss while the robot is stopped. Driving clears a miss so the LED cannot stay on from a stale in-cone pose.
+13. **Gate frozen during MOVING, SPOOLING, and FEEDING (15 Oct 2026).** Last-known-good is only reused on a miss while the robot is stopped in `MEASURING`. Driving clears a miss so the LED cannot stay on from a stale in-cone pose. Shooter vibration during spool and feed cannot fail the gate either.
 14. **Speeds are RPM numbers (15 Oct 2026).** Coach-set starting targets: shooter **2000 RPM**, intake **500 RPM** (inward and reverse). Converted to ticks/s with `RPM / 60 × ticksPerRev`. If the motor type has no ticks/rev, the intake falls back to 100% power and the shooter falls back to a power estimated from the motor type's max ticks/s.
 15. **Back left drive motor reversed (15 Oct 2026).** Holding forward spun the back left wheel backward. `backLeft` is now `Direction.REVERSE` in hardware, same as `frontRight`. Retract this if a later test shows a different wheel was mis-wired.
-16. **Shooter is manual for testing (15 Oct 2026).** `SHOOTER_RUN_ENTIRE_MATCH` starts **false**. Hold Gamepad 2 A for forward, Right Bumper for reverse; otherwise the shooter is stopped. Set the flag true to restore always-on match behavior.
+16. **Shooter is manual unless auto fire is spooling or feeding (15 Oct 2026).** `SHOOTER_RUN_ENTIRE_MATCH` starts **false**. Hold Gamepad 2 A for forward, Right Bumper for reverse. Always-on is no longer the intended match plan.
+17. **Shooter gearbox and spool-then-feed (15 Oct 2026).** A gearbox is on the shooter for faster spin-up/down and to hold speed as balls fire. Auto fire keeps the shooter off until the robot is in position, then `SPOOLING` until RPM ≥ `SHOOTER_READY_RPM_FRACTION` of target, then `FEEDING` (shooter + hopper) until manual input.
 
 ---
 
@@ -456,8 +459,9 @@ All of these are configured after testing. They live in `TunableValues.java`.
 
 | Value | What it controls | Starting value |
 |---|---|---|
-| `SHOOTER_RUN_ENTIRE_MATCH` | If true, the shooter runs from Play until the match ends. If false, it only runs while GP2 A or Right Bumper is held | **false** (testing; intended match value is true) |
-| `SHOOTER_TARGET_RPM` | Shooter speed when running | **2000 RPM** |
+| `SHOOTER_RUN_ENTIRE_MATCH` | If true, the shooter also runs from Play until the match ends. Auto fire still spools after alignment | **false** |
+| `SHOOTER_TARGET_RPM` | Shooter motor-shaft speed when running | **2000 RPM** |
+| `SHOOTER_READY_RPM_FRACTION` | Fraction of target RPM that counts as “up to speed” before auto fire feeds | **0.90** |
 | `INTAKE_TARGET_RPM` | Intake inward speed (Left Trigger) | **500 RPM**; **100% power** if the intake encoder is missing |
 | `INTAKE_REVERSE_RPM` | Intake outward speed (Left Bumper) | **500 RPM**; **100% power** if the intake encoder is missing |
 | `IMU_LOGO_DIRECTION` | Control Hub logo facing, for IMU heading | **UP** (hub on the right side, logo upright) |

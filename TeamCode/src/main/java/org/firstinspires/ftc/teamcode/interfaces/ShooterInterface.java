@@ -17,7 +17,13 @@ public interface ShooterInterface {
 
     boolean isStoppedWarning();
 
+    boolean isAtTargetRpm();
+
     double getCommandedTicksPerSec();
 
     double getActualTicksPerSec();
+
+    double getCommandedRpm();
+
+    double getActualRpm();
 }

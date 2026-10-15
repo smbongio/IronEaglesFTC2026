@@ -6,6 +6,7 @@ import org.firstinspires.ftc.teamcode.interfaces.AutoFireAvailabilityInterface;
 import org.firstinspires.ftc.teamcode.interfaces.AutoFireControllerInterface;
 import org.firstinspires.ftc.teamcode.interfaces.DrivetrainInterface;
 import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
+import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
 import org.firstinspires.ftc.teamcode.interfaces.ShootingGeometryInterface;
 import org.firstinspires.ftc.teamcode.interfaces.TargetCellTrackerInterface;
 import org.firstinspires.ftc.teamcode.util.RobotLogger;
@@ -17,15 +18,18 @@ public class AutoFireController implements AutoFireControllerInterface {
     private final ShootingGeometryInterface shooting;
     private final DrivetrainInterface drive;
     private final HopperInterface hopper;
+    private final ShooterInterface shooter;
     private State state = State.IDLE;
 
     public AutoFireController(AutoFireAvailabilityInterface availability, TargetCellTrackerInterface tracker,
-                              ShootingGeometryInterface shooting, DrivetrainInterface drive, HopperInterface hopper) {
+                              ShootingGeometryInterface shooting, DrivetrainInterface drive, HopperInterface hopper,
+                              ShooterInterface shooter) {
         this.availability = availability;
         this.tracker = tracker;
         this.shooting = shooting;
         this.drive = drive;
         this.hopper = hopper;
+        this.shooter = shooter;
     }
 
     @Override
@@ -49,6 +53,8 @@ public class AutoFireController implements AutoFireControllerInterface {
         }
         log.i("abort from %s", state);
         hopper.stop();
+        shooter.stop();
+        shooter.update();
         setState(State.IDLE);
     }
 
@@ -58,16 +64,30 @@ public class AutoFireController implements AutoFireControllerInterface {
             return;
         }
         if (state == State.MOVING) {
+            commandShooterStopped();
             if (drive.isMoveFinished()) {
                 setState(State.MEASURING);
             }
             return;
         }
+        if (state == State.SPOOLING) {
+            shooter.runForward();
+            shooter.update();
+            if (shooter.isAtTargetRpm()) {
+                log.i("Shooter at target rpm cmd=%.0f actual=%.0f. Feeding.",
+                        shooter.getCommandedRpm(), shooter.getActualRpm());
+                setState(State.FEEDING);
+            }
+            return;
+        }
         if (state == State.FEEDING) {
+            shooter.runForward();
+            shooter.update();
             hopper.stepForward180();
             hopper.update();
             return;
         }
+        commandShooterStopped();
         if (!availability.isAutoFireAvailable()) {
             log.w("ended: %s", availability.unavailableReason());
             hopper.stop();
@@ -79,7 +99,8 @@ public class AutoFireController implements AutoFireControllerInterface {
         if (state == State.MEASURING) {
             if (shooting.isInPosition(geometry)) {
                 drive.stop();
-                setState(State.FEEDING);
+                log.i("In position. Spooling shooter before hopper.");
+                setState(State.SPOOLING);
             } else {
                 MovementPlan plan = shooting.planToArc(geometry);
                 drive.startMove(plan);
@@ -96,6 +117,11 @@ public class AutoFireController implements AutoFireControllerInterface {
     @Override
     public boolean isActive() {
         return state != State.IDLE;
+    }
+
+    private void commandShooterStopped() {
+        shooter.stop();
+        shooter.update();
     }
 
     private void setState(State next) {

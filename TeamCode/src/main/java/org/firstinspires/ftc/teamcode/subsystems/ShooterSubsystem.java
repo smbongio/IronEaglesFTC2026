@@ -12,6 +12,7 @@ public class ShooterSubsystem implements ShooterInterface {
     private final RobotLogger log = new RobotLogger("SHOOTER");
     private final DcMotorEx motor;
     private final boolean useVelocity;
+    private final double ticksPerRev;
     private final double forwardTicksPerSec;
     private final double reverseTicksPerSec;
     private boolean running;
@@ -21,18 +22,19 @@ public class ShooterSubsystem implements ShooterInterface {
     public ShooterSubsystem(DcMotor motor) {
         this.motor = motor instanceof DcMotorEx ? (DcMotorEx) motor : null;
         boolean velocity = false;
+        double tpr = 0;
         double forward = 0;
         double reverseTicks = 0;
         if (this.motor == null) {
             log.w("Shooter motor missing.");
         } else {
             this.motor.setDirection(DcMotor.Direction.REVERSE);
-            double ticksPerRev = this.motor.getMotorType().getTicksPerRev();
+            tpr = this.motor.getMotorType().getTicksPerRev();
             double maxTicks = this.motor.getMotorType().getAchieveableMaxTicksPerSecond();
-            velocity = ticksPerRev > 1;
+            velocity = tpr > 1;
             if (velocity) {
                 this.motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                forward = TunableValues.SHOOTER_TARGET_RPM / 60.0 * ticksPerRev;
+                forward = TunableValues.SHOOTER_TARGET_RPM / 60.0 * tpr;
                 reverseTicks = forward;
                 log.i("Shooter using velocity. target=%.0f rpm forward=%.0f ticks/s",
                         TunableValues.SHOOTER_TARGET_RPM, forward);
@@ -42,6 +44,7 @@ public class ShooterSubsystem implements ShooterInterface {
             }
         }
         this.useVelocity = velocity;
+        this.ticksPerRev = tpr;
         this.forwardTicksPerSec = forward;
         this.reverseTicksPerSec = reverseTicks;
     }
@@ -116,6 +119,21 @@ public class ShooterSubsystem implements ShooterInterface {
     }
 
     @Override
+    public boolean isAtTargetRpm() {
+        if (!running) {
+            return false;
+        }
+        if (!useVelocity) {
+            return true;
+        }
+        double commanded = Math.abs(getCommandedTicksPerSec());
+        if (commanded < 1) {
+            return false;
+        }
+        return Math.abs(getActualTicksPerSec()) >= commanded * TunableValues.SHOOTER_READY_RPM_FRACTION;
+    }
+
+    @Override
     public double getCommandedTicksPerSec() {
         if (!useVelocity || !running) {
             return 0;
@@ -126,6 +144,23 @@ public class ShooterSubsystem implements ShooterInterface {
     @Override
     public double getActualTicksPerSec() {
         return motor == null ? 0 : motor.getVelocity();
+    }
+
+    @Override
+    public double getCommandedRpm() {
+        return ticksToRpm(getCommandedTicksPerSec());
+    }
+
+    @Override
+    public double getActualRpm() {
+        return ticksToRpm(getActualTicksPerSec());
+    }
+
+    private double ticksToRpm(double ticksPerSec) {
+        if (ticksPerRev <= 1) {
+            return 0;
+        }
+        return ticksPerSec / ticksPerRev * 60.0;
     }
 
     private double fallbackPower() {

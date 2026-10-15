@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.interfaces;
 
 public interface AutoFireControllerInterface {
-    enum State { IDLE, MEASURING, MOVING, FEEDING }
+    enum State { IDLE, MEASURING, MOVING, SPOOLING, FEEDING }
 
     void start();
 

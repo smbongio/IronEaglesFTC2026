@@ -68,7 +68,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         shooter = new ShooterSubsystem(robot.shooter);
         led = new NoOpLed();
         availability = new AutoFireAvailability(alliance, imu, vision, drive, tracker, shooting);
-        autoFire = new AutoFireController(availability, tracker, shooting, drive, hopper);
+        autoFire = new AutoFireController(availability, tracker, shooting, drive, hopper, shooter);
 
         while (opModeInInit()) {
             chooseAllianceIfPressed();
@@ -103,7 +103,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             List<AprilTagDetection> detections = vision.sample();
             boolean driverDriving = stick(gamepad1.left_stick_x) || stick(gamepad1.left_stick_y)
                     || stick(gamepad1.right_stick_x);
-            if (autoFire.getState() != AutoFireControllerInterface.State.MOVING) {
+            if (!autoFireFreezesTracker()) {
                 tracker.update(detections, !driverDriving);
             }
 
@@ -127,8 +127,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 autoFire.update();
             } else {
                 applyManualControls();
+                applyShooter();
             }
-            applyShooter();
 
             writeTelemetry("RUN");
             logVision(detections);
@@ -177,6 +177,13 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             hopper.stepReverse180();
         }
         hopper.update();
+    }
+
+    private boolean autoFireFreezesTracker() {
+        AutoFireControllerInterface.State state = autoFire.getState();
+        return state == AutoFireControllerInterface.State.MOVING
+                || state == AutoFireControllerInterface.State.SPOOLING
+                || state == AutoFireControllerInterface.State.FEEDING;
     }
 
     private void applyShooter() {
@@ -278,8 +285,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             shooterMode = "stopped";
         }
         telemetry.addData("Shooter", shooterMode);
-        telemetry.addData("Shooter ticks/s", "cmd %.0f  actual %.0f",
-                shooter.getCommandedTicksPerSec(), shooter.getActualTicksPerSec());
+        telemetry.addData("Shooter RPM", "cmd %.0f  actual %.0f  ready=%b",
+                shooter.getCommandedRpm(), shooter.getActualRpm(), shooter.isAtTargetRpm());
         if (shooter.isStoppedWarning()) {
             telemetry.addData("WARNING shooter", "STOPPED. Hold GP2 A to run.");
         }
@@ -343,8 +350,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     }
 
     private void logTunables() {
-        log.i("Tunables shooterAlwaysOn=%b shooterRpm=%.0f intakeRpm=%.0f shootDist=%.1f maxStart=%.1f wheel=%.1f",
-                TunableValues.SHOOTER_RUN_ENTIRE_MATCH, TunableValues.SHOOTER_TARGET_RPM, TunableValues.INTAKE_TARGET_RPM,
+        log.i("Tunables shooterAlwaysOn=%b shooterRpm=%.0f readyFrac=%.2f intakeRpm=%.0f shootDist=%.1f maxStart=%.1f wheel=%.1f",
+                TunableValues.SHOOTER_RUN_ENTIRE_MATCH, TunableValues.SHOOTER_TARGET_RPM,
+                TunableValues.SHOOTER_READY_RPM_FRACTION, TunableValues.INTAKE_TARGET_RPM,
                 TunableValues.SHOOTING_DISTANCE_IN, TunableValues.AUTO_FIRE_MAX_START_RANGE_IN,
                 TunableValues.WHEEL_DIAMETER_IN);
         log.i("Tunables imu logo=%s usb=%s gate=%d/%d deadzone=%.2f",
