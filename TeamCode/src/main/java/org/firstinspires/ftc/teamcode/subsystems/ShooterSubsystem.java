@@ -14,6 +14,7 @@ public class ShooterSubsystem implements ShooterInterface {
     private final boolean useVelocity;
     private final double forwardTicksPerSec;
     private final double reverseTicksPerSec;
+    private boolean running;
     private boolean reverse;
     private boolean warnedStopped;
 
@@ -54,18 +55,30 @@ public class ShooterSubsystem implements ShooterInterface {
 
     @Override
     public void runForward() {
-        if (reverse) {
+        if (!running || reverse) {
             log.i("Shooter forward");
         }
+        running = true;
         reverse = false;
     }
 
     @Override
     public void runReverse() {
-        if (!reverse) {
+        if (!running || !reverse) {
             log.i("Shooter reverse");
         }
+        running = true;
         reverse = true;
+    }
+
+    @Override
+    public void stop() {
+        if (running) {
+            log.i("Shooter stop");
+        }
+        running = false;
+        reverse = false;
+        warnedStopped = false;
     }
 
     @Override
@@ -79,7 +92,7 @@ public class ShooterSubsystem implements ShooterInterface {
         boolean stopped = Math.abs(commanded) > 100 && Math.abs(actual) < Math.abs(commanded) * STOPPED_FRACTION;
         if (stopped && !warnedStopped) {
             warnedStopped = true;
-            log.w("SHOOTER STOPPED commanded=%.0f actual=%.0f. Press GP2 A to respool; not auto-restarting.",
+            log.w("SHOOTER STOPPED commanded=%.0f actual=%.0f. Hold GP2 A to run; not auto-restarting.",
                     commanded, actual);
         } else if (!stopped && warnedStopped) {
             warnedStopped = false;
@@ -88,8 +101,13 @@ public class ShooterSubsystem implements ShooterInterface {
     }
 
     @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    @Override
     public boolean isReversing() {
-        return reverse;
+        return running && reverse;
     }
 
     @Override
@@ -99,7 +117,7 @@ public class ShooterSubsystem implements ShooterInterface {
 
     @Override
     public double getCommandedTicksPerSec() {
-        if (!useVelocity) {
+        if (!useVelocity || !running) {
             return 0;
         }
         return reverse ? -reverseTicksPerSec : forwardTicksPerSec;
@@ -127,6 +145,13 @@ public class ShooterSubsystem implements ShooterInterface {
 
     private void apply() {
         if (motor == null) {
+            return;
+        }
+        if (!running) {
+            if (useVelocity) {
+                motor.setVelocity(0);
+            }
+            motor.setPower(0);
             return;
         }
         if (useVelocity) {

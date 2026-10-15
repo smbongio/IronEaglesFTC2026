@@ -83,10 +83,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         } else {
             log.w("Play with alliance NOT SET. Auto fire disabled until X=Blue or B=Red.");
         }
-        shooter.start();
+        if (TunableValues.SHOOTER_RUN_ENTIRE_MATCH) {
+            shooter.start();
+            log.i("Match started. shooter always-on, heading=%.1f camera=%s",
+                    imu.getHeadingDegrees(), vision.getCameraStateName());
+        } else {
+            shooter.stop();
+            log.i("Match started. shooter manual (hold GP2 A), heading=%.1f camera=%s",
+                    imu.getHeadingDegrees(), vision.getCameraStateName());
+        }
         visionLogTimer.reset();
-        log.i("Match started. shooter started, heading=%.1f camera=%s",
-                imu.getHeadingDegrees(), vision.getCameraStateName());
 
         while (opModeIsActive()) {
             chooseAllianceIfPressed();
@@ -176,11 +182,15 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private void applyShooter() {
         if (gamepad2.right_bumper) {
             shooter.runReverse();
-        } else {
+        } else if (TunableValues.SHOOTER_RUN_ENTIRE_MATCH) {
             if (gamepad2.aWasPressed()) {
                 log.i("Operator respool");
             }
             shooter.runForward();
+        } else if (gamepad2.a) {
+            shooter.runForward();
+        } else {
+            shooter.stop();
         }
         shooter.update();
     }
@@ -259,11 +269,19 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         telemetry.addData("Drive auto-fire ready", drive.areDriveMotorsPresent());
         telemetry.addData("Intake", intake.isUsingVelocity() ? "velocity RPM" : "100% power fallback");
         telemetry.addData("Hopper stepping", hopper.isStepping());
-        telemetry.addData("Shooter", shooter.isReversing() ? "REVERSE" : "forward");
+        String shooterMode;
+        if (shooter.isReversing()) {
+            shooterMode = "REVERSE";
+        } else if (shooter.isRunning()) {
+            shooterMode = "forward";
+        } else {
+            shooterMode = "stopped";
+        }
+        telemetry.addData("Shooter", shooterMode);
         telemetry.addData("Shooter ticks/s", "cmd %.0f  actual %.0f",
                 shooter.getCommandedTicksPerSec(), shooter.getActualTicksPerSec());
         if (shooter.isStoppedWarning()) {
-            telemetry.addData("WARNING shooter", "STOPPED. Press GP2 A to respool.");
+            telemetry.addData("WARNING shooter", "STOPPED. Hold GP2 A to run.");
         }
         if (geometry != null) {
             telemetry.addData("Last good cluster", "%s  %d%%", geometry.clusterName, geometry.percentFound);
@@ -325,8 +343,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     }
 
     private void logTunables() {
-        log.i("Tunables shooterRpm=%.0f intakeRpm=%.0f shootDist=%.1f maxStart=%.1f wheel=%.1f",
-                TunableValues.SHOOTER_TARGET_RPM, TunableValues.INTAKE_TARGET_RPM,
+        log.i("Tunables shooterAlwaysOn=%b shooterRpm=%.0f intakeRpm=%.0f shootDist=%.1f maxStart=%.1f wheel=%.1f",
+                TunableValues.SHOOTER_RUN_ENTIRE_MATCH, TunableValues.SHOOTER_TARGET_RPM, TunableValues.INTAKE_TARGET_RPM,
                 TunableValues.SHOOTING_DISTANCE_IN, TunableValues.AUTO_FIRE_MAX_START_RANGE_IN,
                 TunableValues.WHEEL_DIAMETER_IN);
         log.i("Tunables imu logo=%s usb=%s gate=%d/%d deadzone=%.2f",

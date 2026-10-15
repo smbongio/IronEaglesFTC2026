@@ -7,7 +7,11 @@ public interface ShooterInterface {
 
     void runReverse();
 
+    void stop();
+
     void update();
+
+    boolean isRunning();
 
     boolean isReversing();
 

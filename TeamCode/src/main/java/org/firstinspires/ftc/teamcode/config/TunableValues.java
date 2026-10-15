@@ -13,6 +13,7 @@ public final class TunableValues {
     public static RevHubOrientationOnRobot.UsbFacingDirection IMU_USB_DIRECTION =
             RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
 
+    public static boolean SHOOTER_RUN_ENTIRE_MATCH = false;
     public static double SHOOTER_TARGET_RPM = 2000.0;
     public static double INTAKE_TARGET_RPM = 500.0;
     public static double INTAKE_REVERSE_RPM = 500.0;
