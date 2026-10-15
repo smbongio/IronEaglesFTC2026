@@ -26,16 +26,18 @@ public class ShooterSubsystem implements ShooterInterface {
             log.w("Shooter motor missing.");
         } else {
             this.motor.setDirection(DcMotor.Direction.REVERSE);
+            double ticksPerRev = this.motor.getMotorType().getTicksPerRev();
             double maxTicks = this.motor.getMotorType().getAchieveableMaxTicksPerSecond();
-            velocity = maxTicks > 1;
+            velocity = ticksPerRev > 1;
             if (velocity) {
                 this.motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                forward = maxTicks * TunableValues.SHOOTER_TARGET_RPM_FRACTION;
+                forward = TunableValues.SHOOTER_TARGET_RPM / 60.0 * ticksPerRev;
                 reverseTicks = forward;
-                log.i("Shooter using velocity. forward=%.0f ticks/s", forward);
+                log.i("Shooter using velocity. target=%.0f rpm forward=%.0f ticks/s",
+                        TunableValues.SHOOTER_TARGET_RPM, forward);
             } else {
-                log.w("Shooter motor type has no max ticks/s. Using power %.2f",
-                        TunableValues.SHOOTER_TARGET_RPM_FRACTION);
+                log.w("Shooter motor type has no ticks/rev. Falling back to power from %.0f rpm (maxTicks=%.0f)",
+                        TunableValues.SHOOTER_TARGET_RPM, maxTicks);
             }
         }
         this.useVelocity = velocity;
@@ -108,6 +110,21 @@ public class ShooterSubsystem implements ShooterInterface {
         return motor == null ? 0 : motor.getVelocity();
     }
 
+    private double fallbackPower() {
+        if (motor == null) {
+            return 0;
+        }
+        double ticksPerRev = motor.getMotorType().getTicksPerRev();
+        double maxTicks = motor.getMotorType().getAchieveableMaxTicksPerSecond();
+        if (ticksPerRev > 1 && maxTicks > 1) {
+            double maxRpm = maxTicks / ticksPerRev * 60.0;
+            if (maxRpm > 1) {
+                return Math.max(0.0, Math.min(1.0, TunableValues.SHOOTER_TARGET_RPM / maxRpm));
+            }
+        }
+        return 1.0;
+    }
+
     private void apply() {
         if (motor == null) {
             return;
@@ -115,7 +132,7 @@ public class ShooterSubsystem implements ShooterInterface {
         if (useVelocity) {
             motor.setVelocity(getCommandedTicksPerSec());
         } else {
-            double power = TunableValues.SHOOTER_TARGET_RPM_FRACTION;
+            double power = fallbackPower();
             motor.setPower(reverse ? -power : power);
         }
     }

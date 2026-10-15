@@ -325,8 +325,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     }
 
     private void logTunables() {
-        log.i("Tunables shooterFrac=%.2f intakeFrac=%.2f shootDist=%.1f maxStart=%.1f wheel=%.1f",
-                TunableValues.SHOOTER_TARGET_RPM_FRACTION, TunableValues.INTAKE_TARGET_RPM_FRACTION,
+        log.i("Tunables shooterRpm=%.0f intakeRpm=%.0f shootDist=%.1f maxStart=%.1f wheel=%.1f",
+                TunableValues.SHOOTER_TARGET_RPM, TunableValues.INTAKE_TARGET_RPM,
                 TunableValues.SHOOTING_DISTANCE_IN, TunableValues.AUTO_FIRE_MAX_START_RANGE_IN,
                 TunableValues.WHEEL_DIAMETER_IN);
         log.i("Tunables imu logo=%s usb=%s gate=%d/%d deadzone=%.2f",

@@ -71,7 +71,7 @@ The shooter runs continuously for the entire match at one constant speed.
 * Gamepad 2 **Right Bumper** (hold) runs the shooter in reverse (jam clear). Release resumes forward at the target RPM.
 * The code does **not** auto-restart just because measured speed is near zero. A jam or a hand near the wheel should not fight the operator. The Hub shows a warning; A respools.
 * Cancelling auto fire does not stop the shooter. It stops only when the match ends, unless the operator is holding reverse.
-* The speed is a **fraction of the motor type's max ticks/s**, `SHOOTER_TARGET_RPM_FRACTION` (starts at **0.75**). We do not have a measured RPM yet. Reverse uses the same fraction the other way.
+* The speed is a target speed in **RPM**, `SHOOTER_TARGET_RPM` (starts at **2000**). Reverse uses the same RPM the other way.
 
 The shooter is controlled by target speed, not by motor power. With a fixed power, the shooter slows down as the battery drains over the match, and shots fall short. With a target speed, the motor controller on the hub adjusts the power on its own to hold the speed. This also brings the wheel back up to speed quickly after each shot.
 
@@ -80,8 +80,8 @@ This uses the FTC SDK's built-in velocity control on `DcMotorEx`:
 ```java
 shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-double maxTicksPerSec = shooter.getMotorType().getAchieveableMaxTicksPerSecond();
-shooter.setVelocity(maxTicksPerSec * SHOOTER_TARGET_RPM_FRACTION);
+double ticksPerRev = shooter.getMotorType().getTicksPerRev();
+shooter.setVelocity(SHOOTER_TARGET_RPM / 60.0 * ticksPerRev); // ticks per second
 ```
 
 * The shooter motor's **encoder cable must be connected** to the expansion hub. Without it, velocity control does not work.
@@ -165,19 +165,19 @@ For both hopper buttons:
 * A step always finishes once started, even if the button is released partway through. This keeps the hopper lined up at a 180-degree position.
 
 ### Design
-Both intake speeds are the same kind of target as the shooter: a **fraction of the motor type's max ticks/s**.
-* `INTAKE_TARGET_RPM_FRACTION`: inward, Left Trigger (starts at **0.75**).
-* `INTAKE_REVERSE_RPM_FRACTION`: outward, Left Bumper (starts at **0.75**).
+Both intake speeds are target speeds in **RPM**, each set by its own tunable value:
+* `INTAKE_TARGET_RPM`: the inward speed, used by the Left Trigger (starts at **500**).
+* `INTAKE_REVERSE_RPM`: the outward speed, used only by the Left Bumper (starts at **500**).
 
 They use the same SDK velocity control as the shooter:
 
 ```java
 intake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-double maxTicksPerSec = intake.getMotorType().getAchieveableMaxTicksPerSecond();
-intake.setVelocity(maxTicksPerSec * INTAKE_TARGET_RPM_FRACTION);     // Left Trigger
-intake.setVelocity(-maxTicksPerSec * INTAKE_REVERSE_RPM_FRACTION);   // Left Bumper
-intake.setVelocity(0);                                               // released: stop
+double ticksPerRev = intake.getMotorType().getTicksPerRev();
+intake.setVelocity(INTAKE_TARGET_RPM / 60.0 * ticksPerRev);    // Left Trigger: inward, ticks per second
+intake.setVelocity(-INTAKE_REVERSE_RPM / 60.0 * ticksPerRev);  // Left Bumper: outward, ticks per second
+intake.setVelocity(0);                                         // released: stop
 ```
 
 * As with the shooter, the intake motor's **encoder cable must be connected** to the expansion hub, and the motor must be set to the correct motor type in the robot configuration.
@@ -425,7 +425,7 @@ Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn
 Answers that change the TeleOp implementation. Tunable starting values are in the table below.
 
 1. **Replace `IronEaglesTeleOp2026` in place.** Yes. The Road Runner / right-bumper aim-assist TeleOp is deleted. The Driver Hub entry stays `IronEaglesTeleOp2026`.
-2. **Missing measurements.** Use named tunables for RPM, shooting distance, wheel diameter, and IMU orientation. Shooter/intake RPM starts at 75% of the motor type's max (no RPM in existing logs). Shooting distance starts at 2 ft from the cell opening. Control Hub is on the right side, logo upright; USB is assumed forward. Wheel diameter starts at 3 in. Drive encoders are assumed plugged in; init checks that the four drive motors (and a usable motor type) are present and disables auto fire if they are not. Robot logging is verbose across the whole TeleOp. Camera height (~11 in) and tilt (~15 deg) are mounting notes only.
+2. **Missing measurements.** Use named tunables for RPM, shooting distance, wheel diameter, and IMU orientation. Shooter RPM starts at **2000**; intake inward and reverse start at **500**. Shooting distance starts at 2 ft from the cell opening. Control Hub is on the right side, logo upright; USB is assumed forward. Wheel diameter starts at 3 in. Drive encoders are assumed plugged in; init checks that the four drive motors (and a usable motor type) are present and disables auto fire if they are not. Robot logging is verbose across the whole TeleOp. Camera height (~11 in) and tilt (~15 deg) are mounting notes only.
 3. **LED.** Hardware is unknown / not in the config. Keep `LedInterface` with a no-op implementation. Every LED state is also written to the Driver Hub and the robot log.
 4. **Intake without an encoder.** Fall back to 100% power and show a Hub warning. Do not leave the intake stopped.
 5. **Drive encoders missing.** Disable auto fire and notify the driver. Driving still works.
@@ -437,7 +437,7 @@ Answers that change the TeleOp implementation. Tunable starting values are in th
 11. **FEEDING ends only on manual input (14 Oct 2026).** `AUTO_FIRE_AVAILABLE` is checked at start and in `MEASURING` only. Once `FEEDING` starts, a HIVE tip or a lost cluster does not stop the hopper. The driver cancels.
 12. **Held intake plus Right Trigger (14 Oct 2026).** Buttons and triggers already held when auto fire starts do not cancel it. Sticks still cancel immediately. A new button press after start cancels.
 13. **Gate frozen during MOVING (14 Oct 2026).** Last-known-good is only reused on a miss while the robot is stopped. Driving clears a miss so the LED cannot stay on from a stale in-cone pose.
-14. **Speeds are fractions, not RPM numbers.** Until we measure RPM, shooter and intake use `*_RPM_FRACTION` of the motor type's max ticks/s.
+14. **Speeds are RPM numbers (15 Oct 2026).** Coach-set starting targets: shooter **2000 RPM**, intake **500 RPM** (inward and reverse). Converted to ticks/s with `RPM / 60 × ticksPerRev`. If the motor type has no ticks/rev, the intake falls back to 100% power and the shooter falls back to a power estimated from the motor type's max ticks/s.
 
 ---
 
@@ -446,9 +446,9 @@ All of these are configured after testing. They live in `TunableValues.java`.
 
 | Value | What it controls | Starting value |
 |---|---|---|
-| `SHOOTER_TARGET_RPM_FRACTION` | Shooter speed for the whole match (fraction of motor-type max RPM) | **0.75** (no log RPM available) |
-| `INTAKE_TARGET_RPM_FRACTION` | Intake inward speed (Left Trigger) | **0.75** of max RPM; **100% power** if the intake encoder is missing |
-| `INTAKE_REVERSE_RPM_FRACTION` | Intake outward speed (Left Bumper) | Same as inward; **100% power** if the intake encoder is missing |
+| `SHOOTER_TARGET_RPM` | Shooter speed for the whole match | **2000 RPM** |
+| `INTAKE_TARGET_RPM` | Intake inward speed (Left Trigger) | **500 RPM**; **100% power** if the intake encoder is missing |
+| `INTAKE_REVERSE_RPM` | Intake outward speed (Left Bumper) | **500 RPM**; **100% power** if the intake encoder is missing |
 | `IMU_LOGO_DIRECTION` | Control Hub logo facing, for IMU heading | **UP** (hub on the right side, logo upright) |
 | `IMU_USB_DIRECTION` | Control Hub USB facing, for IMU heading | **FORWARD** (assumed until measured) |
 | `SHOOTING_DISTANCE_IN` | Camera-frame `hypot(x, y)` to the opening at which we shoot. Not a tile tape measure. | **24 in** (2 ft) |

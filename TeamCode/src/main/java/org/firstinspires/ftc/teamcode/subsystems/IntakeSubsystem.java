@@ -27,9 +27,11 @@ public class IntakeSubsystem implements IntakeInterface {
             velocity = ticksPerRev > 1 && maxTicks > 1;
             if (velocity) {
                 this.motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                inward = maxTicks * TunableValues.INTAKE_TARGET_RPM_FRACTION;
-                outward = maxTicks * TunableValues.INTAKE_REVERSE_RPM_FRACTION;
-                log.i("Intake using velocity. inward=%.0f outward=%.0f ticks/s", inward, outward);
+                inward = TunableValues.INTAKE_TARGET_RPM / 60.0 * ticksPerRev;
+                outward = TunableValues.INTAKE_REVERSE_RPM / 60.0 * ticksPerRev;
+                log.i("Intake using velocity. inward=%.0f rpm (%.0f ticks/s) outward=%.0f rpm (%.0f ticks/s)",
+                        TunableValues.INTAKE_TARGET_RPM, inward,
+                        TunableValues.INTAKE_REVERSE_RPM, outward);
             } else {
                 log.w("Intake encoder/motor type missing. Using 100%% power.");
             }

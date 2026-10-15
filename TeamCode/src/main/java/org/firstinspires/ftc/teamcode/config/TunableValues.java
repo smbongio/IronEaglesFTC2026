@@ -13,9 +13,9 @@ public final class TunableValues {
     public static RevHubOrientationOnRobot.UsbFacingDirection IMU_USB_DIRECTION =
             RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
 
-    public static double SHOOTER_TARGET_RPM_FRACTION = 0.75;
-    public static double INTAKE_TARGET_RPM_FRACTION = 0.75;
-    public static double INTAKE_REVERSE_RPM_FRACTION = 0.75;
+    public static double SHOOTER_TARGET_RPM = 2000.0;
+    public static double INTAKE_TARGET_RPM = 500.0;
+    public static double INTAKE_REVERSE_RPM = 500.0;
 
     public static double SHOOTING_DISTANCE_IN = 24.0;
     public static double AUTO_FIRE_MAX_START_RANGE_IN = 60.0;
