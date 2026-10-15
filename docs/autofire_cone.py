@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge, Arc, Rectangle, FancyArrowPatch
 
 N = 1.0          # shooting distance
+MAX_START = 2.5  # AUTO_FIRE_MAX_START_RANGE_IN / SHOOTING_DISTANCE_IN (60 / 24)
 CONE_R = 2.7     # how far the cone is drawn (it really has no end)
 CENTER = -90.0   # center line points down the page
 HALF = 45.0
@@ -46,6 +47,11 @@ ax.add_patch(Arc((0, 0), 2 * N, 2 * N, theta1=left_edge, theta2=right_edge, colo
 ax.text(*pt(CENTER, N + 0.13), "shooting arc\n(target positions)", color="#d62828", fontsize=11,
         ha="center", va="top", fontweight="bold")
 
+# Max start range (auto fire may start only inside this arc; the cone continues past it)
+ax.add_patch(Arc((0, 0), 2 * MAX_START, 2 * MAX_START, theta1=left_edge, theta2=right_edge,
+                 color="#d62828", lw=1.6, linestyle=(0, (4, 3))))
+ax.text(*pt(-52, MAX_START + 0.08), "max start range", color="#d62828", fontsize=9, ha="left", va="bottom")
+
 # Shooting distance dimension
 dx, dy = pt(-118, N)
 ax.annotate("", xy=(dx, dy), xytext=(0, 0),
@@ -60,7 +66,7 @@ ax.add_patch(Rectangle((-CELL_W / 2, -CELL_D / 2), CELL_W, CELL_D, facecolor="#e
 ax.text(0, CELL_D / 2 + 0.06, "target CELL", color="#b00020", fontsize=11, ha="center", va="bottom",
         fontweight="bold")
 ax.plot(0, 0, "ko", ms=6, zorder=5)
-ax.text(CELL_W / 2 + 0.08, 0.0, "center of the CELL\n(tip of the cone)", fontsize=9, va="center")
+ax.text(CELL_W / 2 + 0.08, 0.0, "cell opening\n(tip of the cone)", fontsize=9, va="center")
 
 # Example robots and where auto fire drives them (starts only inside the cone)
 robots = [
@@ -78,8 +84,8 @@ for name, (ra, rr), (ta, tr), label in robots:
     off = {"A": (0.15, -0.05), "B": (0.14, 0.0)}[name]
     ax.text(rxy[0] + off[0], rxy[1] + off[1], label, fontsize=8.5, ha="left", va="center")
 
-ax.text(-2.9, -3.75, "N = shooting distance (SHOOTING_DISTANCE_IN). The cone has no maximum distance; dashed lines show it continues.\n"
-        "Yellow squares: robot positions when the trigger is pulled.  Red dots: where auto fire drives the robot.",
+ax.text(-2.9, -3.75, "N = shooting distance. The cone is a 90° sector with no far edge (dashed blue sides).\n"
+        "Dashed red arc = max start range. Auto fire may start only inside the cone and inside that arc.",
         fontsize=9, color="#333")
 
 ax.set_title("Auto fire: shooting cone and shooting arc (top-down view)", fontsize=14, fontweight="bold")

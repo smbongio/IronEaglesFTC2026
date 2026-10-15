@@ -63,6 +63,11 @@ public class AutoFireController implements AutoFireControllerInterface {
             }
             return;
         }
+        if (state == State.FEEDING) {
+            hopper.stepForward180();
+            hopper.update();
+            return;
+        }
         if (!availability.isAutoFireAvailable()) {
             log.w("ended: %s", availability.unavailableReason());
             hopper.stop();
@@ -80,11 +85,6 @@ public class AutoFireController implements AutoFireControllerInterface {
                 drive.startMove(plan);
                 setState(State.MOVING);
             }
-            return;
-        }
-        if (state == State.FEEDING) {
-            hopper.stepForward180();
-            hopper.update();
         }
     }
 

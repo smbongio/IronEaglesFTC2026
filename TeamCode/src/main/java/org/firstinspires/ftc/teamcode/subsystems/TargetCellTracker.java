@@ -7,13 +7,11 @@ import org.firstinspires.ftc.teamcode.interfaces.TargetCellTrackerInterface;
 import org.firstinspires.ftc.teamcode.util.RobotLogger;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
 
 public class TargetCellTracker implements TargetCellTrackerInterface {
-    private static final int[] RED_IDS = {30, 31, 32, 33, 34, 35, 36, 37};
-    private static final int[] BLUE_IDS = {38, 39, 40, 41, 42, 43, 44, 45};
+    private static final double UPRIGHT_ROLL_MAX_DEG = 90.0;
 
     private final RobotLogger log = new RobotLogger("TARGET");
     private AllianceInterface.Color alliance;
@@ -37,6 +35,11 @@ public class TargetCellTracker implements TargetCellTrackerInterface {
 
     @Override
     public void update(List<AprilTagDetection> detections) {
+        update(detections, true);
+    }
+
+    @Override
+    public void update(List<AprilTagDetection> detections, boolean reuseLastKnownGoodOnMiss) {
         CellGeometry best = null;
         if (alliance != null && detections != null) {
             for (AprilTagDetection detection : detections) {
@@ -45,11 +48,11 @@ public class TargetCellTracker implements TargetCellTrackerInterface {
                     continue;
                 }
                 if (!geometry.upright) {
-                    String rejectKey = geometry.source + "|" + Math.round(geometry.tagHeightIn);
+                    String rejectKey = geometry.clusterName + "|" + Math.round(geometry.rollDeg);
                     if (!rejectKey.equals(lastRejectKey)) {
                         lastRejectKey = rejectKey;
-                        log.i("reject height source=%s height=%.1f min=%.1f",
-                                geometry.source, geometry.tagHeightIn, TunableValues.CELL_UP_MIN_HEIGHT_IN);
+                        log.i("reject roll cluster=%s roll=%.1f (need |roll| < %.0f) pct=%d",
+                                geometry.clusterName, geometry.rollDeg, UPRIGHT_ROLL_MAX_DEG, geometry.percentFound);
                     }
                     continue;
                 }
@@ -64,17 +67,16 @@ public class TargetCellTracker implements TargetCellTrackerInterface {
         samplesTaken++;
         if (inView) {
             lastKnownGood = best;
+        } else if (!reuseLastKnownGoodOnMiss || !isGatePassing()) {
+            lastKnownGood = null;
         }
-        if (!isGatePassing()) {
-            lastKnownGood = inView ? best : null;
-        }
-        String key = inView + "|" + isGatePassing() + "|" + (best == null ? "none" : best.source);
+        String key = inView + "|" + isGatePassing() + "|" + (best == null ? "none" : best.clusterName);
         if (!key.equals(lastKey)) {
             lastKey = key;
             if (best != null) {
-                log.i("inView=%b gate=%d/%d source=%s id=%d range=%.1f bearing=%.1f yaw=%.1f height=%.1f upright=%b",
-                        inView, getGateHits(), getGateWindow(), best.source, best.tagId, best.rangeIn,
-                        best.bearingDeg, best.yawDeg, best.tagHeightIn, best.upright);
+                log.i("inView=%b gate=%d/%d cluster=%s pct=%d range=%.1f bearing=%.1f yaw=%.1f roll=%.1f upright=%b",
+                        inView, getGateHits(), getGateWindow(), best.clusterName, best.percentFound, best.rangeIn,
+                        best.bearingDeg, best.yawDeg, best.rollDeg, best.upright);
             } else {
                 log.i("inView=false gate=%d/%d alliance=%s detections=%d",
                         getGateHits(), getGateWindow(), alliance, detections == null ? 0 : detections.size());
@@ -116,45 +118,20 @@ public class TargetCellTracker implements TargetCellTrackerInterface {
     }
 
     private CellGeometry toGeometry(AprilTagDetection detection) {
-        if (detection == null || detection.ftcPose == null) {
+        if (!(detection instanceof AprilTagClusterDetection) || detection.ftcPose == null) {
             return null;
         }
-        if (detection instanceof AprilTagClusterDetection) {
-            AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
-            String name = cluster.metadata == null ? "" : cluster.metadata.name;
-            if (!nameMatchesAlliance(name)) {
-                return null;
-            }
-            return build( -1, "cluster " + name, detection);
+        AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
+        String name = cluster.metadata == null ? "" : cluster.metadata.name;
+        if (!nameMatchesAlliance(name)) {
+            return null;
         }
-        if (detection instanceof AprilTagSingleDetection) {
-            AprilTagSingleDetection tag = (AprilTagSingleDetection) detection;
-            if (!idMatchesAlliance(tag.id)) {
-                return null;
-            }
-            return build(tag.id, "tag " + tag.id, detection);
-        }
-        return null;
-    }
-
-    private CellGeometry build(int id, String source, AprilTagDetection detection) {
-        double range = detection.ftcPose.range;
-        double elevation = detection.ftcPose.elevation;
-        double height = TunableValues.CAMERA_HEIGHT_IN
-                + range * Math.sin(Math.toRadians(elevation + TunableValues.CAMERA_TILT_DEG));
-        boolean upright = height >= TunableValues.CELL_UP_MIN_HEIGHT_IN;
-        double yaw = detection.ftcPose.yaw;
-        double x = detection.ftcPose.x;
-        double y = detection.ftcPose.y;
-        double z = detection.ftcPose.z;
-        double horiz = Math.hypot(x, y);
-        if (horiz > 0.1 && TunableValues.CELL_CENTER_OFFSET_IN != 0.0) {
-            double scale = (horiz + TunableValues.CELL_CENTER_OFFSET_IN) / horiz;
-            x *= scale;
-            y *= scale;
-        }
-        return new CellGeometry(id, source, x, y, z, yaw, Math.hypot(x, y),
-                detection.ftcPose.bearing, elevation, height, upright);
+        double roll = detection.ftcPose.roll;
+        boolean upright = Math.abs(roll) < UPRIGHT_ROLL_MAX_DEG;
+        return new CellGeometry(name, cluster.percentClusterFound,
+                detection.ftcPose.x, detection.ftcPose.y, detection.ftcPose.z, detection.ftcPose.yaw,
+                detection.ftcPose.range, detection.ftcPose.bearing, detection.ftcPose.elevation,
+                roll, upright);
     }
 
     private boolean nameMatchesAlliance(String name) {
@@ -163,15 +140,5 @@ public class TargetCellTracker implements TargetCellTrackerInterface {
             return upper.contains("RED");
         }
         return upper.contains("BLUE") && !upper.contains("RED");
-    }
-
-    private boolean idMatchesAlliance(int id) {
-        int[] ids = alliance == AllianceInterface.Color.RED ? RED_IDS : BLUE_IDS;
-        for (int candidate : ids) {
-            if (candidate == id) {
-                return true;
-            }
-        }
-        return false;
     }
 }

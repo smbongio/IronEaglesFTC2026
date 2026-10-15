@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.geometry.CellGeometry;
 import org.firstinspires.ftc.teamcode.interfaces.AllianceInterface;
+import org.firstinspires.ftc.teamcode.interfaces.AutoFireControllerInterface;
 import org.firstinspires.ftc.teamcode.interfaces.LedInterface;
 import org.firstinspires.ftc.teamcode.subsystems.AllianceSelector;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
@@ -32,6 +33,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private final ElapsedTime visionLogTimer = new ElapsedTime();
     private String lastVisionLogKey = "";
     private boolean wasGp2RightTrigger;
+    private int suppressCancelMask;
 
     private AllianceSelector alliance;
     private ControlHubImu imu;
@@ -93,17 +95,25 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             }
 
             List<AprilTagDetection> detections = vision.sample();
-            tracker.update(detections);
+            boolean driverDriving = stick(gamepad1.left_stick_x) || stick(gamepad1.left_stick_y)
+                    || stick(gamepad1.right_stick_x);
+            if (autoFire.getState() != AutoFireControllerInterface.State.MOVING) {
+                tracker.update(detections, !driverDriving);
+            }
 
             boolean available = availability.isAutoFireAvailable();
             led.setState(available ? LedInterface.State.AUTO_FIRE_AVAILABLE : LedInterface.State.OFF);
 
             boolean gp2Rt = gamepad2.right_trigger > TunableValues.DEADZONE;
-            if (autoFire.isActive() && hasManualInput()) {
+            if (autoFire.isActive() && isCancelInput()) {
                 log.i("Manual input cancelled auto fire from %s", autoFire.getState());
                 autoFire.abort();
+                suppressCancelMask = 0;
             } else if (!autoFire.isActive() && gp2Rt && !wasGp2RightTrigger) {
                 autoFire.start();
+                if (autoFire.isActive()) {
+                    suppressCancelMask = buttonMask();
+                }
             }
             wasGp2RightTrigger = gp2Rt;
 
@@ -112,6 +122,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             } else {
                 applyManualControls();
             }
+            applyShooter();
 
             writeTelemetry("RUN");
             logVision(detections);
@@ -162,21 +173,63 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         hopper.update();
     }
 
-    private boolean hasManualInput() {
-        return stick(gamepad1.left_stick_x) || stick(gamepad1.left_stick_y) || stick(gamepad1.right_stick_x)
+    private void applyShooter() {
+        if (gamepad2.right_bumper) {
+            shooter.runReverse();
+        } else {
+            if (gamepad2.aWasPressed()) {
+                log.i("Operator respool");
+            }
+            shooter.runForward();
+        }
+        shooter.update();
+    }
+
+    private boolean isCancelInput() {
+        if (stick(gamepad1.left_stick_x) || stick(gamepad1.left_stick_y) || stick(gamepad1.right_stick_x)
                 || stick(gamepad1.right_stick_y) || stick(gamepad2.left_stick_x) || stick(gamepad2.left_stick_y)
-                || stick(gamepad2.right_stick_x) || stick(gamepad2.right_stick_y)
-                || gamepad1.left_trigger > TunableValues.DEADZONE
-                || gamepad1.right_trigger > TunableValues.DEADZONE
-                || gamepad2.left_trigger > TunableValues.DEADZONE
-                || gamepad1.a || gamepad1.b || gamepad1.x || gamepad1.y
-                || gamepad1.left_bumper || gamepad1.right_bumper
-                || gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.dpad_left || gamepad1.dpad_right
-                || gamepad1.back || gamepad1.start || gamepad1.left_stick_button || gamepad1.right_stick_button
-                || gamepad2.a || gamepad2.b || gamepad2.x || gamepad2.y
-                || gamepad2.left_bumper || gamepad2.right_bumper
-                || gamepad2.dpad_up || gamepad2.dpad_down || gamepad2.dpad_left || gamepad2.dpad_right
-                || gamepad2.back || gamepad2.start || gamepad2.left_stick_button || gamepad2.right_stick_button;
+                || stick(gamepad2.right_stick_x) || stick(gamepad2.right_stick_y)) {
+            return true;
+        }
+        int held = buttonMask();
+        suppressCancelMask &= held;
+        return (held & ~suppressCancelMask) != 0;
+    }
+
+    private int buttonMask() {
+        int mask = 0;
+        if (gamepad1.left_trigger > TunableValues.DEADZONE) mask |= 1;
+        if (gamepad1.right_trigger > TunableValues.DEADZONE) mask |= 1 << 1;
+        if (gamepad2.left_trigger > TunableValues.DEADZONE) mask |= 1 << 2;
+        if (gamepad1.a) mask |= 1 << 3;
+        if (gamepad1.b) mask |= 1 << 4;
+        if (gamepad1.x) mask |= 1 << 5;
+        if (gamepad1.y) mask |= 1 << 6;
+        if (gamepad1.left_bumper) mask |= 1 << 7;
+        if (gamepad1.right_bumper) mask |= 1 << 8;
+        if (gamepad1.dpad_up) mask |= 1 << 9;
+        if (gamepad1.dpad_down) mask |= 1 << 10;
+        if (gamepad1.dpad_left) mask |= 1 << 11;
+        if (gamepad1.dpad_right) mask |= 1 << 12;
+        if (gamepad1.back) mask |= 1 << 13;
+        if (gamepad1.start) mask |= 1 << 14;
+        if (gamepad1.left_stick_button) mask |= 1 << 15;
+        if (gamepad1.right_stick_button) mask |= 1 << 16;
+        if (gamepad2.a) mask |= 1 << 17;
+        if (gamepad2.b) mask |= 1 << 18;
+        if (gamepad2.x) mask |= 1 << 19;
+        if (gamepad2.y) mask |= 1 << 20;
+        if (gamepad2.left_bumper) mask |= 1 << 21;
+        if (gamepad2.right_bumper) mask |= 1 << 22;
+        if (gamepad2.dpad_up) mask |= 1 << 23;
+        if (gamepad2.dpad_down) mask |= 1 << 24;
+        if (gamepad2.dpad_left) mask |= 1 << 25;
+        if (gamepad2.dpad_right) mask |= 1 << 26;
+        if (gamepad2.back) mask |= 1 << 27;
+        if (gamepad2.start) mask |= 1 << 28;
+        if (gamepad2.left_stick_button) mask |= 1 << 29;
+        if (gamepad2.right_stick_button) mask |= 1 << 30;
+        return mask;
     }
 
     private static boolean stick(double value) {
@@ -206,12 +259,18 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         telemetry.addData("Drive auto-fire ready", drive.areDriveMotorsPresent());
         telemetry.addData("Intake", intake.isUsingVelocity() ? "velocity RPM" : "100% power fallback");
         telemetry.addData("Hopper stepping", hopper.isStepping());
+        telemetry.addData("Shooter", shooter.isReversing() ? "REVERSE" : "forward");
+        telemetry.addData("Shooter ticks/s", "cmd %.0f  actual %.0f",
+                shooter.getCommandedTicksPerSec(), shooter.getActualTicksPerSec());
+        if (shooter.isStoppedWarning()) {
+            telemetry.addData("WARNING shooter", "STOPPED. Press GP2 A to respool.");
+        }
         if (geometry != null) {
-            telemetry.addData("Last good source", geometry.source);
+            telemetry.addData("Last good cluster", "%s  %d%%", geometry.clusterName, geometry.percentFound);
             telemetry.addData("Last good x/y/z (in)", "%.1f / %.1f / %.1f", geometry.xIn, geometry.yIn, geometry.zIn);
             telemetry.addData("Last good range/yaw/bearing", "%.1f in / %.1f / %.1f",
                     geometry.rangeIn, geometry.yawDeg, geometry.bearingDeg);
-            telemetry.addData("Last good height/upright", "%.1f in / %b", geometry.tagHeightIn, geometry.upright);
+            telemetry.addData("Last good roll/upright", "%.1f / %b", geometry.rollDeg, geometry.upright);
             telemetry.addData("In cone", shooting.isInsideCone(geometry));
         } else {
             telemetry.addData("Last good geometry", "--");
@@ -227,6 +286,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         }
         if (!alliance.isSet()) {
             telemetry.addData("WARNING alliance", "Press GP1 X=Blue or B=Red");
+        }
+        if (robot.frontLeft != null && robot.frontLeft.getMotorType().getTicksPerRev() <= 1) {
+            telemetry.addData("WARNING motors", "Drive/intake/shooter types are Unspecified. Set them on the DS.");
         }
     }
 
@@ -263,11 +325,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     }
 
     private void logTunables() {
-        log.i("Tunables shooterFrac=%.2f intakeFrac=%.2f shootDist=%.1f camH=%.1f camTilt=%.1f wheel=%.1f cellUp=%.1f",
+        log.i("Tunables shooterFrac=%.2f intakeFrac=%.2f shootDist=%.1f maxStart=%.1f wheel=%.1f",
                 TunableValues.SHOOTER_TARGET_RPM_FRACTION, TunableValues.INTAKE_TARGET_RPM_FRACTION,
-                TunableValues.SHOOTING_DISTANCE_IN, TunableValues.CAMERA_HEIGHT_IN,
-                TunableValues.CAMERA_TILT_DEG, TunableValues.WHEEL_DIAMETER_IN,
-                TunableValues.CELL_UP_MIN_HEIGHT_IN);
+                TunableValues.SHOOTING_DISTANCE_IN, TunableValues.AUTO_FIRE_MAX_START_RANGE_IN,
+                TunableValues.WHEEL_DIAMETER_IN);
         log.i("Tunables imu logo=%s usb=%s gate=%d/%d deadzone=%.2f",
                 TunableValues.IMU_LOGO_DIRECTION, TunableValues.IMU_USB_DIRECTION,
                 TunableValues.TAG_DETECTION_MIN_HITS, TunableValues.TAG_DETECTION_WINDOW,

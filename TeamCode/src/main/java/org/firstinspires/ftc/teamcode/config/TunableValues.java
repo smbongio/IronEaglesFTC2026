@@ -18,15 +18,12 @@ public final class TunableValues {
     public static double INTAKE_REVERSE_RPM_FRACTION = 0.75;
 
     public static double SHOOTING_DISTANCE_IN = 24.0;
-    public static double CELL_CENTER_OFFSET_IN = 0.0;
+    public static double AUTO_FIRE_MAX_START_RANGE_IN = 60.0;
     public static double DISTANCE_TOLERANCE_IN = 2.0;
     public static double AIM_OFFSET_DEG = 0.0;
     public static double ALIGNMENT_TOLERANCE_DEG = 5.0;
     public static double AUTO_FIRE_DRIVE_POWER = 0.4;
     public static double AUTO_FIRE_TURN_POWER = 0.3;
-    public static double CELL_UP_MIN_HEIGHT_IN = 16.0;
-    public static double CAMERA_HEIGHT_IN = 11.0;
-    public static double CAMERA_TILT_DEG = 15.0;
     public static double WHEEL_DIAMETER_IN = 3.0;
     public static int TAG_DETECTION_MIN_HITS = 3;
     public static int TAG_DETECTION_WINDOW = 5;

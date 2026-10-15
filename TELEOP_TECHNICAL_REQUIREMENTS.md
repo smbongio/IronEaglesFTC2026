@@ -60,24 +60,28 @@ The SDK supports this directly: `opModeInInit()` keeps a loop running until Play
 ### Requirement
 * The robot must be able to shoot at any time during TeleOp, with no wait for the shooter to spin up.
 * Shot strength must stay consistent for the whole match, including as the battery drains.
-* There are no driver controls for the shooter.
+* The operator can respool the shooter or reverse it if it stops or jams. There is no dedicated “shoot” trigger besides hopper feed and auto fire.
 
 ### Design
 The shooter runs continuously for the entire match at one constant speed.
 
 * The shooter starts spinning when the driver presses Play, not during initialization.
-* Nothing in normal operation stops the shooter, including cancelling auto fire. It stops only when the match ends.
-* The speed is a target speed in **RPM**, set by one tunable value, `SHOOTER_TARGET_RPM`, configured after testing.
+* Every TeleOp loop re-sends that speed command. A dropped command is recovered without the operator doing anything.
+* Gamepad 2 **A** respools: send the forward target again and log it. Use this if the wheel has stopped and the Hub shows `SHOOTER STOPPED`.
+* Gamepad 2 **Right Bumper** (hold) runs the shooter in reverse (jam clear). Release resumes forward at the target RPM.
+* The code does **not** auto-restart just because measured speed is near zero. A jam or a hand near the wheel should not fight the operator. The Hub shows a warning; A respools.
+* Cancelling auto fire does not stop the shooter. It stops only when the match ends, unless the operator is holding reverse.
+* The speed is a **fraction of the motor type's max ticks/s**, `SHOOTER_TARGET_RPM_FRACTION` (starts at **0.75**). We do not have a measured RPM yet. Reverse uses the same fraction the other way.
 
-The shooter is controlled by target speed, not by motor power. With a fixed power, the shooter slows down as the battery drains over the match, and shots fall short. With a target speed, the motor controller on the hub adjusts the power on its own to hold the RPM. This also brings the wheel back up to speed quickly after each shot.
+The shooter is controlled by target speed, not by motor power. With a fixed power, the shooter slows down as the battery drains over the match, and shots fall short. With a target speed, the motor controller on the hub adjusts the power on its own to hold the speed. This also brings the wheel back up to speed quickly after each shot.
 
 This uses the FTC SDK's built-in velocity control on `DcMotorEx`:
 
 ```java
 shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-double ticksPerRev = shooter.getMotorType().getTicksPerRev();
-shooter.setVelocity(SHOOTER_TARGET_RPM / 60.0 * ticksPerRev); // ticks per second
+double maxTicksPerSec = shooter.getMotorType().getAchieveableMaxTicksPerSecond();
+shooter.setVelocity(maxTicksPerSec * SHOOTER_TARGET_RPM_FRACTION);
 ```
 
 * The shooter motor's **encoder cable must be connected** to the expansion hub. Without it, velocity control does not work.
@@ -85,6 +89,34 @@ shooter.setVelocity(SHOOTER_TARGET_RPM / 60.0 * ticksPerRev); // ticks per secon
 * The RPM is measured at the motor's output shaft. If there is gearing or a belt between the motor and the shooter wheel, the wheel spins at a different speed.
 
 > **Note:** Running the shooter all match still needs to be tested. The main risk is battery drain, which we don't expect to be a problem.
+
+---
+
+## Controller Map
+
+Any input except Gamepad 2 Right Trigger cancels auto fire, then that same loop does the action below. Buttons and triggers that were **already held** when auto fire started do not cancel it (so a held intake plus a Right Trigger tap starts auto fire and keeps it). Sticks cancel immediately. A new press after start cancels.
+
+### Gamepad 1 (driver)
+
+| Input | Action |
+|---|---|
+| Left stick | Drive (field-centric: up = away from the driver) |
+| Right stick left/right | Turn in place |
+| Back (Share) | Zero heading / reset forward |
+| X | Alliance = Blue (INIT, or after Play if still NOT SET) |
+| B | Alliance = Red (INIT, or after Play if still NOT SET) |
+
+### Gamepad 2 (operator)
+
+| Input | Action |
+|---|---|
+| Right Trigger | Start auto fire (aim to the arc, then feed) |
+| Left Trigger | Intake in (hold) |
+| Left Bumper | Intake out (hold) |
+| A | Respool shooter forward |
+| Right Bumper | Shooter reverse (hold; release resumes forward) |
+| X | Manual hopper feed +180° (hold to repeat). Can launch from anywhere. |
+| Y | Hopper −180° (hold to repeat) |
 
 ---
 
@@ -117,10 +149,12 @@ The IMU only measures how far the robot has turned since it was last zeroed, so 
 ## Operator Controls (Gamepad 2)
 
 ### Requirement
-* **Right Trigger:** start auto fire (see Auto Fire). This is the only way to shoot.
+* **Right Trigger:** start auto fire (see Auto Fire). This is the only way to start the aim-and-feed sequence.
 * **Left Trigger:** while held, run the intake inward at a predefined speed. Stops when released.
 * **Left Bumper:** while held, run the intake outward at a predefined reverse speed. Stops when released.
-* **X Button:** step the hopper 180 degrees in the feeding direction.
+* **A Button:** respool the shooter forward at the target RPM.
+* **Right Bumper:** while held, run the shooter in reverse. Release resumes forward.
+* **X Button:** manual hopper feed — step 180 degrees in the feeding direction. With the shooter spinning, this can launch a ball from anywhere.
 * **Y Button:** step the hopper 180 degrees in the opposite direction (-180 degrees).
 
 The triggers are either held or not. How far a trigger is pulled does not change anything. A small deadzone decides when a trigger counts as held.
@@ -131,19 +165,19 @@ For both hopper buttons:
 * A step always finishes once started, even if the button is released partway through. This keeps the hopper lined up at a 180-degree position.
 
 ### Design
-Both intake speeds are target speeds in **RPM**, each set by its own tunable value:
-* `INTAKE_TARGET_RPM`: the inward speed, used by the Left Trigger.
-* `INTAKE_REVERSE_RPM`: the outward speed, used only by the Left Bumper.
+Both intake speeds are the same kind of target as the shooter: a **fraction of the motor type's max ticks/s**.
+* `INTAKE_TARGET_RPM_FRACTION`: inward, Left Trigger (starts at **0.75**).
+* `INTAKE_REVERSE_RPM_FRACTION`: outward, Left Bumper (starts at **0.75**).
 
 They use the same SDK velocity control as the shooter:
 
 ```java
 intake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-double ticksPerRev = intake.getMotorType().getTicksPerRev();
-intake.setVelocity(INTAKE_TARGET_RPM / 60.0 * ticksPerRev);    // Left Trigger: inward, ticks per second
-intake.setVelocity(-INTAKE_REVERSE_RPM / 60.0 * ticksPerRev);  // Left Bumper: outward, ticks per second
-intake.setVelocity(0);                                         // released: stop
+double maxTicksPerSec = intake.getMotorType().getAchieveableMaxTicksPerSecond();
+intake.setVelocity(maxTicksPerSec * INTAKE_TARGET_RPM_FRACTION);     // Left Trigger
+intake.setVelocity(-maxTicksPerSec * INTAKE_REVERSE_RPM_FRACTION);   // Left Bumper
+intake.setVelocity(0);                                               // released: stop
 ```
 
 * As with the shooter, the intake motor's **encoder cable must be connected** to the expansion hub, and the motor must be set to the correct motor type in the robot configuration.
@@ -160,8 +194,8 @@ intake.setVelocity(0);                                         // released: stop
 
 | Telemetry line | What it shows |
 |---|---|
-| `TARGET_CELL_IN_VIEW` | `true` when the current camera sample found **at least one** AprilTag (or the cluster) of the target cell. Otherwise `false`. |
-| `AUTO_FIRE_AVAILABLE` | `true` when auto fire can start: alliance chosen, IMU working, detection gate passing, and the robot is inside the shooting cone. Otherwise `false`. |
+| `TARGET_CELL_IN_VIEW` | `true` when the current camera sample found the **upright alliance cluster**. Otherwise `false`. |
+| `AUTO_FIRE_AVAILABLE` | `true` when auto fire can start: alliance chosen, IMU working, detection gate passing, the robot is inside the shooting cone, and range is within `AUTO_FIRE_MAX_START_RANGE_IN`. Otherwise `false`. |
 
 * The Driver Hub must also show the last known good geometry whenever the detection gate is passing.
 
@@ -171,22 +205,24 @@ intake.setVelocity(0);                                         // released: stop
 
 | Telemetry line | What it shows |
 |---|---|
-| `TARGET_CELL_IN_VIEW` | `true` when this sample found at least one tag of the target cell. This is the raw camera result, for debugging. It can flicker when the intake or shooter shakes the webcam. |
-| `AUTO_FIRE_AVAILABLE` | `true` when the robot is inside the shooting cone and auto fire is allowed to start (alliance, IMU, and detection gate). This is what the LED follows. |
-| Detection gate | How many of the last Y samples found the tags, for example `3/5`. |
-| Target geometry | The last known good position (x, y, z) and yaw relative to the center of the target cell, plus the distance and aim angle to it. These are the same values auto fire uses. |
+| `TARGET_CELL_IN_VIEW` | `true` when this sample found the upright alliance cluster. This is the raw camera result, for debugging. It can flicker when the intake or shooter shakes the webcam. |
+| `AUTO_FIRE_AVAILABLE` | `true` when the robot is inside the shooting cone, close enough to start, and auto fire is allowed (alliance, IMU, and detection gate). This is what the LED follows. |
+| Detection gate | How many of the last Y samples found the upright alliance cluster, for example `3/5`. |
+| Target geometry | The last known good cluster pose of the **cell opening** (x, y, z, yaw, range, bearing, roll, percent of tags found). These are the same values auto fire uses. |
 
 * When the detection gate is passing, the geometry lines show the last known good reading. That reading may be from the current sample, or from a recent sample that is still inside the gate.
 * When the detection gate is not passing, the geometry lines show `--` instead of numbers, so a stale reading is never shown as current.
 * `TARGET_CELL_IN_VIEW` can be `false` while `AUTO_FIRE_AVAILABLE` is still `true`: the current sample missed, but the gate is still passing and the last known good reading puts the robot in the cone. That is expected during a short vibration dropout.
-* `TARGET_CELL_IN_VIEW` can be `true` while `AUTO_FIRE_AVAILABLE` is `false`: we see the target cell, but the robot is outside the cone (or alliance / IMU is missing). Auto fire does not start. The driver must move into the cone.
+* `TARGET_CELL_IN_VIEW` can be `true` while `AUTO_FIRE_AVAILABLE` is `false`: we see the target cell, but the robot is outside the cone, too far to start, or alliance / IMU is missing. Auto fire does not start. The driver must move into the cone and inside the start range.
 
 **Detection gate (X of Y).** Intake and shooter vibration can make the mounted webcam miss tags for a sample or two even when the target cell is still in front of the robot (see Reference: Robot Hardware). To ride through those dropouts, every TeleOp loop records one camera sample:
 
-* A sample is a **hit** if it found at least one tag of the target cell, and a **miss** if it did not. A hit is what `TARGET_CELL_IN_VIEW` reports.
+* A sample is a **hit** if it found the upright alliance cluster, and a **miss** if it did not. A hit is what `TARGET_CELL_IN_VIEW` reports. Do not reject a hit only because `percentClusterFound` is low.
 * The robot keeps the last **Y** samples, and the last geometry from a hit (the **last known good** reading).
 * The gate **passes** when at least **X** of those Y samples were hits. X and Y are tunable (see Tunable Values).
-* `AUTO_FIRE_AVAILABLE` uses the last known good reading to decide whether the robot is inside the cone, and stays `true` through a miss as long as the gate still passes and that reading is still in the cone.
+* `AUTO_FIRE_AVAILABLE` uses the last known good reading to decide whether the robot is inside the cone and inside the start range, and stays `true` through a miss as long as the gate still passes, the robot is **not being driven**, and that reading is still valid.
+* Last-known-good is for vibration dropouts **while the robot is stopped**. If the driver is moving the sticks, a miss clears last-known-good so the LED and availability cannot stay on from a stale in-cone pose.
+* During `MOVING`, the tracker and gate are **frozen**. Vibration during the encoder move cannot fail the gate. After the move, `MEASURING` uses a fresh sample.
 * When the gate fails, `AUTO_FIRE_AVAILABLE` is `false` and the last known good reading is no longer used.
 
 ---
@@ -200,45 +236,44 @@ The shooter runs at a constant RPM (see Shooter), so shooting from the same dist
 
 The driver is responsible for getting the robot **into the shooting cone**. Auto fire does not drive in from outside the cone, and it does not path around the HIVE frame. Other robots also stay the driver's problem.
 
-* **Starting:** auto fire starts only if `AUTO_FIRE_AVAILABLE` is `true` when the trigger is pulled (inside the cone, detection gate passing, alliance and IMU ready). It then uses the last known good geometry to plan the first move. If `AUTO_FIRE_AVAILABLE` is `false`, auto fire does not start and nothing else happens.
+* **Starting:** auto fire starts only if `AUTO_FIRE_AVAILABLE` is `true` when the trigger is pulled (inside the cone, close enough to start, detection gate passing, alliance and IMU ready). It then uses the last known good geometry to plan the first move. If `AUTO_FIRE_AVAILABLE` is `false`, auto fire does not start and nothing else happens.
 * **Moving:** the robot drives itself straight in or out to the **shooting arc** (defined below) and aims the shooter at the target cell. After each move it checks its position again, and it only shoots once it is at the right distance and aimed.
 * **Shooting:** the robot shoots repeatedly, one ball at a time, until manual input is received.
 * **Manual input ends auto fire.** Manual input is any button press, trigger pull, or joystick movement on **either Gamepad 1 or Gamepad 2**, except the Right Trigger on Gamepad 2. A small deadzone applies to joysticks and triggers so stick drift doesn't count as input. Manual input ends auto fire at any point in the sequence.
-* **Losing the target or leaving the cone:** if `AUTO_FIRE_AVAILABLE` is `false` when the robot checks its position (at the start, or after a move), auto fire ends. That covers the detection gate failing and the robot no longer being inside the cone.
+* **Losing the target or leaving the cone:** if `AUTO_FIRE_AVAILABLE` is `false` when the robot checks its position (at the start, or after a move — `MEASURING` only), auto fire ends. That covers the detection gate failing and the robot no longer being inside the cone. Once `FEEDING` has started, availability is ignored.
 * **When auto fire ends**, the hopper stops, the shooter keeps spinning, and normal driver control resumes on the same loop. If the input that ended auto fire is a drive direction (a stick past the deadzone), the drive motors immediately move that way. They are not stopped first. If there is no drive input (the target was lost, or the cancel was a button or trigger), the drive motors stop.
 * **Pulling the trigger again** while auto fire is running does nothing. It neither restarts nor cancels the sequence.
 * Auto fire does not try to detect when the HIVE tips. Once shooting starts, it keeps shooting until manual input.
 * **Obstacles:** auto fire's only move is in or out along a line to the cell, while already inside the cone. It does not avoid the HIVE frame, the downward-facing CELLS, or other robots. The drivers watch the path and cancel with any manual input if the robot is about to hit something.
 
-**Shooting cone:** the area of the field from which the robot is allowed to shoot at the target cell.
+**Shooting cone:** a **90-degree sector** on the field, point at the **cell opening**. It has **no maximum distance**. It is not a triangle.
 
-* Picture a triangle lying flat on the field. Its point is at the **center of the target cell**, as seen from above (see Design for how this point is found from the AprilTags).
-* The center line of the triangle points the way the tag cluster faces. The tags are on the underside of the cell and tilt downward, so this means the direction they face when flattened onto the field, ignoring how far they tilt down.
-* Each side of the triangle is **45 degrees** from that center line, so the cone is **90 degrees wide** in total.
-* Put another way: standing under the cell and looking the way its tags face, a position is in the cone if it is no more than 45 degrees to the left or right.
+* Standing under the cell and looking the way its tags face (flattened onto the field), a position is in the cone if it is no more than 45 degrees to the left or right.
+* The cone is only an angle test. Being in the cone does not by itself mean auto fire may start.
+* The cone is measured from the cell's point of view, not the robot's. It doesn't matter which way the robot is facing or where the cell appears in the camera image.
 
-The cone is measured from the cell's point of view, not the robot's. It doesn't matter which way the robot is facing or where the cell appears in the camera image.
+**Start range:** auto fire may start only if the robot is in the cone **and** the horizontal distance to the opening is at most `AUTO_FIRE_MAX_START_RANGE_IN` (starts at **60 in**). Farther than that, `TARGET_CELL_IN_VIEW` can still be true, but `AUTO_FIRE_AVAILABLE` is false. That keeps auto fire from beginning a long encoder drive across the field. The driver moves closer, then pulls the trigger.
 
-**Shooting arc:** the set of positions auto fire shoots from. It is the curved line inside the shooting cone that is exactly the **shooting distance** from the center of the target cell (the cone's point). Every point on the arc gives the same shot.
+**Shooting arc:** the set of positions auto fire shoots from. It is the curved line inside the shooting cone that is exactly the **shooting distance** from the cell opening. Every point on the arc gives the same shot. This is the only range at which we shoot. It is not the far edge of the cone.
 
-Because auto fire only starts inside the cone, the destination is always the point on the arc **directly toward or away from the cell**. The robot moves straight in or out until it is at the shooting distance.
+Because auto fire only starts inside the cone and inside the start range, the first move is a short drive straight in or out to the arc.
 
 ![Top-down view of the shooting cone and shooting arc, with example robot positions and where auto fire drives each one](docs/images/autofire_cone.png)
 
-*Top-down view. Auto fire only starts inside the cone. Robot A is too far and moves straight in to the arc. Robot B is too close and moves straight out. To redraw this image, run `python docs/autofire_cone.py` (requires matplotlib).*
+*Top-down view. The blue sector is the cone (no far edge). The dashed red arc is the max start range. Robot A is in the cone and inside the start range, too far from the shooting arc: moves straight in. Robot B is too close and moves straight out. A robot in the cone but beyond the dashed arc would see the tags and not be allowed to start. To redraw this image, run `python docs/autofire_cone.py` (requires matplotlib).*
 
 ### Design
-Auto fire works in rounds of **measure, then move**. The camera is used only while the robot is stopped. Each move follows a movement plan calculated from the last measurement, using the IMU and the drive wheel encoders; the camera is not checked during the move. Road Runner and path following are not used.
+Auto fire works in rounds of **measure, then move**. The camera is used only while the robot is stopped. Each move follows a movement plan calculated from the last measurement, using the IMU and the drive wheel encoders. During `MOVING` the detection gate and last-known-good are frozen (the webcam may still stream for logs). Road Runner and path following are not used.
 
 Auto fire runs these steps:
 
-1. **Check the target.** If `AUTO_FIRE_AVAILABLE` is `false` (detection gate not passing, or the last known good reading is no longer inside the cone), auto fire ends. Otherwise use the last known good geometry. That geometry is refreshed whenever a sample finds the tags, and is reused on a miss as long as the gate still passes.
-2. **Measure.** Read the last known good geometry of the target cell: the robot's position (x, y, z) and yaw relative to the center of the target cell (see Cell center below). The position is used for the shooting arc, and the height is used to confirm the cell is upward-facing (see Target Cell).
+1. **Check the target.** Used in `MEASURING` only (the start of a measure-then-move round, including after a move). If `AUTO_FIRE_AVAILABLE` is `false` (detection gate not passing, outside the cone, or beyond the start range), auto fire ends. Otherwise use the last known good geometry. That geometry is refreshed whenever a sample finds the cluster, and is reused on a miss as long as the gate still passes. `FEEDING` does not run this check.
+2. **Measure.** Read the last known good geometry of the target cell: the robot's position (x, y, z) and yaw relative to the **cell opening** (see Cell opening below). The position is used for the shooting arc. Roll has already decided that this cluster is the upward-facing cell (see Target Cell).
 3. **Check the position.** If the robot is in position, shoot: stop the drive motors and step the hopper 180 degrees at a time until manual input is received. Otherwise, go to step 4. The robot is in position when all of these are true:
-   * the distance to the cell's center is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
-   * the aim (where the shooter points compared with the direction to the cell's center, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
+   * the distance to the cell opening is within `DISTANCE_TOLERANCE_IN` of `SHOOTING_DISTANCE_IN`;
+   * the aim (where the shooter points compared with the direction to the opening, including `AIM_OFFSET_DEG`) is within `ALIGNMENT_TOLERANCE_DEG`, to either side;
    * the robot is inside the shooting cone.
-4. **Plan and move.** Calculate a movement plan from the robot's current position to the point on the shooting arc directly toward or away from the cell, ending with the shooter aimed at the cell's center. Carry out the plan:
+4. **Plan and move.** Calculate a movement plan from the robot's current position to the point on the shooting arc directly toward or away from the opening, ending with the shooter aimed at the opening. Carry out the plan:
    * **Turning** is controlled by the IMU heading.
    * **Driving and strafing distances** are controlled by the drive wheel encoders.
    * `AIM_OFFSET_DEG` is added to the final aim angle to correct for shots that consistently miss to one side during testing. It starts at 0.
@@ -260,7 +295,7 @@ stateDiagram-v2
     MEASURING --> FEEDING: in position
     MEASURING --> MOVING: not in position (plan calculated)
     MOVING --> MEASURING: plan finished
-    FEEDING --> IDLE: manual input
+    FEEDING --> IDLE: manual input only
     MOVING --> IDLE: manual input
 ```
 
@@ -269,17 +304,16 @@ stateDiagram-v2
 | `IDLE` | Nothing; normal driver control | The Right Trigger is pulled and `AUTO_FIRE_AVAILABLE` is `true`: go to `MEASURING` |
 | `MEASURING` | Stopped; reads the last known good target-cell geometry (steps 1 to 3) | `AUTO_FIRE_AVAILABLE` is `false`: `IDLE`. In position: `FEEDING`. Otherwise: calculate a plan and go to `MOVING` |
 | `MOVING` | Carrying out the movement plan (step 4), without checking the camera | Plan finished: `MEASURING`. Manual input: `IDLE` |
-| `FEEDING` | Stopped; stepping the hopper 180 degrees at a time | Manual input: `IDLE` |
+| `FEEDING` | Stopped; stepping the hopper 180 degrees at a time | Manual input: `IDLE`. A HIVE tip or `AUTO_FIRE_AVAILABLE` going false does **not** end this state. |
 
 Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the hopper and leaves the shooter running. Drive is handed back to Gamepad 1 on that same loop: if a stick is already held, the robot starts moving in that direction immediately. The drive motors are only stopped when there is no drive input.
 
-**Cell center.** The camera measures the position of the tag cluster, not the center of the cell. The tag cluster is on the bottom face of the cell, so from above it sits close to the cell's center, but the opening of a tilted, upward-facing cell may be a few inches away from it. The center of the cell is found by moving from the tag cluster's position a fixed distance, `CELL_CENTER_OFFSET_IN`, along the cone's center line:
+**Cell opening.** On BIOBUZZ, the SDK's cluster `ftcPose` is already the **cell opening**, not the sticker. FIRST places the cluster origin at a virtual point in the mouth of the goal ([AprilTag Clusters](https://ftc-docs.firstinspires.org/en/latest/tech_tips/tech-tips/tech-tip-apriltag-clusters/tech-tip-apriltag-clusters.html)). Seeing any one of the four member tags is enough: the SDK returns one `AprilTagClusterDetection` whose pose is that opening. More visible tags only make the same pose steadier. There is no sticker-to-opening offset.
 
-* A positive value moves the point away from the robot's side of the cone (deeper into the cell). A negative value moves it toward the robot's side.
-* It starts at 0 and is set by measuring, from above, the distance between the center of the tag cluster and the center of an upward-facing cell's opening.
-* All of auto fire's distances, aim angles, and cone checks are measured to the cell's center, not to the tags. Near the edges of the cone, using the tags directly would put the aim off by a few degrees if the offset is several inches.
+* All of auto fire's distances, aim angles, and cone checks use this cluster pose as-is.
+* `AIM_OFFSET_DEG` is still used if shots consistently miss left or right (shooter vs camera). It is not a sticker-to-opening correction.
 
-**Shooting distance.** `SHOOTING_DISTANCE_IN` is measured from the camera to the cell's center. The camera sits about 6 inches behind the shooter (see Reference: Robot Hardware). Because the value is tuned by testing, the offset is absorbed and needs no correction.
+**Shooting distance.** `SHOOTING_DISTANCE_IN` and `AUTO_FIRE_MAX_START_RANGE_IN` are `hypot(ftcPose.x, ftcPose.y)` in the **camera frame**, not a tape measure on the tiles. The camera is tilted, so that is not exactly the field-plane distance. Tuning on the field absorbs the constant camera-behind-shooter gap (~6 in) and a typical tilt bias; it does not project every pose onto the floor. We do not apply a camera-tilt correction in software.
 
 **Future improvements.** Not in this TeleOp. Written down so we do not lose the ideas:
 
@@ -295,20 +329,18 @@ Manual input sends any state back to `IDLE`. Every return to `IDLE` stops the ho
 * Only one of our two CELLS can be up at a time, so there is always exactly one target cell.
 
 ### Design
-* The target cell is found using the AprilTags on the CELLS (see Reference: Field for the IDs).
-* A sample is a hit if it sees **at least one** of: the alliance's tag cluster (name contains RED or BLUE), or a single tag whose ID is in that alliance's eight IDs, **and** the tag height says the cell is up.
-* All four tags in a cluster are on the same sticker, so any of them gives the cluster's position. When more than one is visible, the SDK combines them for a steadier reading.
+BIOBUZZ has **four AprilTag clusters and no standalone tags**. The official library will not return `AprilTagSingleDetection` for IDs 30–45. Member-tag IDs are field facts only (see Reference: Field). The code uses cluster detections.
 
-**Telling which CELL is up.** The upward-facing CELL's tags sit much higher above the tiles than the downward-facing CELL's, so the code uses the height of the tags:
+* A sample is a hit if it sees an `AprilTagClusterDetection` whose name is our alliance (`RED SCORING` / `RED AUDIENCE` or `BLUE SCORING` / `BLUE AUDIENCE`) **and** `|ftcPose.roll| < 90`.
+* Seeing any one member tag yields that cluster's pose at the **cell opening**. Seeing more of the four tags does not change which point is reported; it only steadies it.
+* `percentClusterFound` is logged and shown on the Driver Hub. A low percentage can mean occlusion. It is not a reject rule by itself.
 
-* Every AprilTag reading includes the tag's distance from the camera (`range`) and how far above the camera's center line it appears (`elevation`). From these, plus the camera's own height and upward tilt (see Reference: Robot Hardware), the code calculates the tag's height above the tiles:
+**Telling which CELL is up.** The official test is cluster orientation, not tag height ([AprilTag Clusters](https://ftc-docs.firstinspires.org/en/latest/tech_tips/tech-tips/tech-tip-apriltag-clusters/tech-tip-apriltag-clusters.html)):
 
-  ```
-  tag height above tiles = camera height + range × sin(elevation + camera tilt)
-  ```
-
-* A CELL of our alliance's color counts as upward-facing if its tag height is above a tunable value, `CELL_UP_MIN_HEIGHT_IN`. This value is set between the heights of an upward-facing and a downward-facing CELL's tags, measured on the field.
-* This height is calculated every time the code reads the target cell's geometry.
+* If `|ftcPose.roll| < 90` (roll between −90 and 90), the cluster is right-side up from the camera and the CELL is scorable.
+* If `|ftcPose.roll| ≥ 90`, the cluster is upside down and that CELL is not the target.
+* FIRST's example: `RED AUDIENCE` at roll −19.7 is up; `RED SCORING` at roll 159.3 is the down cell on the far side.
+* This assumes the camera looks the same way the shooter launches, which ours does.
 
 ---
 
@@ -324,7 +356,7 @@ On 11 Oct 2026 we timed the path from the Logitech C920 webcam to geometry in `I
 * The TeleOp loop reads the latest detections faster than that, so it does not drop frames.
 * When a tag appears or disappears, the robot has the new result in about **one or two frames**, typically ~60 ms. The fastest changes we logged were 13–14 ms apart.
 * The Driver Hub updates more slowly than the robot. Watching the Hub understates how often the code actually has a new reading.
-* The SDK reports the sticker as a **cluster** (`RED SCORING`) with a pose, not as four separate tags. In this test it usually saw 25–50% of the cluster at a time.
+* The SDK reports a **cluster** (`RED SCORING`) whose pose is the cell opening, not four separate tags and not the sticker. In this test it usually saw 25–50% of the cluster at a time. That percentage is a health hint, not a filter.
 
 The refresh rate is not the remaining vision risk. The remaining risk is the camera's narrow view of the tags. Losing the lock when the image is shaken is a confirmed hardware issue (see Reference: Robot Hardware). Auto fire and the availability notification ride through short dropouts with the X-of-Y detection gate (see Auto Fire Availability Notification).
 
@@ -343,16 +375,17 @@ Each HIVE pivots like a seesaw and is always in one of two positions, with exact
 **Drivers:** the drivers stand in their ALLIANCE AREA, on the side of the field: red on the left as seen from the audience, blue on the right. The red and blue drivers face each other across the field.
 
 **AprilTags:**
-* Each CELL has one **AprilTag cluster**: four AprilTags in a row on a single sticker.
+* Each CELL has one **AprilTag cluster**: four AprilTags in a row on a single sticker. Official names: `RED SCORING`, `RED AUDIENCE`, `BLUE SCORING`, `BLUE AUDIENCE`.
 * The cluster is on the bottom face of the CELL, facing down toward the tiles, with its bottom edge toward the center of the field. The camera has to see the tags from below.
-* The tags are from the **36h11** family and are **3.25 in (8.25 cm)** square. The vision code needs both values to measure distance and angle correctly.
+* The SDK cluster pose is a virtual point at the **cell opening**, not the sticker. Member-tag IDs are listed here as field facts. The TeleOp code does not read those IDs; BIOBUZZ has no standalone tags.
+* The tags are from the **36h11** family and are **3.25 in (8.25 cm)** square. The default season library already has the sizes.
 
-| CELL | AprilTag IDs |
-|---|---|
-| Red, far side (opposite the audience) | **30, 31, 32, 33** |
-| Red, audience side | **34, 35, 36, 37** |
-| Blue, audience side | **38, 39, 40, 41** |
-| Blue, far side (opposite the audience) | **42, 43, 44, 45** |
+| CELL | Cluster name | AprilTag IDs (field facts only) |
+|---|---|---|
+| Red, far side (scoring table / opposite the audience) | `RED SCORING` | **30, 31, 32, 33** |
+| Red, audience side | `RED AUDIENCE` | **34, 35, 36, 37** |
+| Blue, audience side | `BLUE AUDIENCE` | **38, 39, 40, 41** |
+| Blue, far side (scoring table / opposite the audience) | `BLUE SCORING` | **42, 43, 44, 45** |
 
 ### Robot Hardware
 * **4 wheel motors** (REV DC motor)
@@ -368,16 +401,17 @@ An expansion hub connects the intake motor, shooter motor, and hopper motor.
 Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 
 **Drive wheel encoders:**
-* Auto fire's movement plans measure driving and strafing distance with the encoders on the four wheel motors, so their encoder cables must be connected. We assume they are plugged in. Init checks that the four drive motors are present; if any is missing, auto fire is disabled and the Driver Hub shows a warning.
-* Wheel diameter starts at **3 in** (`WHEEL_DIAMETER_IN`). Encoder counts per revolution come from the motor type in the robot configuration.
+* Auto fire measures drive/strafe distance with the four wheel encoders. Init requires the four drive motors to be **present in the hardware map**. If any is missing, auto fire is disabled.
+* Unplugged encoder cables cannot be proven at rest. We assume they are connected.
+* Encoder inches = ticks / (π × `WHEEL_DIAMETER_IN`). Ticks per revolution come from the motor type in the robot configuration. If the type has no ticks/rev (`UnspecifiedMotor`), we log a warning and use **537.7** (common goBILDA 312 RPM) so auto fire can still run.
+* `IronEaglesConfig.xml` currently has `UnspecifiedMotor` on the drive, intake, and shooter. The hopper is a **REV Core Hex**. Set the real drive/intake/shooter types on the Driver Station; wrong types make RPM and encoder inches wrong.
 
 **Webcam:**
 * Plugs into a USB port on the Control Hub.
 * Mounted on top of the robot, at the center of the robot, in line with the shooter (no left/right offset).
-* The shooter is about 6 inches in front of the camera. Distances measured by the camera are therefore about 6 inches longer than the actual distance from the shooter. Auto fire's shooting distance is measured by the camera and tuned by testing, so no correction is needed.
+* The shooter is about 6 inches in front of the camera. Distances from the camera are therefore longer than the distance from the shooter. Auto fire uses camera-frame `hypot(x, y)` and is tuned by testing. There is no separate tilt-projection correction.
 * The AprilTags face down from the underside of the CELLS, so the camera must be tilted up enough to see them from where the robot shoots.
-* **Height above tiles:** `CAMERA_HEIGHT_IN`, starting at **11 in**.
-* **Upward tilt:** `CAMERA_TILT_DEG`, starting at **15 deg** (nearly level with the robot).
+* Mounted about **11 in** above the tiles, tilted up about **15 deg** (nearly level with the robot). These are hardware notes, not algorithm inputs. The up-cell test uses cluster roll, not camera height.
 * **Vibration:** the intake and shooter shake the robot. With the webcam mounted, that shake stops AprilTag detections. We confirmed this on 12 Oct 2026 by unmounting the webcam and running the intake and shooter at full speed: the camera then kept a lock for 10 seconds with no misses. This is a mounting issue, not a camera or lighting issue. A stiffer or isolated mount is the hardware fix. Until then, auto fire and the availability notification use the X-of-Y detection gate so brief dropouts do not immediately disable them (see Auto Fire Availability Notification).
 
 **IMU:**
@@ -391,13 +425,19 @@ Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn
 Answers that change the TeleOp implementation. Tunable starting values are in the table below.
 
 1. **Replace `IronEaglesTeleOp2026` in place.** Yes. The Road Runner / right-bumper aim-assist TeleOp is deleted. The Driver Hub entry stays `IronEaglesTeleOp2026`.
-2. **Missing measurements.** Keep the upright-cell height filter. Use named tunables for RPM, shooting distance, camera height/tilt, wheel diameter, and IMU orientation. Shooter/intake RPM starts at 75% of the motor type's max (no RPM in existing logs). Shooting distance starts at 2 ft. Camera height 11 in, tilt 15 deg. Control Hub is on the right side, logo upright; USB is assumed forward. Wheel diameter starts at 3 in. Drive encoders are assumed plugged in; init checks that the four drive motors (and a usable motor type) are present and disables auto fire if they are not. Robot logging is verbose across the whole TeleOp.
+2. **Missing measurements.** Use named tunables for RPM, shooting distance, wheel diameter, and IMU orientation. Shooter/intake RPM starts at 75% of the motor type's max (no RPM in existing logs). Shooting distance starts at 2 ft from the cell opening. Control Hub is on the right side, logo upright; USB is assumed forward. Wheel diameter starts at 3 in. Drive encoders are assumed plugged in; init checks that the four drive motors (and a usable motor type) are present and disables auto fire if they are not. Robot logging is verbose across the whole TeleOp. Camera height (~11 in) and tilt (~15 deg) are mounting notes only.
 3. **LED.** Hardware is unknown / not in the config. Keep `LedInterface` with a no-op implementation. Every LED state is also written to the Driver Hub and the robot log.
 4. **Intake without an encoder.** Fall back to 100% power and show a Hub warning. Do not leave the intake stopped.
 5. **Drive encoders missing.** Disable auto fire and notify the driver. Driving still works.
-6. **Cluster names vs IDs.** A hit is the alliance cluster name (RED / BLUE) **or** any single tag whose ID is in that alliance's eight IDs, **and** the height filter says the cell is up. One matching tag is enough.
+6. **Cluster pose and upright test (14 Oct 2026).** A hit is an alliance cluster (`RED` / `BLUE` in the name) **and** `|ftcPose.roll| < 90`. The cluster pose is the cell opening. There is no single-tag ID fallback (BIOBUZZ has four clusters and no standalone tags) and no height filter. Do not apply a sticker-to-opening offset.
 7. **Hopper Y.** `stepReverse180()` is a true −180° step, same hold-to-repeat as X.
 8. **Manual cancel vs operator actions.** Any controller input except Gamepad 2 Right Trigger cancels auto fire, then that same loop performs the inputted action (sticks drive immediately; a held intake trigger starts the intake immediately).
+9. **Shooting cone is a sector, not a triangle (14 Oct 2026).** The cone is an infinite 90° sector (angle only). Auto fire also requires range ≤ `AUTO_FIRE_MAX_START_RANGE_IN` so a start cannot begin a long encoder drive. The shooting arc is the only range at which we shoot.
+10. **Manual shooter and hopper feed (14 Oct 2026).** Right Trigger is the only way to start auto fire, not the only way to launch. Gamepad 2 X is a manual hopper feed into the always-on shooter. A respools forward; Right Bumper holds reverse. The loop re-sends the shooter command. A near-zero velocity warning is shown; we do not auto-restart.
+11. **FEEDING ends only on manual input (14 Oct 2026).** `AUTO_FIRE_AVAILABLE` is checked at start and in `MEASURING` only. Once `FEEDING` starts, a HIVE tip or a lost cluster does not stop the hopper. The driver cancels.
+12. **Held intake plus Right Trigger (14 Oct 2026).** Buttons and triggers already held when auto fire starts do not cancel it. Sticks still cancel immediately. A new button press after start cancels.
+13. **Gate frozen during MOVING (14 Oct 2026).** Last-known-good is only reused on a miss while the robot is stopped. Driving clears a miss so the LED cannot stay on from a stale in-cone pose.
+14. **Speeds are fractions, not RPM numbers.** Until we measure RPM, shooter and intake use `*_RPM_FRACTION` of the motor type's max ticks/s.
 
 ---
 
@@ -411,16 +451,13 @@ All of these are configured after testing. They live in `TunableValues.java`.
 | `INTAKE_REVERSE_RPM_FRACTION` | Intake outward speed (Left Bumper) | Same as inward; **100% power** if the intake encoder is missing |
 | `IMU_LOGO_DIRECTION` | Control Hub logo facing, for IMU heading | **UP** (hub on the right side, logo upright) |
 | `IMU_USB_DIRECTION` | Control Hub USB facing, for IMU heading | **FORWARD** (assumed until measured) |
-| `SHOOTING_DISTANCE_IN` | Distance from the center of the target cell that auto fire shoots from, measured from the camera | **24 in** (2 ft) |
-| `CELL_CENTER_OFFSET_IN` | Distance from the tag cluster to the center of the cell, along the cone's center line | 0, then measured on the field |
+| `SHOOTING_DISTANCE_IN` | Camera-frame `hypot(x, y)` to the opening at which we shoot. Not a tile tape measure. | **24 in** (2 ft) |
+| `AUTO_FIRE_MAX_START_RANGE_IN` | Farthest horizontal range at which auto fire may **start**. The cone itself has no max distance. | **60 in** |
 | `DISTANCE_TOLERANCE_IN` | How close to the shooting distance the robot must be before auto fire shoots | **2 in** |
-| `AIM_OFFSET_DEG` | Correction added to the auto-fire aim angle | 0 |
+| `AIM_OFFSET_DEG` | Correction added to the auto-fire aim angle if shots miss consistently left or right | 0 |
 | `ALIGNMENT_TOLERANCE_DEG` | How close the aim must be before auto fire shoots | **5 deg** |
 | `AUTO_FIRE_DRIVE_POWER` | Drive/strafe power while carrying out a movement plan | **0.4** |
 | `AUTO_FIRE_TURN_POWER` | Turn power while carrying out a movement plan | **0.3** |
-| `CELL_UP_MIN_HEIGHT_IN` | Tag height above the tiles that counts as an upward-facing CELL | **16 in** (between an expected up cell and a down cell; tune on the field) |
-| `CAMERA_HEIGHT_IN` | Camera height above the tiles, for the up-cell height test | **11 in** |
-| `CAMERA_TILT_DEG` | Camera upward tilt, for the up-cell height test | **15 deg** |
 | `WHEEL_DIAMETER_IN` | Drive wheel diameter, for encoder inches | **3 in** |
 | `TAG_DETECTION_MIN_HITS` (X) | Hits needed in the last Y camera samples for the detection gate to pass | 3, then tuned on the field with the intake and shooter running |
 | `TAG_DETECTION_WINDOW` (Y) | How many recent camera samples the detection gate looks at | 5, then tuned on the field with the intake and shooter running |

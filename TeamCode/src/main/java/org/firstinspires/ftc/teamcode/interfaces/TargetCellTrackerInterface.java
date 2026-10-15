@@ -10,6 +10,12 @@ public interface TargetCellTrackerInterface {
 
     void update(List<AprilTagDetection> detections);
 
+    /**
+     * @param reuseLastKnownGoodOnMiss if false, a miss clears last-known-good so a driven robot
+     *                                 does not keep a stale in-cone pose
+     */
+    void update(List<AprilTagDetection> detections, boolean reuseLastKnownGoodOnMiss);
+
     boolean isTargetCellInView();
 
     boolean isGatePassing();

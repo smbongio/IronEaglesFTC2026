@@ -56,13 +56,7 @@ public class MecanumDrivetrain implements DrivetrainInterface {
 
     @Override
     public boolean areDriveMotorsPresent() {
-        if (fl == null || fr == null || bl == null || br == null) {
-            return false;
-        }
-        return fl.getMotorType().getTicksPerRev() > 1
-                && fr.getMotorType().getTicksPerRev() > 1
-                && bl.getMotorType().getTicksPerRev() > 1
-                && br.getMotorType().getTicksPerRev() > 1;
+        return fl != null && fr != null && bl != null && br != null;
     }
 
     @Override

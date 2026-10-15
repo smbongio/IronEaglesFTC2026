@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.geometry.CellGeometry;
 import org.firstinspires.ftc.teamcode.interfaces.AllianceInterface;
 import org.firstinspires.ftc.teamcode.interfaces.AutoFireAvailabilityInterface;
@@ -68,6 +69,10 @@ public class AutoFireAvailability implements AutoFireAvailabilityInterface {
         }
         if (!shooting.isInsideCone(geometry)) {
             return "outside cone";
+        }
+        double range = shooting.horizontalRangeIn(geometry);
+        if (range > TunableValues.AUTO_FIRE_MAX_START_RANGE_IN) {
+            return String.format("too far (%.1f in > %.1f)", range, TunableValues.AUTO_FIRE_MAX_START_RANGE_IN);
         }
         return "";
     }
