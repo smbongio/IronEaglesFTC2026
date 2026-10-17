@@ -37,6 +37,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     public static int INTAKE_DIR      =  1;
     public static int HOPPER_DIR      = -1;
     public static int SHOOTER_DIR     =  1;
+    public static int SHOOTER_FOLLOW_DIR = 1;
 
     // Set default team alliance flag to blue team
     public static boolean IS_BLUE_ALLIANCE = true;

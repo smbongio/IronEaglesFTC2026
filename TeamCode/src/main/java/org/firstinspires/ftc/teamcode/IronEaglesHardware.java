@@ -38,6 +38,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     public DcMotor intake;
     public DcMotor hopper;
     public DcMotor shooter;
+    public DcMotor shooterFollow;
 
     public final List<String> missingDevices = new ArrayList<>();
 
@@ -113,6 +114,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         intake  = getHardwareSafely(hardwareMap, DcMotor.class, "intake");
         hopper  = getHardwareSafely(hardwareMap, DcMotor.class, "hopper");
         shooter = getHardwareSafely(hardwareMap, DcMotor.class, "shooter");
+        shooterFollow = getHardwareSafely(hardwareMap, DcMotor.class, "shooterFollow");
 
         // Webcam
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
@@ -129,6 +131,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         // Configure intake and shooter motor directions (Reversed by default)
         if (intake != null)  intake.setDirection(DcMotor.Direction.REVERSE);
         if (shooter != null) shooter.setDirection(DcMotor.Direction.REVERSE);
+        // Follower is FORWARD by default so a mirrored dual-motor mount spins the same way as shooter.
 
         // Configure hopper motor (REV Core Hex Motor) encoder reset and brake behavior
         if (hopper != null) {
@@ -141,7 +144,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
         intakeSubsystem     = new IntakeSubsystem(intake);
         hopperSubsystem     = new HopperSubsystem(hopper);
-        shooterSubsystem    = new ShooterSubsystem(shooter);
+        shooterSubsystem    = new ShooterSubsystem(shooter, shooterFollow);
     }
 
     @Override

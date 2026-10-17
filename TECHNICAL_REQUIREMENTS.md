@@ -6,11 +6,11 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 
 * **4 wheel motors** (REV DC motor)
 * **1 intake motor** (REV DC motor, spins rapidly to intake balls into the robot)
-* **1 shooter motor** (REV DC motor, spins rapidly to launch balls into the hives)
+* **2 shooter motors** (REV DC motors, geared to the shooter wheel): `shooter` (leader) and `shooterFollow` (copies the leader's power each command). There is no hub follow-mode; the code sends the same command to both.
 * **1 hopper motor** (REV Hex Core motor, spins at a pre-defined speed to feed the balls into the shooter)
 * **An LED strip** (used for aim assist)
 
-An expansion hub will be used to connect the intake motor, shooter motor, and hopper motor.
+An expansion hub will be used to connect the intake motor, shooter motors, and hopper motor. Add `shooterFollow` on the Driver Station (Expansion Hub port 3 in `IronEaglesConfig.xml`). If the follow motor spins the wrong way, flip `SHOOTER_FOLLOW_DIR`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 

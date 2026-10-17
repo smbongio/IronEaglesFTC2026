@@ -12,6 +12,7 @@
             <Motor type="UnspecifiedMotor" name="intake" port="0" />
             <Motor type="UnspecifiedMotor" name="hopper" port="1" />
             <Motor type="UnspecifiedMotor" name="shooter" port="2" />
+            <Motor type="UnspecifiedMotor" name="shooterFollow" port="3" />
         </LynxModule>
     </LynxUsbDevice>
     <Webcam name="camera" serialNumber="4B75BEAF" />
