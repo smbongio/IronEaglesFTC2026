@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import org.firstinspires.ftc.teamcode.IronEaglesTeleOp2026;
+import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.IntakeInterface;
 
 /**
@@ -23,7 +23,7 @@ public class IntakeSubsystem implements IntakeInterface {
     @Override
     public void setPower(double power) {
         if (motor != null) {
-            motor.setPower(power * IronEaglesTeleOp2026.INTAKE_DIR);
+            motor.setPower(power * TunableValues.INTAKE_DIR);
         }
     }
 

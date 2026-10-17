@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import org.firstinspires.ftc.teamcode.IronEaglesTeleOp2026;
+import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.DrivetrainInterface;
 import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
 
@@ -9,11 +9,6 @@ import org.firstinspires.ftc.teamcode.interfaces.TargetGeometryInterface;
  * Concrete implementation of the Mecanum Drivetrain subsystem.
  */
 public class MecanumDrivetrain implements DrivetrainInterface {
-
-    public static int FRONT_LEFT_DIR  =  1;
-    public static int FRONT_RIGHT_DIR = -1;
-    public static int BACK_LEFT_DIR   =  1;
-    public static int BACK_RIGHT_DIR  = -1;
 
     private final DcMotor fl, fr, bl, br;
 
@@ -27,10 +22,10 @@ public class MecanumDrivetrain implements DrivetrainInterface {
     @Override
     public void drive(double x, double y, double rx) {
         double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1.0);
-        double flP = ((y + x + rx) / denominator) * FRONT_LEFT_DIR;
-        double blP = ((y - x + rx) / denominator) * BACK_LEFT_DIR;
-        double frP = ((y - x - rx) / denominator) * FRONT_RIGHT_DIR;
-        double brP = ((y + x - rx) / denominator) * BACK_RIGHT_DIR;
+        double flP = ((y + x + rx) / denominator) * TunableValues.FRONT_LEFT_DIR;
+        double blP = ((y - x + rx) / denominator) * TunableValues.BACK_LEFT_DIR;
+        double frP = ((y - x - rx) / denominator) * TunableValues.FRONT_RIGHT_DIR;
+        double brP = ((y + x - rx) / denominator) * TunableValues.BACK_RIGHT_DIR;
 
         if (fl != null) fl.setPower(flP);
         if (fr != null) fr.setPower(frP);

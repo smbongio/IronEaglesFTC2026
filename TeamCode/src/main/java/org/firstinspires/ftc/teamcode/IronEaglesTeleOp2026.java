@@ -28,17 +28,6 @@ import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
-    // Set wheel motor spin direction multipliers
-    public static int FRONT_LEFT_DIR  =  1;
-    public static int FRONT_RIGHT_DIR = -1;
-    public static int BACK_LEFT_DIR   =  1;
-    public static int BACK_RIGHT_DIR  = -1;
-    // Set motor directions for intake, hopper, and shooter (Hopper direction reversed)
-    public static int INTAKE_DIR      =  1;
-    public static int HOPPER_DIR      = -1;
-    public static int SHOOTER_DIR     =  1;
-    public static int SHOOTER_FOLLOW_DIR = 1;
-
     // Set default team alliance flag to blue team
     public static boolean IS_BLUE_ALLIANCE = true;
 

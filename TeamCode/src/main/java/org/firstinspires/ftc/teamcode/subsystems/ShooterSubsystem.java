@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import org.firstinspires.ftc.teamcode.IronEaglesTeleOp2026;
+import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
 
 /**
@@ -29,10 +29,10 @@ public class ShooterSubsystem implements ShooterInterface {
     @Override
     public void setPower(double power) {
         if (shooter != null) {
-            shooter.setPower(power * IronEaglesTeleOp2026.SHOOTER_DIR);
+            shooter.setPower(power * TunableValues.SHOOTER_DIR);
         }
         if (shooterFollow != null) {
-            shooterFollow.setPower(power * IronEaglesTeleOp2026.SHOOTER_FOLLOW_DIR);
+            shooterFollow.setPower(power * TunableValues.SHOOTER_FOLLOW_DIR);
         }
     }
 

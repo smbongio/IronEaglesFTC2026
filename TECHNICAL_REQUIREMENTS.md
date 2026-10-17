@@ -10,7 +10,7 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 * **1 hopper motor** (REV Hex Core motor, spins at a pre-defined speed to feed the balls into the shooter)
 * **An LED strip** (used for aim assist)
 
-An expansion hub will be used to connect the intake motor, shooter motors, and hopper motor. Add `shooterFollow` on the Driver Station (Expansion Hub port 3 in `IronEaglesConfig.xml`). If the follow motor spins the wrong way, flip `SHOOTER_FOLLOW_DIR`.
+An expansion hub will be used to connect the intake motor, shooter motors, and hopper motor. Add `shooterFollow` on the Driver Station (Expansion Hub port 3 in `IronEaglesConfig.xml`). Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`. If the follow motor spins the wrong way, flip `SHOOTER_FOLLOW_DIR`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 

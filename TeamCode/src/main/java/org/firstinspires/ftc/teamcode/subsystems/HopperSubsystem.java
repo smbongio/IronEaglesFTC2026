@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.RobotLog;
-import org.firstinspires.ftc.teamcode.IronEaglesTeleOp2026;
+import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
 
 /**
@@ -38,7 +38,7 @@ public class HopperSubsystem implements HopperInterface {
 
         // If not currently stepping, initiate a single 180-degree step (+144 ticks in HOPPER_DIR)
         if (!isStepping) {
-            targetTicks = currentPos + (TICKS_PER_180_DEGREES * IronEaglesTeleOp2026.HOPPER_DIR);
+            targetTicks = currentPos + (TICKS_PER_180_DEGREES * TunableValues.HOPPER_DIR);
             isStepping = true;
 
             RobotLog.i("[HOPPER STEP START] StartPos: %d -> TargetPos: %d", currentPos, targetTicks);
@@ -102,7 +102,7 @@ public class HopperSubsystem implements HopperInterface {
     @Override
     public void setPower(double power) {
         if (motor != null) {
-            motor.setPower(power * IronEaglesTeleOp2026.HOPPER_DIR);
+            motor.setPower(power * TunableValues.HOPPER_DIR);
         }
     }
 
