@@ -10,4 +10,14 @@ public interface ShooterInterface extends MechanismInterface {
      * @param speed Target operational speed multiplier
      */
     void runShooter(double speed);
+
+    /**
+     * Measured leader shooter speed from the encoder, in RPM.
+     */
+    double getRpm();
+
+    /**
+     * Measured follow shooter speed from the encoder, in RPM.
+     */
+    double getFollowRpm();
 }

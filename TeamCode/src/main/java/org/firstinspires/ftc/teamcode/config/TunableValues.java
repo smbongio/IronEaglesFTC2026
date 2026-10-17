@@ -15,8 +15,12 @@ package org.firstinspires.ftc.teamcode.config;
  *   Right trigger    shooter at SHOOTER_TARGET_RPM (on/off; ignored below 0.2)
  *   Right bumper     hold: aim-assist (spool shooter, align, then hopper)
  *   X                hold: hopper 180-degree step; release returns upright
+ *   D-pad up         telemetry page: ALL (summary)
+ *   D-pad left       telemetry page: INTAKE
+ *   D-pad down       telemetry page: HOPPER
+ *   D-pad right      telemetry page: SHOOTER
  *
- * Unused: A, B, Y, left bumper, d-pad, right stick Y, gamepad 2.
+ * Unused: A, B, Y, left bumper, right stick Y, gamepad 2.
  */
 public final class TunableValues {
     private TunableValues() {}

@@ -12,6 +12,8 @@ public class IntakeSubsystem implements IntakeInterface {
 
     private final DcMotor motor;
     private final DcMotorEx motorEx;
+    private String lastCommand = "init";
+    private double lastSpeedFraction = 0.0;
 
     public IntakeSubsystem(DcMotor motor) {
         this.motor = motor;
@@ -23,6 +25,8 @@ public class IntakeSubsystem implements IntakeInterface {
 
     @Override
     public void runIntake(double speed) {
+        lastCommand = "run";
+        lastSpeedFraction = speed;
         setPower(speed);
     }
 
@@ -37,6 +41,8 @@ public class IntakeSubsystem implements IntakeInterface {
 
     @Override
     public void stop() {
+        lastCommand = "stop";
+        lastSpeedFraction = 0.0;
         if (motorEx != null) {
             motorEx.setVelocity(0);
         }
@@ -51,6 +57,31 @@ public class IntakeSubsystem implements IntakeInterface {
             return Math.abs(motorEx.getVelocity()) > 1.0;
         }
         return motor != null && Math.abs(motor.getPower()) > 0.01;
+    }
+
+    @Override
+    public double getRpm() {
+        return motorRpm(motorEx, ticksPerRev());
+    }
+
+    @Override
+    public String getCommandStatus() {
+        if (motor == null) {
+            return lastCommand + " motor=NULL";
+        }
+        return String.format("%s frac=%.2f cmdRpm=%.0f pwr=%.2f mode=%s",
+                lastCommand,
+                lastSpeedFraction,
+                TunableValues.INTAKE_TARGET_RPM * lastSpeedFraction,
+                motor.getPower(),
+                motor.getMode());
+    }
+
+    private static double motorRpm(DcMotorEx motor, double ticksPerRev) {
+        if (motor == null || ticksPerRev <= 0) {
+            return 0.0;
+        }
+        return motor.getVelocity() * 60.0 / ticksPerRev;
     }
 
     private double ticksPerRev() {

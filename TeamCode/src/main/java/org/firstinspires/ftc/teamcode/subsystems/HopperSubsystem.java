@@ -19,6 +19,7 @@ public class HopperSubsystem implements HopperInterface {
     private final DcMotor motor;
     private int targetTicks = 0;
     private boolean isStepping = false;
+    private String lastCommand = "init";
 
     public HopperSubsystem(DcMotor motor) {
         this.motor = motor;
@@ -29,6 +30,7 @@ public class HopperSubsystem implements HopperInterface {
 
     @Override
     public void stepForward180() {
+        lastCommand = "step";
         if (motor == null) {
             RobotLog.e("[HOPPER ERROR] stepForward180 called but hopper DcMotor is NULL!");
             return;
@@ -57,6 +59,7 @@ public class HopperSubsystem implements HopperInterface {
 
     @Override
     public void returnToUpright() {
+        lastCommand = "upright";
         if (motor == null) return;
 
         int currentPos = motor.getCurrentPosition();
@@ -92,6 +95,7 @@ public class HopperSubsystem implements HopperInterface {
 
     @Override
     public void runHopper(double speed) {
+        lastCommand = "run";
         if (motor != null) {
             isStepping = false;
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -108,6 +112,7 @@ public class HopperSubsystem implements HopperInterface {
 
     @Override
     public void stop() {
+        lastCommand = "stop";
         if (motor != null) {
             if (motor.getMode() == DcMotor.RunMode.RUN_TO_POSITION) {
                 int currentPos = motor.getCurrentPosition();
@@ -125,5 +130,20 @@ public class HopperSubsystem implements HopperInterface {
     @Override
     public boolean isRunning() {
         return motor != null && (motor.isBusy() || Math.abs(motor.getPower()) > 0.01);
+    }
+
+    @Override
+    public String getCommandStatus() {
+        if (motor == null) {
+            return lastCommand + " motor=NULL";
+        }
+        return String.format("%s pwr=%.2f mode=%s pos=%d target=%d busy=%b stepping=%b",
+                lastCommand,
+                motor.getPower(),
+                motor.getMode(),
+                motor.getCurrentPosition(),
+                targetTicks,
+                motor.isBusy(),
+                isStepping);
     }
 }

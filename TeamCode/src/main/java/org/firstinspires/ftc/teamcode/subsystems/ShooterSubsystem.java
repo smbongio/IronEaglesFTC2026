@@ -12,6 +12,8 @@ public class ShooterSubsystem implements ShooterInterface {
 
     private final DcMotor shooter;
     private final DcMotor shooterFollow;
+    private String lastCommand = "init";
+    private double lastSpeedFraction = 0.0;
 
     public ShooterSubsystem(DcMotor shooter) {
         this(shooter, null);
@@ -26,6 +28,8 @@ public class ShooterSubsystem implements ShooterInterface {
 
     @Override
     public void runShooter(double speed) {
+        lastCommand = "run";
+        lastSpeedFraction = speed;
         setPower(speed);
     }
 
@@ -37,6 +41,8 @@ public class ShooterSubsystem implements ShooterInterface {
 
     @Override
     public void stop() {
+        lastCommand = "stop";
+        lastSpeedFraction = 0.0;
         stopMotor(shooter);
         stopMotor(shooterFollow);
     }
@@ -44,6 +50,35 @@ public class ShooterSubsystem implements ShooterInterface {
     @Override
     public boolean isRunning() {
         return isMotorRunning(shooter) || isMotorRunning(shooterFollow);
+    }
+
+    @Override
+    public double getRpm() {
+        return motorRpm(shooter);
+    }
+
+    @Override
+    public double getFollowRpm() {
+        return motorRpm(shooterFollow);
+    }
+
+    @Override
+    public String getCommandStatus() {
+        String leader = motorStatus(shooter, "leader");
+        String follow = motorStatus(shooterFollow, "follow");
+        return String.format("%s frac=%.2f cmdRpm=%.0f %s %s",
+                lastCommand,
+                lastSpeedFraction,
+                TunableValues.SHOOTER_TARGET_RPM * lastSpeedFraction,
+                leader,
+                follow);
+    }
+
+    private static String motorStatus(DcMotor motor, String name) {
+        if (motor == null) {
+            return name + "=NULL";
+        }
+        return String.format("%sPwr=%.2f %sMode=%s", name, motor.getPower(), name, motor.getMode());
     }
 
     private void enableVelocity(DcMotor motor) {
@@ -82,10 +117,26 @@ public class ShooterSubsystem implements ShooterInterface {
     }
 
     private double targetTicksPerSec(DcMotorEx motor, int dir, double speedFraction) {
+        return (TunableValues.SHOOTER_TARGET_RPM / 60.0) * ticksPerRev(motor) * speedFraction * dir;
+    }
+
+    private double motorRpm(DcMotor motor) {
+        if (!(motor instanceof DcMotorEx)) {
+            return 0.0;
+        }
+        DcMotorEx motorEx = (DcMotorEx) motor;
+        double ticksPerRev = ticksPerRev(motorEx);
+        if (ticksPerRev <= 0) {
+            return 0.0;
+        }
+        return motorEx.getVelocity() * 60.0 / ticksPerRev;
+    }
+
+    private double ticksPerRev(DcMotorEx motor) {
         double ticksPerRev = motor.getMotorType().getTicksPerRev();
         if (ticksPerRev <= 1.0) {
-            ticksPerRev = TunableValues.SHOOTER_TICKS_PER_REV;
+            return TunableValues.SHOOTER_TICKS_PER_REV;
         }
-        return (TunableValues.SHOOTER_TARGET_RPM / 60.0) * ticksPerRev * speedFraction * dir;
+        return ticksPerRev;
     }
 }

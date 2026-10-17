@@ -4,6 +4,8 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 // Import FTC TeleOp annotation to register this program on Driver Station menu
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Gamepad;
 // Import FTC RobotLog utility for persistent logging
 import com.qualcomm.robotcore.util.RobotLog;
 
@@ -55,6 +57,13 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasIntakeRunning = false;
     // State tracking for manual hopper button logging
     private boolean wasHopperXPressed = false;
+
+    private enum TelemetryPage { ALL, INTAKE, HOPPER, SHOOTER }
+    private TelemetryPage telemetryPage = TelemetryPage.ALL;
+    private boolean wasDpadUp = false;
+    private boolean wasDpadDown = false;
+    private boolean wasDpadLeft = false;
+    private boolean wasDpadRight = false;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -297,23 +306,107 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
             // Update edge detector
             wasInAimAssistMode = isInAimAssistMode;
-
-            // =========================================================================
-            // TELEMETRY UPDATES
-            // =========================================================================
-            telemetry.addData("Status", "Running");
-            telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
-            telemetry.addData("Fire State", firingState);
-            telemetry.addData("Hopper Pos", robot.hopper != null ? robot.hopper.getCurrentPosition() : "NULL");
-            telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
-            telemetry.addData("GP1 Joysticks", "LY: %.2f | LX: %.2f | RX: %.2f", rawY, rawX, rawRx);
-            telemetry.addData("GP1 Triggers", "L2: %.2f | R2: %.2f", gamepad1.left_trigger, gamepad1.right_trigger);
-            telemetry.addData("GP1 Buttons", "X: %b | RB: %b | A: %b | B: %b | Y: %b", gamepad1.x, gamepad1.right_bumper, gamepad1.a, gamepad1.b, gamepad1.y);
-
-            if (!robot.missingDevices.isEmpty()) {
-                telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
-            }
-            telemetry.update();
+            updateTelemetryPage();
+            writeTelemetry(isInRange);
         }
+    }
+
+    private void updateTelemetryPage() {
+        TelemetryPage selected = telemetryPage;
+        if (gamepad1.dpad_up && !wasDpadUp) {
+            selected = TelemetryPage.ALL;
+        } else if (gamepad1.dpad_left && !wasDpadLeft) {
+            selected = TelemetryPage.INTAKE;
+        } else if (gamepad1.dpad_down && !wasDpadDown) {
+            selected = TelemetryPage.HOPPER;
+        } else if (gamepad1.dpad_right && !wasDpadRight) {
+            selected = TelemetryPage.SHOOTER;
+        }
+        if (selected != telemetryPage) {
+            telemetryPage = selected;
+            RobotLog.i("[TELEMETRY PAGE] %s", telemetryPage);
+        }
+        wasDpadUp = gamepad1.dpad_up;
+        wasDpadDown = gamepad1.dpad_down;
+        wasDpadLeft = gamepad1.dpad_left;
+        wasDpadRight = gamepad1.dpad_right;
+    }
+
+    private void writeTelemetry(boolean isInRange) {
+        telemetry.addData("Page", "%s  (Up=ALL L=INTAKE D=HOPPER R=SHOOTER)", telemetryPage);
+        telemetry.addData("GP1 Pressed", pressedButtons(gamepad1));
+        if (!robot.missingDevices.isEmpty()) {
+            telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
+        }
+
+        switch (telemetryPage) {
+            case INTAKE:
+                telemetry.addData("Intake cmd", robot.getIntake().getCommandStatus());
+                telemetry.addData("Intake RPM", "%.0f (target %.0f)",
+                        robot.getIntake().getRpm(), TunableValues.INTAKE_TARGET_RPM);
+                break;
+            case HOPPER:
+                telemetry.addData("Fire State", firingState);
+                telemetry.addData("Hopper cmd", robot.getHopper().getCommandStatus());
+                telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
+                break;
+            case SHOOTER:
+                telemetry.addData("Fire State", firingState);
+                telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
+                telemetry.addData("Shooter cmd", robot.getShooter().getCommandStatus());
+                telemetry.addData("Shooter RPM", "leader %.0f  follow %.0f  (target %.0f)",
+                        robot.getShooter().getRpm(), robot.getShooter().getFollowRpm(),
+                        TunableValues.SHOOTER_TARGET_RPM);
+                break;
+            case ALL:
+            default:
+                telemetry.addData("Fire State", firingState);
+                telemetry.addData("Intake RPM", "%.0f", robot.getIntake().getRpm());
+                telemetry.addData("Shooter RPM", "leader %.0f  follow %.0f",
+                        robot.getShooter().getRpm(), robot.getShooter().getFollowRpm());
+                telemetry.addData("Hopper", "running=%s pwr=%s",
+                        robot.getHopper().isRunning() ? "YES" : "NO",
+                        motorPower(robot.hopper));
+                telemetry.addData("Wheels", "FL %s  FR %s  BL %s  BR %s",
+                        motorPower(robot.frontLeft), motorPower(robot.frontRight),
+                        motorPower(robot.backLeft), motorPower(robot.backRight));
+                break;
+        }
+        telemetry.update();
+    }
+
+    private static String motorPower(DcMotor motor) {
+        return motor == null ? "n/a" : String.format("%.2f", motor.getPower());
+    }
+
+    private static String pressedButtons(Gamepad gamepad) {
+        StringBuilder pressed = new StringBuilder();
+        appendPressed(pressed, gamepad.dpad_up, "D-Up");
+        appendPressed(pressed, gamepad.dpad_down, "D-Down");
+        appendPressed(pressed, gamepad.dpad_left, "D-Left");
+        appendPressed(pressed, gamepad.dpad_right, "D-Right");
+        appendPressed(pressed, gamepad.a, "A");
+        appendPressed(pressed, gamepad.b, "B");
+        appendPressed(pressed, gamepad.x, "X");
+        appendPressed(pressed, gamepad.y, "Y");
+        appendPressed(pressed, gamepad.left_bumper, "LB");
+        appendPressed(pressed, gamepad.right_bumper, "RB");
+        appendPressed(pressed, gamepad.left_trigger > 0.2, "LT");
+        appendPressed(pressed, gamepad.right_trigger > 0.2, "RT");
+        appendPressed(pressed, gamepad.left_stick_button, "L3");
+        appendPressed(pressed, gamepad.right_stick_button, "R3");
+        appendPressed(pressed, gamepad.start, "Start");
+        appendPressed(pressed, gamepad.back, "Back");
+        return pressed.length() == 0 ? "none" : pressed.toString();
+    }
+
+    private static void appendPressed(StringBuilder pressed, boolean isPressed, String name) {
+        if (!isPressed) {
+            return;
+        }
+        if (pressed.length() > 0) {
+            pressed.append(' ');
+        }
+        pressed.append(name);
     }
 }

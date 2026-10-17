@@ -10,4 +10,9 @@ public interface IntakeInterface extends MechanismInterface {
      * @param speed Target operational speed multiplier
      */
     void runIntake(double speed);
+
+    /**
+     * Measured intake speed from the encoder, in RPM.
+     */
+    double getRpm();
 }

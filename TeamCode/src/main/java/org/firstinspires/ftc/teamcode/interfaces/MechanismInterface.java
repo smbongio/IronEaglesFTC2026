@@ -22,4 +22,10 @@ public interface MechanismInterface {
      * @return true if motor power is non-zero
      */
     boolean isRunning();
+
+    /**
+     * Software command plus the motor output the hub actually has this loop.
+     * Used to separate gamepad input from hardware motion.
+     */
+    String getCommandStatus();
 }
