@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
 
@@ -19,6 +20,8 @@ public class ShooterSubsystem implements ShooterInterface {
     public ShooterSubsystem(DcMotor shooter, DcMotor shooterFollow) {
         this.shooter = shooter;
         this.shooterFollow = shooterFollow;
+        enableVelocity(this.shooter);
+        enableVelocity(this.shooterFollow);
     }
 
     @Override
@@ -28,27 +31,61 @@ public class ShooterSubsystem implements ShooterInterface {
 
     @Override
     public void setPower(double power) {
-        if (shooter != null) {
-            shooter.setPower(power * TunableValues.SHOOTER_DIR);
-        }
-        if (shooterFollow != null) {
-            shooterFollow.setPower(power * TunableValues.SHOOTER_FOLLOW_DIR);
-        }
+        command(shooter, TunableValues.SHOOTER_DIR, power);
+        command(shooterFollow, TunableValues.SHOOTER_FOLLOW_DIR, power);
     }
 
     @Override
     public void stop() {
-        if (shooter != null) {
-            shooter.setPower(0);
-        }
-        if (shooterFollow != null) {
-            shooterFollow.setPower(0);
-        }
+        stopMotor(shooter);
+        stopMotor(shooterFollow);
     }
 
     @Override
     public boolean isRunning() {
-        return (shooter != null && Math.abs(shooter.getPower()) > 0.01)
-                || (shooterFollow != null && Math.abs(shooterFollow.getPower()) > 0.01);
+        return isMotorRunning(shooter) || isMotorRunning(shooterFollow);
+    }
+
+    private void enableVelocity(DcMotor motor) {
+        if (motor instanceof DcMotorEx) {
+            ((DcMotorEx) motor).setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        }
+    }
+
+    private void command(DcMotor motor, int dir, double speedFraction) {
+        if (motor == null) {
+            return;
+        }
+        if (motor instanceof DcMotorEx) {
+            DcMotorEx motorEx = (DcMotorEx) motor;
+            motorEx.setVelocity(targetTicksPerSec(motorEx, dir, speedFraction));
+        } else {
+            motor.setPower(speedFraction * dir);
+        }
+    }
+
+    private void stopMotor(DcMotor motor) {
+        if (motor == null) {
+            return;
+        }
+        if (motor instanceof DcMotorEx) {
+            ((DcMotorEx) motor).setVelocity(0);
+        }
+        motor.setPower(0);
+    }
+
+    private boolean isMotorRunning(DcMotor motor) {
+        if (motor instanceof DcMotorEx) {
+            return Math.abs(((DcMotorEx) motor).getVelocity()) > 1.0;
+        }
+        return motor != null && Math.abs(motor.getPower()) > 0.01;
+    }
+
+    private double targetTicksPerSec(DcMotorEx motor, int dir, double speedFraction) {
+        double ticksPerRev = motor.getMotorType().getTicksPerRev();
+        if (ticksPerRev <= 1.0) {
+            ticksPerRev = TunableValues.SHOOTER_TICKS_PER_REV;
+        }
+        return (TunableValues.SHOOTER_TARGET_RPM / 60.0) * ticksPerRev * speedFraction * dir;
     }
 }

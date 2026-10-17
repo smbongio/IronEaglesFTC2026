@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.util.RobotLog;
 // Road Runner Imports
 import com.acmerobotics.roadrunner.geometry.Pose2d;
 import com.acmerobotics.roadrunner.trajectory.Trajectory;
+import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
 
 // Import high-level auto-fire controller interface
@@ -157,18 +158,20 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // =========================================================================
             if (isInAimAssistMode) {
                 if (!wasFlywheelSpoolingAimAssist) {
-                    RobotLog.i("[FLYWHEEL] Aim-Assist active: Spooling up flywheel motor to 100%% power.");
+                    RobotLog.i("[FLYWHEEL] Aim-Assist active: Spooling flywheel to %.0f rpm.",
+                            TunableValues.SHOOTER_TARGET_RPM);
                     wasFlywheelSpoolingAimAssist = true;
                     wasFlywheelRunningManual = false;
                 }
                 robot.getShooter().runShooter(1.0);
             } else if (isManualShootTriggerHeld) {
                 if (!wasFlywheelRunningManual) {
-                    RobotLog.i("[FLYWHEEL] Manual trigger squeezed (%.2f): Running flywheel motor.", gamepad1.right_trigger);
+                    RobotLog.i("[FLYWHEEL] Manual trigger squeezed: Running flywheel at %.0f rpm.",
+                            TunableValues.SHOOTER_TARGET_RPM);
                     wasFlywheelRunningManual = true;
                     wasFlywheelSpoolingAimAssist = false;
                 }
-                robot.getShooter().runShooter(gamepad1.right_trigger);
+                robot.getShooter().runShooter(1.0);
             } else {
                 if (wasFlywheelSpoolingAimAssist || wasFlywheelRunningManual) {
                     RobotLog.i("[FLYWHEEL] Flywheel motor stopped.");
@@ -259,10 +262,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 // 2. Manual Intake Control (Left Trigger)
                 if (gamepad1.left_trigger > 0.2) { 
                     if (!wasIntakeRunning) {
-                        RobotLog.i("[MANUAL INTAKE] Left trigger squeezed (%.2f) -> Running intake motor.", gamepad1.left_trigger);
+                        RobotLog.i("[MANUAL INTAKE] Left trigger squeezed -> Running intake at %.0f rpm.",
+                                TunableValues.INTAKE_TARGET_RPM);
                         wasIntakeRunning = true;
                     }
-                    robot.getIntake().runIntake(gamepad1.left_trigger);
+                    robot.getIntake().runIntake(1.0);
                 } else { 
                     if (wasIntakeRunning) {
                         RobotLog.i("[MANUAL INTAKE] Left trigger released -> Intake motor stopped.");
