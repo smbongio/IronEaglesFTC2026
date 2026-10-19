@@ -14,6 +14,7 @@ public class HopperSubsystem implements HopperInterface {
     // REV Core Hex Motor has 288 ticks per revolution (360 degrees).
     // 180 degrees corresponds to 144 ticks.
     public static final int TICKS_PER_180_DEGREES = 144;
+    public static final int TICKS_PER_360_DEGREES = TICKS_PER_180_DEGREES * 2;
     public static final double STEP_POWER           = 0.6;
 
     private final DcMotor motor;
@@ -31,30 +32,18 @@ public class HopperSubsystem implements HopperInterface {
     @Override
     public void stepForward180() {
         lastCommand = "step";
-        if (motor == null) {
-            RobotLog.e("[HOPPER ERROR] stepForward180 called but hopper DcMotor is NULL!");
-            return;
-        }
+        startOrFinishStep(TICKS_PER_180_DEGREES);
+    }
 
-        int currentPos = motor.getCurrentPosition();
+    @Override
+    public void stepForward360() {
+        lastCommand = "step360";
+        startOrFinishStep(TICKS_PER_360_DEGREES);
+    }
 
-        // If not currently stepping, initiate a single 180-degree step (+144 ticks in HOPPER_DIR)
-        if (!isStepping) {
-            targetTicks = currentPos + (TICKS_PER_180_DEGREES * TunableValues.HOPPER_DIR);
-            isStepping = true;
-
-            RobotLog.i("[HOPPER STEP START] StartPos: %d -> TargetPos: %d", currentPos, targetTicks);
-            motor.setTargetPosition(targetTicks);
-            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            motor.setPower(Math.abs(STEP_POWER));
-        } else {
-            // Check if active 180-degree step is complete
-            if (!motor.isBusy() || Math.abs(currentPos - targetTicks) <= 5) {
-                RobotLog.i("[HOPPER STEP COMPLETE] Reached TargetPos: %d (CurrentPos: %d). Stopping motor.", targetTicks, currentPos);
-                motor.setPower(0);
-                isStepping = false; // Reset flag so next 180-degree step can trigger if button remains held
-            }
-        }
+    @Override
+    public boolean isStepping() {
+        return isStepping;
     }
 
     @Override
@@ -130,6 +119,30 @@ public class HopperSubsystem implements HopperInterface {
     @Override
     public boolean isRunning() {
         return motor != null && (motor.isBusy() || Math.abs(motor.getPower()) > 0.01);
+    }
+
+    private void startOrFinishStep(int ticks) {
+        if (motor == null) {
+            RobotLog.e("[HOPPER ERROR] step called but hopper DcMotor is NULL!");
+            return;
+        }
+
+        int currentPos = motor.getCurrentPosition();
+        if (!isStepping) {
+            targetTicks = currentPos + (ticks * TunableValues.HOPPER_DIR);
+            isStepping = true;
+            RobotLog.i("[HOPPER STEP START] %s StartPos: %d -> TargetPos: %d", lastCommand, currentPos, targetTicks);
+            motor.setTargetPosition(targetTicks);
+            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            motor.setPower(Math.abs(STEP_POWER));
+            return;
+        }
+
+        if (!motor.isBusy() || Math.abs(currentPos - targetTicks) <= 5) {
+            RobotLog.i("[HOPPER STEP COMPLETE] Reached TargetPos: %d (CurrentPos: %d). Stopping motor.", targetTicks, currentPos);
+            motor.setPower(0);
+            isStepping = false;
+        }
     }
 
     @Override

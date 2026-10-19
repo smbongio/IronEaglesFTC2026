@@ -19,6 +19,17 @@ public interface HopperInterface extends MechanismInterface {
     void stepForward180();
 
     /**
+     * Steps the hopper forward by 360 degrees (one full turn) then stops.
+     * Call every loop until {@link #isStepping()} is false.
+     */
+    void stepForward360();
+
+    /**
+     * True while a 180 or 360 encoder step is in progress.
+     */
+    boolean isStepping();
+
+    /**
      * Drives the hopper motor back to the nearest upright 180-degree position using RUN_TO_POSITION.
      */
     void returnToUpright();

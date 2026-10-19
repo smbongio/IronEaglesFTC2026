@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 // Import FTC RobotLog utility for persistent logging
 import com.qualcomm.robotcore.util.RobotLog;
 
@@ -64,6 +65,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasDpadDown = false;
     private boolean wasDpadLeft = false;
     private boolean wasDpadRight = false;
+    private boolean wasGp2DpadUp = false;
+    private boolean wasGp2DpadDown = false;
+    private boolean hopperFedThisSpool = false;
+    private boolean hopper360InProgress = false;
 
     // Helper method to log firing state transitions
     private void setFiringState(AutoFireControllerInterface.FiringState newState) {
@@ -134,6 +139,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
             boolean isManualShootTriggerHeld = gamepad1.right_trigger > 0.2;
             boolean isInAimAssistMode = gamepad1.right_bumper;
+            boolean shooterCommanded = isInAimAssistMode || isManualShootTriggerHeld;
+            updateShooterTargetFromGamepad2();
             boolean isInRange = (vision != null && vision.isInShootingRange());
             boolean isShooting = robot.getShooter().isRunning();
 
@@ -167,16 +174,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // =========================================================================
             if (isInAimAssistMode) {
                 if (!wasFlywheelSpoolingAimAssist) {
-                    RobotLog.i("[FLYWHEEL] Aim-Assist active: Spooling flywheel to %.0f rpm.",
-                            TunableValues.SHOOTER_TARGET_RPM);
+                    RobotLog.i("[FLYWHEEL] Aim-Assist active: Spooling flywheel to %.0f ticks/s.",
+                            TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
                     wasFlywheelSpoolingAimAssist = true;
                     wasFlywheelRunningManual = false;
                 }
                 robot.getShooter().runShooter(1.0);
             } else if (isManualShootTriggerHeld) {
                 if (!wasFlywheelRunningManual) {
-                    RobotLog.i("[FLYWHEEL] Manual trigger squeezed: Running flywheel at %.0f rpm.",
-                            TunableValues.SHOOTER_TARGET_RPM);
+                    RobotLog.i("[FLYWHEEL] Manual trigger squeezed: Running flywheel at %.0f ticks/s.",
+                            TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
                     wasFlywheelRunningManual = true;
                     wasFlywheelSpoolingAimAssist = false;
                 }
@@ -188,6 +195,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     wasFlywheelRunningManual = false;
                 }
                 robot.getShooter().stop();
+                hopperFedThisSpool = false;
+                hopper360InProgress = false;
             }
 
             // =========================================================================
@@ -237,12 +246,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     }
                 }
 
-                // 3. Feeding logic
-                if (firingState == AutoFireControllerInterface.FiringState.FEEDING) {
-                    RobotLog.i("[AIM-ASSIST FEEDING] Actuating hopper motor at 100%% power to feed elements into flywheel.");
-                    // Flywheel is already running from Subsystem 1, just start the hopper
-                    robot.getHopper().runHopper(1.0);
-                }
+                // Feeding waits until both shooters are at target ticks/s (see hopper 360 below).
 
             } 
             // =========================================================================
@@ -271,8 +275,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 // 2. Manual Intake Control (Left Trigger)
                 if (gamepad1.left_trigger > 0.2) { 
                     if (!wasIntakeRunning) {
-                        RobotLog.i("[MANUAL INTAKE] Left trigger squeezed -> Running intake at %.0f rpm.",
-                                TunableValues.INTAKE_TARGET_RPM);
+                        RobotLog.i("[MANUAL INTAKE] Left trigger squeezed -> Running intake at %.0f ticks/s.",
+                                TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
                         wasIntakeRunning = true;
                     }
                     robot.getIntake().runIntake(1.0);
@@ -284,30 +288,89 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     robot.getIntake().stop();
                 }
 
-                // 3. Manual Hopper Control (X Button — Steps 180° iteratively & returns upright)
-                if (gamepad1.x) { 
-                    if (!wasHopperXPressed) {
-                        RobotLog.i("[GAMEPAD] X Button PRESSED -> Triggering Hopper 180-deg Step");
-                        wasHopperXPressed = true;
-                    }
-                    robot.getHopper().stepForward180();
-                } else { 
-                    if (wasHopperXPressed) {
-                        RobotLog.i("[GAMEPAD] X Button RELEASED");
-                        wasHopperXPressed = false;
-                    }
-                    if (!robot.getHopper().isUpright()) { 
-                        robot.getHopper().returnToUpright();
-                    } else { 
-                        robot.getHopper().stop();
+                // 3. Manual Hopper Control (X Button — skipped while auto 360 feed is running)
+                if (!hopper360InProgress) {
+                    if (gamepad1.x) {
+                        if (!wasHopperXPressed) {
+                            RobotLog.i("[GAMEPAD] X Button PRESSED -> Triggering Hopper 180-deg Step");
+                            wasHopperXPressed = true;
+                        }
+                        robot.getHopper().stepForward180();
+                    } else {
+                        if (wasHopperXPressed) {
+                            RobotLog.i("[GAMEPAD] X Button RELEASED");
+                            wasHopperXPressed = false;
+                        }
+                        if (!robot.getHopper().isUpright()) {
+                            robot.getHopper().returnToUpright();
+                        } else {
+                            robot.getHopper().stop();
+                        }
                     }
                 }
+            }
+
+            if (shooterCommanded) {
+                updateHopperFeedWhenAtSpeed();
             }
 
             // Update edge detector
             wasInAimAssistMode = isInAimAssistMode;
             updateTelemetryPage();
-            writeTelemetry(isInRange);
+            writeTelemetry();
+        }
+    }
+
+    private void updateShooterTargetFromGamepad2() {
+        if (gamepad2.dpad_up && !wasGp2DpadUp) {
+            bumpBothShooterTargets(TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
+        } else if (gamepad2.dpad_down && !wasGp2DpadDown) {
+            bumpBothShooterTargets(-TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
+        }
+        wasGp2DpadUp = gamepad2.dpad_up;
+        wasGp2DpadDown = gamepad2.dpad_down;
+    }
+
+    private static void bumpBothShooterTargets(double deltaTicksPerSec) {
+        TunableValues.SHOOTER_TARGET_TICKS_PER_SEC =
+                Math.max(0.0, TunableValues.SHOOTER_TARGET_TICKS_PER_SEC + deltaTicksPerSec);
+        TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC =
+                Math.max(0.0, TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC + deltaTicksPerSec);
+        RobotLog.i("[SHOOTER TARGET] leader %.0f follow %.0f ticks/s",
+                TunableValues.SHOOTER_TARGET_TICKS_PER_SEC,
+                TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC);
+    }
+
+    private boolean motorAtTarget(double measuredTicksPerSec, double targetTicksPerSec) {
+        double target = Math.abs(targetTicksPerSec);
+        double band = Math.max(TunableValues.SHOOTER_TICKS_PER_SEC_STEP, target * 0.10);
+        return Math.abs(Math.abs(measuredTicksPerSec) - target) <= band;
+    }
+
+    private boolean bothShootersAtTarget() {
+        boolean leaderOk = motorAtTarget(
+                robot.getShooter().getTicksPerSec(), TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+        if (robot.shooterFollow == null) {
+            return leaderOk;
+        }
+        boolean followOk = motorAtTarget(
+                robot.getShooter().getFollowTicksPerSec(), TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC);
+        return leaderOk && followOk;
+    }
+
+    private void updateHopperFeedWhenAtSpeed() {
+        if (hopperFedThisSpool) {
+            return;
+        }
+        if (!hopper360InProgress && !bothShootersAtTarget()) {
+            return;
+        }
+        boolean wasStepping = robot.getHopper().isStepping();
+        robot.getHopper().stepForward360();
+        hopper360InProgress = robot.getHopper().isStepping();
+        if (wasStepping && !hopper360InProgress) {
+            hopperFedThisSpool = true;
+            RobotLog.i("[HOPPER] 360-degree feed complete.");
         }
     }
 
@@ -332,7 +395,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         wasDpadRight = gamepad1.dpad_right;
     }
 
-    private void writeTelemetry(boolean isInRange) {
+    private void writeTelemetry() {
         telemetry.addData("Page", "%s  (Up=ALL L=INTAKE D=HOPPER R=SHOOTER)", telemetryPage);
         telemetry.addData("GP1 Pressed", pressedButtons(gamepad1));
         if (!robot.missingDevices.isEmpty()) {
@@ -342,8 +405,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         switch (telemetryPage) {
             case INTAKE:
                 telemetry.addData("Intake cmd", robot.getIntake().getCommandStatus());
-                telemetry.addData("Intake RPM", "%.0f (target %.0f)",
-                        robot.getIntake().getRpm(), TunableValues.INTAKE_TARGET_RPM);
+                telemetry.addData("Intake ticks/s", "%.0f (target %.0f)",
+                        robot.getIntake().getTicksPerSec(), TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
                 break;
             case HOPPER:
                 telemetry.addData("Fire State", firingState);
@@ -351,19 +414,23 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
                 break;
             case SHOOTER:
-                telemetry.addData("Fire State", firingState);
-                telemetry.addData("Ready to Shoot", isInRange ? "YES" : "NO");
-                telemetry.addData("Shooter cmd", robot.getShooter().getCommandStatus());
-                telemetry.addData("Shooter RPM", "leader %.0f  follow %.0f  (target %.0f)",
-                        robot.getShooter().getRpm(), robot.getShooter().getFollowRpm(),
-                        TunableValues.SHOOTER_TARGET_RPM);
+                addShooterMotorTelemetry(
+                        "shooter",
+                        TunableValues.SHOOTER_TARGET_TICKS_PER_SEC,
+                        robot.getShooter().getTicksPerSec(),
+                        robot.getShooter().getPidf());
+                addShooterMotorTelemetry(
+                        "shooterFollow",
+                        TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC,
+                        robot.getShooter().getFollowTicksPerSec(),
+                        robot.getShooter().getFollowPidf());
                 break;
             case ALL:
             default:
                 telemetry.addData("Fire State", firingState);
-                telemetry.addData("Intake RPM", "%.0f", robot.getIntake().getRpm());
-                telemetry.addData("Shooter RPM", "leader %.0f  follow %.0f",
-                        robot.getShooter().getRpm(), robot.getShooter().getFollowRpm());
+                telemetry.addData("Intake ticks/s", "%.0f", robot.getIntake().getTicksPerSec());
+                telemetry.addData("Shooter ticks/s", "leader %.0f  follow %.0f",
+                        robot.getShooter().getTicksPerSec(), robot.getShooter().getFollowTicksPerSec());
                 telemetry.addData("Hopper", "running=%s pwr=%s",
                         robot.getHopper().isRunning() ? "YES" : "NO",
                         motorPower(robot.hopper));
@@ -373,6 +440,15 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 break;
         }
         telemetry.update();
+    }
+
+    private void addShooterMotorTelemetry(String name, double targetTicksPerSec,
+                                          double currentTicksPerSec, PIDFCoefficients pidf) {
+        telemetry.addLine(name + ":");
+        telemetry.addLine(String.format("target ticks/s: %.0f", targetTicksPerSec));
+        telemetry.addLine(String.format("current ticks/s: %.0f", currentTicksPerSec));
+        telemetry.addLine(String.format("P: %.2f, I: %.2f, D: %.2f, F: %.2f",
+                pidf.p, pidf.i, pidf.d, pidf.f));
     }
 
     private static String motorPower(DcMotor motor) {

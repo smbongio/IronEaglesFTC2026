@@ -2,18 +2,23 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
 
 /**
- * Concrete implementation of the Shooter mechanism subsystem.
+ * Both shooter motors use hub velocity (ticks/s).
  */
 public class ShooterSubsystem implements ShooterInterface {
 
     private final DcMotor shooter;
     private final DcMotor shooterFollow;
     private String lastCommand = "init";
-    private double lastSpeedFraction = 0.0;
+    private double lastFractionOfTarget = 0.0;
+    private double appliedP = Double.NaN;
+    private double appliedI = Double.NaN;
+    private double appliedD = Double.NaN;
+    private double appliedF = Double.NaN;
 
     public ShooterSubsystem(DcMotor shooter) {
         this(shooter, null);
@@ -24,25 +29,29 @@ public class ShooterSubsystem implements ShooterInterface {
         this.shooterFollow = shooterFollow;
         enableVelocity(this.shooter);
         enableVelocity(this.shooterFollow);
+        applyTunablePidf();
     }
 
     @Override
     public void runShooter(double speed) {
         lastCommand = "run";
-        lastSpeedFraction = speed;
+        lastFractionOfTarget = speed;
         setPower(speed);
     }
 
     @Override
     public void setPower(double power) {
-        command(shooter, TunableValues.SHOOTER_DIR, power);
-        command(shooterFollow, TunableValues.SHOOTER_FOLLOW_DIR, power);
+        applyTunablePidf();
+        command(shooter, TunableValues.SHOOTER_DIR, power,
+                TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+        command(shooterFollow, TunableValues.SHOOTER_FOLLOW_DIR, power,
+                TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC);
     }
 
     @Override
     public void stop() {
         lastCommand = "stop";
-        lastSpeedFraction = 0.0;
+        lastFractionOfTarget = 0.0;
         stopMotor(shooter);
         stopMotor(shooterFollow);
     }
@@ -53,32 +62,33 @@ public class ShooterSubsystem implements ShooterInterface {
     }
 
     @Override
-    public double getRpm() {
-        return motorRpm(shooter);
+    public double getTicksPerSec() {
+        return measuredTicksPerSec(shooter);
     }
 
     @Override
-    public double getFollowRpm() {
-        return motorRpm(shooterFollow);
+    public double getFollowTicksPerSec() {
+        return measuredTicksPerSec(shooterFollow);
+    }
+
+    @Override
+    public PIDFCoefficients getPidf() {
+        return velocityPidf(shooter);
+    }
+
+    @Override
+    public PIDFCoefficients getFollowPidf() {
+        return velocityPidf(shooterFollow);
     }
 
     @Override
     public String getCommandStatus() {
-        String leader = motorStatus(shooter, "leader");
-        String follow = motorStatus(shooterFollow, "follow");
-        return String.format("%s frac=%.2f cmdRpm=%.0f %s %s",
+        return String.format("%s leaderCmd=%.0f followCmd=%.0f %s %s",
                 lastCommand,
-                lastSpeedFraction,
-                TunableValues.SHOOTER_TARGET_RPM * lastSpeedFraction,
-                leader,
-                follow);
-    }
-
-    private static String motorStatus(DcMotor motor, String name) {
-        if (motor == null) {
-            return name + "=NULL";
-        }
-        return String.format("%sPwr=%.2f %sMode=%s", name, motor.getPower(), name, motor.getMode());
+                TunableValues.SHOOTER_TARGET_TICKS_PER_SEC * lastFractionOfTarget,
+                TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC * lastFractionOfTarget,
+                motorStatus(shooter, "leader"),
+                motorStatus(shooterFollow, "follow"));
     }
 
     private void enableVelocity(DcMotor motor) {
@@ -87,16 +97,46 @@ public class ShooterSubsystem implements ShooterInterface {
         }
     }
 
-    private void command(DcMotor motor, int dir, double speedFraction) {
+    private void command(DcMotor motor, int direction, double fractionOfTarget, double targetTicksPerSec) {
         if (motor == null) {
             return;
         }
         if (motor instanceof DcMotorEx) {
-            DcMotorEx motorEx = (DcMotorEx) motor;
-            motorEx.setVelocity(targetTicksPerSec(motorEx, dir, speedFraction));
+            double ticksPerSec = targetTicksPerSec * fractionOfTarget * direction;
+            ((DcMotorEx) motor).setVelocity(ticksPerSec);
         } else {
-            motor.setPower(speedFraction * dir);
+            motor.setPower(fractionOfTarget * direction);
         }
+    }
+
+    private void applyTunablePidf() {
+        double p = TunableValues.SHOOTER_P;
+        double i = TunableValues.SHOOTER_I;
+        double d = TunableValues.SHOOTER_D;
+        double f = TunableValues.SHOOTER_F;
+        if (appliedP == p && appliedI == i && appliedD == d && appliedF == f) {
+            return;
+        }
+        setVelocityPidf(shooter, p, i, d, f);
+        setVelocityPidf(shooterFollow, p, i, d, f);
+        appliedP = p;
+        appliedI = i;
+        appliedD = d;
+        appliedF = f;
+    }
+
+    private static void setVelocityPidf(DcMotor motor, double p, double i, double d, double f) {
+        if (motor instanceof DcMotorEx) {
+            ((DcMotorEx) motor).setVelocityPIDFCoefficients(p, i, d, f);
+        }
+    }
+
+    private static String motorStatus(DcMotor motor, String name) {
+        if (motor == null) {
+            return name + "=NULL";
+        }
+        double ticksPerSec = motor instanceof DcMotorEx ? ((DcMotorEx) motor).getVelocity() : 0.0;
+        return String.format("%sTicks=%.0f %sPwr=%.2f", name, ticksPerSec, name, motor.getPower());
     }
 
     private void stopMotor(DcMotor motor) {
@@ -110,33 +150,26 @@ public class ShooterSubsystem implements ShooterInterface {
     }
 
     private boolean isMotorRunning(DcMotor motor) {
-        if (motor instanceof DcMotorEx) {
-            return Math.abs(((DcMotorEx) motor).getVelocity()) > 1.0;
+        if (motor == null) {
+            return false;
         }
-        return motor != null && Math.abs(motor.getPower()) > 0.01;
+        if (motor instanceof DcMotorEx && Math.abs(((DcMotorEx) motor).getVelocity()) > 1.0) {
+            return true;
+        }
+        return Math.abs(motor.getPower()) > 0.01;
     }
 
-    private double targetTicksPerSec(DcMotorEx motor, int dir, double speedFraction) {
-        return (TunableValues.SHOOTER_TARGET_RPM / 60.0) * ticksPerRev(motor) * speedFraction * dir;
-    }
-
-    private double motorRpm(DcMotor motor) {
+    private static double measuredTicksPerSec(DcMotor motor) {
         if (!(motor instanceof DcMotorEx)) {
             return 0.0;
         }
-        DcMotorEx motorEx = (DcMotorEx) motor;
-        double ticksPerRev = ticksPerRev(motorEx);
-        if (ticksPerRev <= 0) {
-            return 0.0;
-        }
-        return motorEx.getVelocity() * 60.0 / ticksPerRev;
+        return ((DcMotorEx) motor).getVelocity();
     }
 
-    private double ticksPerRev(DcMotorEx motor) {
-        double ticksPerRev = motor.getMotorType().getTicksPerRev();
-        if (ticksPerRev <= 1.0) {
-            return TunableValues.SHOOTER_TICKS_PER_REV;
+    private static PIDFCoefficients velocityPidf(DcMotor motor) {
+        if (!(motor instanceof DcMotorEx)) {
+            return new PIDFCoefficients(0, 0, 0, 0);
         }
-        return ticksPerRev;
+        return ((DcMotorEx) motor).getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 }

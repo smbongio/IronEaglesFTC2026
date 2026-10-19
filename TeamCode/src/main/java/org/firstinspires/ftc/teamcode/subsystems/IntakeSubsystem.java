@@ -13,7 +13,8 @@ public class IntakeSubsystem implements IntakeInterface {
     private final DcMotor motor;
     private final DcMotorEx motorEx;
     private String lastCommand = "init";
-    private double lastSpeedFraction = 0.0;
+    // 0.0 = stopped, 1.0 = full INTAKE_TARGET_TICKS_PER_SEC. TeleOp currently always passes 1.0.
+    private double lastFractionOfTarget = 0.0;
 
     public IntakeSubsystem(DcMotor motor) {
         this.motor = motor;
@@ -26,14 +27,15 @@ public class IntakeSubsystem implements IntakeInterface {
     @Override
     public void runIntake(double speed) {
         lastCommand = "run";
-        lastSpeedFraction = speed;
+        lastFractionOfTarget = speed;
         setPower(speed);
     }
 
     @Override
     public void setPower(double power) {
         if (motorEx != null) {
-            motorEx.setVelocity(targetTicksPerSec(power));
+            motorEx.setVelocity(
+                    TunableValues.INTAKE_TARGET_TICKS_PER_SEC * power * TunableValues.INTAKE_DIR);
         } else if (motor != null) {
             motor.setPower(power * TunableValues.INTAKE_DIR);
         }
@@ -42,7 +44,7 @@ public class IntakeSubsystem implements IntakeInterface {
     @Override
     public void stop() {
         lastCommand = "stop";
-        lastSpeedFraction = 0.0;
+        lastFractionOfTarget = 0.0;
         if (motorEx != null) {
             motorEx.setVelocity(0);
         }
@@ -60,8 +62,8 @@ public class IntakeSubsystem implements IntakeInterface {
     }
 
     @Override
-    public double getRpm() {
-        return motorRpm(motorEx, ticksPerRev());
+    public double getTicksPerSec() {
+        return motorEx == null ? 0.0 : motorEx.getVelocity();
     }
 
     @Override
@@ -69,33 +71,10 @@ public class IntakeSubsystem implements IntakeInterface {
         if (motor == null) {
             return lastCommand + " motor=NULL";
         }
-        return String.format("%s frac=%.2f cmdRpm=%.0f pwr=%.2f mode=%s",
+        return String.format("%s cmdTicks=%.0f measTicks=%.0f pwr=%.2f",
                 lastCommand,
-                lastSpeedFraction,
-                TunableValues.INTAKE_TARGET_RPM * lastSpeedFraction,
-                motor.getPower(),
-                motor.getMode());
-    }
-
-    private static double motorRpm(DcMotorEx motor, double ticksPerRev) {
-        if (motor == null || ticksPerRev <= 0) {
-            return 0.0;
-        }
-        return motor.getVelocity() * 60.0 / ticksPerRev;
-    }
-
-    private double ticksPerRev() {
-        if (motorEx != null) {
-            double fromType = motorEx.getMotorType().getTicksPerRev();
-            if (fromType > 1.0) {
-                return fromType;
-            }
-        }
-        return TunableValues.INTAKE_TICKS_PER_REV;
-    }
-
-    private double targetTicksPerSec(double speedFraction) {
-        return (TunableValues.INTAKE_TARGET_RPM / 60.0) * ticksPerRev()
-                * speedFraction * TunableValues.INTAKE_DIR;
+                TunableValues.INTAKE_TARGET_TICKS_PER_SEC * lastFractionOfTarget,
+                getTicksPerSec(),
+                motor.getPower());
     }
 }
