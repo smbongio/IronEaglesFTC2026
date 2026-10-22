@@ -14,6 +14,12 @@ public interface DrivetrainInterface {
     void drive(double x, double y, double rx);
 
     /**
+     * Robot-centric drive after rotating stick inputs by IMU heading (degrees).
+     * Heading 0 is robot-centric. Rotation (rx) is not field-rotated.
+     */
+    void driveFieldCentric(double x, double y, double rx, double headingDeg);
+
+    /**
      * Automatically adjusts drivetrain position to align with an acquired AprilTag target.
      * Positions robot at optimal 24.0 inch shooting distance and 0 degree heading.
      *

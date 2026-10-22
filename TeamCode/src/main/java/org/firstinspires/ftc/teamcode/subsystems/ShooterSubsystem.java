@@ -42,10 +42,8 @@ public class ShooterSubsystem implements ShooterInterface {
     @Override
     public void setPower(double power) {
         applyTunablePidf();
-        command(shooter, TunableValues.SHOOTER_DIR, power,
-                TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-        command(shooterFollow, TunableValues.SHOOTER_FOLLOW_DIR, power,
-                TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC);
+        command(shooter, TunableValues.SHOOTER_DIR, power);
+        command(shooterFollow, TunableValues.SHOOTER_FOLLOW_DIR, power);
     }
 
     @Override
@@ -83,10 +81,9 @@ public class ShooterSubsystem implements ShooterInterface {
 
     @Override
     public String getCommandStatus() {
-        return String.format("%s leaderCmd=%.0f followCmd=%.0f %s %s",
+        return String.format("%s cmdTicks=%.0f %s %s",
                 lastCommand,
                 TunableValues.SHOOTER_TARGET_TICKS_PER_SEC * lastFractionOfTarget,
-                TunableValues.SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC * lastFractionOfTarget,
                 motorStatus(shooter, "leader"),
                 motorStatus(shooterFollow, "follow"));
     }
@@ -97,12 +94,12 @@ public class ShooterSubsystem implements ShooterInterface {
         }
     }
 
-    private void command(DcMotor motor, int direction, double fractionOfTarget, double targetTicksPerSec) {
+    private void command(DcMotor motor, int direction, double fractionOfTarget) {
         if (motor == null) {
             return;
         }
         if (motor instanceof DcMotorEx) {
-            double ticksPerSec = targetTicksPerSec * fractionOfTarget * direction;
+            double ticksPerSec = TunableValues.SHOOTER_TARGET_TICKS_PER_SEC * fractionOfTarget * direction;
             ((DcMotorEx) motor).setVelocity(ticksPerSec);
         } else {
             motor.setPower(fractionOfTarget * direction);

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.config;
 
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+
 /**
  * Field-tunable values for mechanical-debugging. Flip a motor direction here
  * instead of hunting through OpMode and subsystem classes.
@@ -21,6 +23,7 @@ package org.firstinspires.ftc.teamcode.config;
  *   D-pad left       telemetry page: INTAKE
  *   D-pad down       telemetry page: HOPPER
  *   D-pad right      telemetry page: SHOOTER
+ *   Back             reset IMU yaw (field-centric forward)
  *
  * Gamepad 2:
  *   D-pad up         both shooters target ticks/s += 25
@@ -30,6 +33,11 @@ package org.firstinspires.ftc.teamcode.config;
  */
 public final class TunableValues {
     private TunableValues() {}
+
+    public static RevHubOrientationOnRobot.LogoFacingDirection IMU_LOGO_DIRECTION =
+            RevHubOrientationOnRobot.LogoFacingDirection.UP;
+    public static RevHubOrientationOnRobot.UsbFacingDirection IMU_USB_DIRECTION =
+            RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
 
     public static int FRONT_LEFT_DIR = 1;
     public static int FRONT_RIGHT_DIR = -1;
@@ -44,12 +52,11 @@ public final class TunableValues {
     // Hub velocity command (encoder ticks per second).
     public static double INTAKE_TARGET_TICKS_PER_SEC = 500.0;
     public static double SHOOTER_TARGET_TICKS_PER_SEC = 1500.0;
-    public static double SHOOTER_FOLLOW_TARGET_TICKS_PER_SEC = 1500.0;
     public static double SHOOTER_TICKS_PER_SEC_STEP = 25.0;
 
     // Shared velocity PIDF for shooter and shooterFollow. Hub firmware defaults.
     public static double SHOOTER_P = 10.0;
-    public static double SHOOTER_I = 0.5;
+    public static double SHOOTER_I = 2.0;
     public static double SHOOTER_D = 1.0;
     public static double SHOOTER_F = 0.0;
 }

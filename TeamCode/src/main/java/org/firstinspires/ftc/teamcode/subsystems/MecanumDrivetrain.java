@@ -34,6 +34,14 @@ public class MecanumDrivetrain implements DrivetrainInterface {
     }
 
     @Override
+    public void driveFieldCentric(double x, double y, double rx, double headingDeg) {
+        double headingRad = Math.toRadians(headingDeg);
+        double rotX = x * Math.cos(-headingRad) - y * Math.sin(-headingRad);
+        double rotY = x * Math.sin(-headingRad) + y * Math.cos(-headingRad);
+        drive(rotX, rotY, rx);
+    }
+
+    @Override
     public boolean alignToTarget(TargetGeometryInterface target) {
         if (target == null) {
             stop();
