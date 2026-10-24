@@ -1,9 +1,12 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.hardware.digitalchickenlabs.OctoQuad;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.ImuInterface;
 
@@ -18,6 +21,7 @@ public class OctoQuadOdometry implements ImuInterface {
     private static final double LOG_PERIOD_SEC = 0.10;
 
     private final OctoQuad octoquad;
+    private final IMU hubImu;
     private final OctoQuad.LocalizerDataBlock localizer = new OctoQuad.LocalizerDataBlock();
     private final OctoQuad.EncoderDataBlock encoders = new OctoQuad.EncoderDataBlock();
     private final ElapsedTime logTimer = new ElapsedTime();
@@ -27,6 +31,10 @@ public class OctoQuadOdometry implements ImuInterface {
     private int strafeTicks;
     private int posXMm;
     private int posYMm;
+    private double velXMmS;
+    private double velYMmS;
+    private double velHeadingRadS;
+    private boolean localizerValid;
     private double lastLoggedHeadingDegrees;
     private int lastLoggedForwardTicks;
     private int lastLoggedStrafeTicks;
@@ -35,9 +43,11 @@ public class OctoQuadOdometry implements ImuInterface {
     public OctoQuadOdometry(HardwareMap hardwareMap) {
         octoquad = hardwareMap.tryGet(OctoQuad.class, CONFIG_NAME);
         if (octoquad == null) {
-            RobotLog.w("[OCTOQUAD] '%s' not found. Driving will be robot-centric.", CONFIG_NAME);
+            RobotLog.w("[OCTOQUAD] '%s' not found in the active robot config.", CONFIG_NAME);
+            hubImu = tryInitHubImu(hardwareMap);
             return;
         }
+        hubImu = null;
 
         octoquad.setSingleEncoderDirection(
                 TunableValues.OCTOQUAD_FORWARD_PORT, encoderDirection(TunableValues.OCTOQUAD_FORWARD_DIR));
@@ -66,7 +76,11 @@ public class OctoQuadOdometry implements ImuInterface {
     }
 
     public void update() {
+        localizerValid = false;
         if (octoquad == null) {
+            if (hubImu != null) {
+                headingDegrees = hubImu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+            }
             return;
         }
         octoquad.readLocalizerDataAndAllEncoderData(localizer, encoders);
@@ -74,6 +88,10 @@ public class OctoQuadOdometry implements ImuInterface {
             headingDegrees = Math.toDegrees(localizer.heading_rad);
             posXMm = localizer.posX_mm;
             posYMm = localizer.posY_mm;
+            velXMmS = localizer.velX_mmS;
+            velYMmS = localizer.velY_mmS;
+            velHeadingRadS = localizer.velHeading_radS;
+            localizerValid = localizer.isDataValid();
         }
         if (encoders.crcOk) {
             forwardTicks = encoders.positions[TunableValues.OCTOQUAD_FORWARD_PORT];
@@ -93,12 +111,54 @@ public class OctoQuadOdometry implements ImuInterface {
         return String.format("fwd %d  strafe %d", forwardTicks, strafeTicks);
     }
 
+    public int getPosXMm() {
+        return posXMm;
+    }
+
+    public int getPosYMm() {
+        return posYMm;
+    }
+
+    public String getPoseStatus() {
+        return String.format("x=%d y=%d mm", posXMm, posYMm);
+    }
+
+    public boolean hasLocalizerVelocity() {
+        return localizerValid;
+    }
+
+    public double getVelXMmS() {
+        return velXMmS;
+    }
+
+    public double getVelYMmS() {
+        return velYMmS;
+    }
+
+    public double getVelHeadingRadS() {
+        return velHeadingRadS;
+    }
+
+    public String getVelocityStatus() {
+        return String.format("vx=%.0f vy=%.0f mm/s  w=%.2f rad/s", velXMmS, velYMmS, velHeadingRadS);
+    }
+
     /**
      * Writes heading, raw pod ticks, and localizer pose to RobotLog when due.
      * Same cadence as mecanum wheel diagnostics: ~10 Hz while moving, quiet when still.
      */
+    public String getHeadingSource() {
+        if (octoquad != null) {
+            return "OctoQuad";
+        }
+        if (hubImu != null) {
+            return "Control Hub IMU";
+        }
+        return "MISSING";
+    }
+
     public void logOdometryDiagnostics() {
-        if (octoquad == null) {
+        if (octoquad == null && hubImu == null) {
             return;
         }
         boolean active = isActive();
@@ -108,8 +168,8 @@ public class OctoQuadOdometry implements ImuInterface {
         if (active == wasActive && logTimer.seconds() < LOG_PERIOD_SEC) {
             return;
         }
-        RobotLog.i("[OCTOQUAD] heading=%.1f  %s  pose x=%d y=%d mm",
-                headingDegrees, getPodTickStatus(), posXMm, posYMm);
+        RobotLog.i("[OCTOQUAD] source=%s heading=%.1f  %s  pose x=%d y=%d mm  %s",
+                getHeadingSource(), headingDegrees, getPodTickStatus(), posXMm, posYMm, getVelocityStatus());
         logTimer.reset();
         wasActive = active;
         lastLoggedHeadingDegrees = headingDegrees;
@@ -119,17 +179,22 @@ public class OctoQuadOdometry implements ImuInterface {
 
     @Override
     public boolean isPresent() {
-        return octoquad != null;
+        return octoquad != null || hubImu != null;
     }
 
     @Override
     public void resetYaw() {
-        if (octoquad == null) {
+        if (octoquad != null) {
+            octoquad.setLocalizerHeading(0.0f);
+            headingDegrees = 0.0;
+            RobotLog.i("[OCTOQUAD] Heading zeroed (Back button).");
             return;
         }
-        octoquad.setLocalizerHeading(0.0f);
-        headingDegrees = 0.0;
-        RobotLog.i("[OCTOQUAD] Heading zeroed (Back button).");
+        if (hubImu != null) {
+            hubImu.resetYaw();
+            headingDegrees = 0.0;
+            RobotLog.i("[IMU] Heading zeroed (Back button).");
+        }
     }
 
     @Override
@@ -162,6 +227,20 @@ public class OctoQuadOdometry implements ImuInterface {
             }
         }
         RobotLog.w("[OCTOQUAD] IMU calibration timed out. status=%s", octoquad.getLocalizerStatus());
+    }
+
+    private static IMU tryInitHubImu(HardwareMap hardwareMap) {
+        IMU imu = hardwareMap.tryGet(IMU.class, "imu");
+        if (imu == null) {
+            RobotLog.w("[OCTOQUAD] Control Hub IMU also missing. Driving will be robot-centric.");
+            return null;
+        }
+        RevHubOrientationOnRobot orientation = new RevHubOrientationOnRobot(
+                TunableValues.IMU_LOGO_DIRECTION, TunableValues.IMU_USB_DIRECTION);
+        imu.initialize(new IMU.Parameters(orientation));
+        imu.resetYaw();
+        RobotLog.w("[OCTOQUAD] Using Control Hub IMU for heading until 'octoquad' is in the active config.");
+        return imu;
     }
 
     private static OctoQuad.EncoderDirection encoderDirection(int dir) {

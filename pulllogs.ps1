@@ -3,12 +3,15 @@
     Copies Robot Controller logs from the robot onto this laptop over adb.
 
 .EXAMPLE
-    .\pulllogs.ps1                         # USB if already attached, otherwise adb connect to the Control Hub Wi-Fi
+    .\pulllogs.ps1                         # pull logs, then rotate the robot log and logcat
 .EXAMPLE
     .\pulllogs.ps1 -Address 192.168.43.1   # connect to a specific address (port 5555 is added if omitted)
+.EXAMPLE
+    .\pulllogs.ps1 -KeepRemote             # pull without clearing the robot's log
 #>
 param(
-    [string]$Address
+    [string]$Address,
+    [switch]$KeepRemote
 )
 
 # Default Control Hub address when the laptop is on the robot's Wi-Fi network.
@@ -119,11 +122,20 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $localRobotLog)) { Fail 'RobotContro
 
 Step 'Dumping logcat'
 $localLogcat = Join-Path $dest 'logcat.txt'
-Write-Host "adb logcat -d > $localLogcat"
-$logcatLines = Invoke-Adb logcat -d
+Write-Host "adb logcat -d -t 3000 > $localLogcat"
+$logcatLines = Invoke-Adb logcat -d -t 3000
 if ($LASTEXITCODE -ne 0) { Fail 'logcat dump failed.' }
 $logcatLines | Set-Content -Path $localLogcat
 
+if (-not $KeepRemote) {
+    Step 'Rotating robot logs'
+    Write-Host "Clearing $source"
+    Invoke-Adb shell "printf '' > '$source'" | Out-Null
+    Write-Host "adb logcat -c"
+    Invoke-Adb logcat -c | Out-Null
+    Write-Host "Robot log and logcat buffer cleared. Next pull will only have new lines."
+}
+
 Write-Host "`nPulled logs to $dest" -ForegroundColor Green
 Write-Host "Robot controller log: $localRobotLog"
-Write-Host "Search for [WHEELS] after a drive run."
+Write-Host "Search for [WHEELS] or [OCTOQUAD] after a drive run."

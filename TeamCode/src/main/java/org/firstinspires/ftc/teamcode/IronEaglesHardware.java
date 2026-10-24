@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.digitalchickenlabs.OctoQuad;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -118,6 +119,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
 
         // Webcam
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
+        getHardwareSafely(hardwareMap, OctoQuad.class, "octoquad");
 
         // Configure brake behavior and direction on drivetrain motors if present
         if (frontLeft != null)  frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);

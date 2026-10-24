@@ -23,7 +23,7 @@ public final class TunableValues {
                     + "  Right stick X    rotate\n"
                     + "  Left trigger     intake at INTAKE_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)\n"
                     + "  Right trigger    shooter at SHOOTER_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)\n"
-                    + "  X                hold: hopper 180-degree step; release returns upright\n"
+                    + "  X                hold: hopper 180-deg step after shooters are within SHOOTER_AT_SPEED_TOLERANCE; release returns upright\n"
                     + "  D-pad up         telemetry page: ALL (summary)\n"
                     + "  D-pad left       telemetry page: INTAKE\n"
                     + "  D-pad down       telemetry page: HOPPER\n"
@@ -55,6 +55,8 @@ public final class TunableValues {
     public static double INTAKE_TARGET_TICKS_PER_SEC = 500.0;
     public static double SHOOTER_TARGET_TICKS_PER_SEC = 1500.0;
     public static double SHOOTER_TICKS_PER_SEC_STEP = 25.0;
+    // Hopper X waits until both shooters are within this fraction of target ticks/s.
+    public static double SHOOTER_AT_SPEED_TOLERANCE = 0.05;
 
     // Shared velocity PIDF for shooter and shooterFollow. Hub firmware defaults.
     public static double SHOOTER_P = 10.0;
@@ -80,4 +82,17 @@ public final class TunableValues {
     public static float OCTOQUAD_TCP_OFFSET_X_MM = 123.4f;
     public static float OCTOQUAD_TCP_OFFSET_Y_MM = 123.4f;
     public static float OCTOQUAD_IMU_SCALAR = 1.0f;
+
+    // Cancels OctoQuad motion on axes the driver is not holding. Held axes pass through.
+    public static boolean DRIVE_ASSIST_ENABLED = true;
+    public static double DRIVE_ASSIST_MAX_VEL_MM_S = 2000.0;
+    public static double DRIVE_ASSIST_MAX_OMEGA_RAD_S = 3.0;
+    public static double DRIVE_ASSIST_TRANSLATION_P = 0.25;
+    public static double DRIVE_ASSIST_TRANSLATION_I = 0.0;
+    public static double DRIVE_ASSIST_TRANSLATION_D = 0.0;
+    public static double DRIVE_ASSIST_ROTATION_P = 0.25;
+    public static double DRIVE_ASSIST_ROTATION_I = 0.0;
+    public static double DRIVE_ASSIST_ROTATION_D = 0.0;
+    public static double DRIVE_ASSIST_I_LIMIT = 0.25;
+    public static double DRIVE_ASSIST_MAX_CORRECTION = 0.25;
 }

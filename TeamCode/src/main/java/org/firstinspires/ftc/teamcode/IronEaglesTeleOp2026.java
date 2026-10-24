@@ -7,18 +7,21 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
+import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
 import org.firstinspires.ftc.teamcode.subsystems.OctoQuadOdometry;
 
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private final IronEaglesHardware robot = new IronEaglesHardware();
+    private final DriveVelocityAssist driveAssist = new DriveVelocityAssist();
     private OctoQuadOdometry imu;
 
     private boolean wasFlywheelRunning = false;
     private boolean wasManualDriving = false;
     private boolean wasIntakeRunning = false;
     private boolean wasHopperXPressed = false;
+    private boolean wasHopperWaitingForSpeed = false;
 
     private enum TelemetryPage { ALL, INTAKE, HOPPER, SHOOTER }
     private TelemetryPage telemetryPage = TelemetryPage.ALL;
@@ -45,8 +48,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s",
                     String.join(", ", robot.missingDevices));
         }
-        telemetry.addData("OctoQuad", imu.isPresent()
-                ? String.format("ready  heading=%.1f", imu.getHeadingDegrees())
+        telemetry.addData("Heading", imu.isPresent()
+                ? String.format("%s  heading=%.1f", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING - drive is robot-centric");
         telemetry.update();
 
@@ -93,6 +96,14 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         }
 
         double heading = imu.isPresent() ? imu.getHeadingDegrees() : 0.0;
+        if (imu.hasLocalizerVelocity()) {
+            driveAssist.apply(x, y, rx, imu.getVelXMmS(), imu.getVelYMmS(), imu.getVelHeadingRadS());
+            x = driveAssist.getX();
+            y = driveAssist.getY();
+            rx = driveAssist.getRx();
+        } else {
+            driveAssist.reset();
+        }
         robot.getDrivetrain().driveFieldCentric(x, y, rx, heading);
     }
 
@@ -133,14 +144,31 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private void updateHopper() {
         if (gamepad1.x) {
             if (!wasHopperXPressed) {
-                RobotLog.i("[GAMEPAD] X Button PRESSED -> Triggering Hopper 180-deg Step");
+                RobotLog.i("[GAMEPAD] X Button PRESSED");
                 wasHopperXPressed = true;
             }
-            robot.getHopper().stepForward180();
+            if (robot.getHopper().isStepping() || bothShootersAtTarget()) {
+                if (wasHopperWaitingForSpeed) {
+                    RobotLog.i("[HOPPER] Shooters at target +/- %.0f%%. Stepping 180 deg.",
+                            TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0);
+                    wasHopperWaitingForSpeed = false;
+                }
+                robot.getHopper().stepForward180();
+            } else {
+                if (!wasHopperWaitingForSpeed) {
+                    RobotLog.i("[HOPPER] Waiting for shooters at target +/- %.0f%% (leader %.0f  follow %.0f  target %.0f).",
+                            TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0,
+                            robot.getShooter().getTicksPerSec(),
+                            robot.getShooter().getFollowTicksPerSec(),
+                            TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+                    wasHopperWaitingForSpeed = true;
+                }
+            }
         } else {
             if (wasHopperXPressed) {
                 RobotLog.i("[GAMEPAD] X Button RELEASED");
                 wasHopperXPressed = false;
+                wasHopperWaitingForSpeed = false;
             }
             if (!robot.getHopper().isUpright()) {
                 robot.getHopper().returnToUpright();
@@ -148,6 +176,23 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 robot.getHopper().stop();
             }
         }
+    }
+
+    private boolean motorAtTarget(double measuredTicksPerSec, double targetTicksPerSec) {
+        double target = Math.abs(targetTicksPerSec);
+        double band = target * TunableValues.SHOOTER_AT_SPEED_TOLERANCE;
+        return Math.abs(Math.abs(measuredTicksPerSec) - target) <= band;
+    }
+
+    private boolean bothShootersAtTarget() {
+        boolean leaderOk = motorAtTarget(
+                robot.getShooter().getTicksPerSec(), TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+        if (robot.shooterFollow == null) {
+            return leaderOk;
+        }
+        boolean followOk = motorAtTarget(
+                robot.getShooter().getFollowTicksPerSec(), TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+        return leaderOk && followOk;
     }
 
     private void updateShooterTargetFromGamepad2() {
@@ -190,8 +235,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private void writeTelemetry() {
         telemetry.addData("Page", "%s  (Up=ALL L=INTAKE D=HOPPER R=SHOOTER)", telemetryPage);
         telemetry.addData("GP1 Pressed", pressedButtons(gamepad1));
-        telemetry.addData("OctoQuad", imu.isPresent()
-                ? String.format("%.1f deg  (Back=zero)", imu.getHeadingDegrees())
+        telemetry.addData("Heading", imu.isPresent()
+                ? String.format("%s  %.1f deg  (Back=zero)", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING");
         telemetry.addData("Pods", imu.getPodTickStatus());
         if (!robot.missingDevices.isEmpty()) {
@@ -207,6 +252,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             case HOPPER:
                 telemetry.addData("Hopper cmd", robot.getHopper().getCommandStatus());
                 telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
+                telemetry.addData("Shooters at speed", bothShootersAtTarget()
+                        ? "YES" : String.format("NO  (need +/- %.0f%%)",
+                        TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0));
                 break;
             case SHOOTER:
                 addShooterMotorTelemetry(
@@ -222,7 +270,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 break;
             case ALL:
             default:
-                telemetry.addData("Drive", "field-centric");
+                telemetry.addData("Drive", TunableValues.DRIVE_ASSIST_ENABLED
+                        ? "field-centric + velocity PID"
+                        : "field-centric");
+                telemetry.addData("Pose", imu.getPoseStatus());
+                telemetry.addData("Odo vel", imu.getVelocityStatus());
+                telemetry.addData("Assist", driveAssist.getStatus());
                 telemetry.addData("Drive cmd", robot.getDrivetrain().getStickStatus());
                 telemetry.addData("Wheels pwr", robot.getDrivetrain().getRequestedPowerStatus());
                 telemetry.addData("Wheels t/s", robot.getDrivetrain().getTicksPerSecStatus());
