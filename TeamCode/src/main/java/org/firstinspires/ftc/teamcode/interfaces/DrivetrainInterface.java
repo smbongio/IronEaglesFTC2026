@@ -32,4 +32,24 @@ public interface DrivetrainInterface {
      * Halts all drivetrain motor outputs.
      */
     void stop();
+
+    /**
+     * Latest gamepad command after deadzone: y (forward), x (strafe), rx (rotate).
+     */
+    String getStickStatus();
+
+    /**
+     * Power last requested of FL, FR, BL, BR.
+     */
+    String getRequestedPowerStatus();
+
+    /**
+     * Encoder ticks/second measured on FL, FR, BL, BR.
+     */
+    String getTicksPerSecStatus();
+
+    /**
+     * Writes gamepad vs requested power vs encoder ticks/s to RobotLog when due.
+     */
+    void logWheelDiagnostics();
 }

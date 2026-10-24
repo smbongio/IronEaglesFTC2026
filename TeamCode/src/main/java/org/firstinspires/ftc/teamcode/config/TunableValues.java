@@ -23,7 +23,7 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
  *   D-pad left       telemetry page: INTAKE
  *   D-pad down       telemetry page: HOPPER
  *   D-pad right      telemetry page: SHOOTER
- *   Back             reset IMU yaw (field-centric forward)
+ *   Back             reset OctoQuad heading (field-centric forward)
  *
  * Gamepad 2:
  *   D-pad up         both shooters target ticks/s += 25
@@ -34,10 +34,12 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 public final class TunableValues {
     private TunableValues() {}
 
+    // Hub on the robot's right side, upright: logo face toward the right wall,
+    // USB-C ports toward the floor.
     public static RevHubOrientationOnRobot.LogoFacingDirection IMU_LOGO_DIRECTION =
-            RevHubOrientationOnRobot.LogoFacingDirection.UP;
+            RevHubOrientationOnRobot.LogoFacingDirection.RIGHT;
     public static RevHubOrientationOnRobot.UsbFacingDirection IMU_USB_DIRECTION =
-            RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
+            RevHubOrientationOnRobot.UsbFacingDirection.DOWN;
 
     public static int FRONT_LEFT_DIR = 1;
     public static int FRONT_RIGHT_DIR = -1;
@@ -59,4 +61,18 @@ public final class TunableValues {
     public static double SHOOTER_I = 2.0;
     public static double SHOOTER_D = 1.0;
     public static double SHOOTER_F = 0.0;
+
+    // OctoQuad MK2 dead wheels. Port 0 = forward (X), port 1 = strafe (Y).
+    // *_DIR is +1 or -1. They do not change field-centric heading.
+    public static int OCTOQUAD_FORWARD_PORT = 0;
+    public static int OCTOQUAD_STRAFE_PORT = 1;
+    public static int OCTOQUAD_FORWARD_DIR = 1;
+    public static int OCTOQUAD_STRAFE_DIR = 1;
+
+    // Placeholders so the onboard localizer can start. Tune later for x/y pose.
+    public static float OCTOQUAD_FORWARD_TICKS_PER_MM = 12.34f;
+    public static float OCTOQUAD_STRAFE_TICKS_PER_MM = 12.34f;
+    public static float OCTOQUAD_TCP_OFFSET_X_MM = 123.4f;
+    public static float OCTOQUAD_TCP_OFFSET_Y_MM = 123.4f;
+    public static float OCTOQUAD_IMU_SCALAR = 1.0f;
 }

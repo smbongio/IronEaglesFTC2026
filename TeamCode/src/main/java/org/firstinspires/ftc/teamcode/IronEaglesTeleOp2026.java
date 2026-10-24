@@ -25,10 +25,9 @@ import org.firstinspires.ftc.teamcode.interfaces.LedIndicatorInterface;
 // Import high-level vision subsystem interface
 import org.firstinspires.ftc.teamcode.interfaces.VisionSubsystemInterface;
 // Import concrete subsystem implementations
-import org.firstinspires.ftc.teamcode.interfaces.ImuInterface;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVisionSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.ControlHubImu;
+import org.firstinspires.ftc.teamcode.subsystems.OctoQuadOdometry;
 
 // Register OpMode named IronEaglesTeleOp2026 under TeleOp group
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
@@ -39,7 +38,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     // Create instance of main robot hardware manager
     private final IronEaglesHardware robot = new IronEaglesHardware();
-    private ImuInterface imu;
+    private OctoQuadOdometry imu;
 
     // Declare reference for vision subsystem interface
     private VisionSubsystemInterface vision;
@@ -90,7 +89,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
         // Initialize all hardware motors and camera on REV hubs
         robot.init(hardwareMap);
-        imu = new ControlHubImu(hardwareMap);
+        imu = new OctoQuadOdometry(hardwareMap);
 
         // Instantiate concrete Vision and LED Subsystems
         vision = new AprilTagVisionSubsystem(hardwareMap, robot.camera);
@@ -117,6 +116,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             telemetry.addData("Missing", String.join(", ", robot.missingDevices));
             RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s", String.join(", ", robot.missingDevices));
         }
+        telemetry.addData("OctoQuad", imu.isPresent()
+                ? String.format("ready  heading=%.1f", imu.getHeadingDegrees())
+                : "MISSING - drive is robot-centric");
         telemetry.update();
 
         // Pause execution until driver presses play button on Driver Hub
@@ -130,6 +132,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             // CRITICAL: Update Road Runner Odometry (Must run every loop!)
             // =========================================================================
             drive.update();
+            imu.update();
 
             if (gamepad1.backWasPressed()) {
                 imu.resetYaw();
@@ -266,7 +269,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                     setFiringState(AutoFireControllerInterface.FiringState.IDLE);
                 }
 
-                // 1. Manual field-centric mecanum (IMU heading; Back zeros yaw)
+                // 1. Manual field-centric mecanum (OctoQuad heading; Back zeros yaw)
                 boolean isManualDriving = (x != 0 || y != 0 || rx != 0);
                 if (isManualDriving && !wasManualDriving) {
                     RobotLog.i("[MANUAL DRIVETRAIN] Joysticks engaged -> Y: %.2f | X: %.2f | Rot: %.2f heading: %.1f",
@@ -324,6 +327,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
             // Update edge detector
             wasInAimAssistMode = isInAimAssistMode;
+            robot.getDrivetrain().logWheelDiagnostics();
+            imu.logOdometryDiagnostics();
             updateTelemetryPage();
             writeTelemetry();
         }
@@ -402,9 +407,10 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private void writeTelemetry() {
         telemetry.addData("Page", "%s  (Up=ALL L=INTAKE D=HOPPER R=SHOOTER)", telemetryPage);
         telemetry.addData("GP1 Pressed", pressedButtons(gamepad1));
-        telemetry.addData("IMU", imu.isPresent()
+        telemetry.addData("OctoQuad", imu.isPresent()
                 ? String.format("%.1f deg  (Back=zero)", imu.getHeadingDegrees())
                 : "MISSING");
+        telemetry.addData("Pods", imu.getPodTickStatus());
         if (!robot.missingDevices.isEmpty()) {
             telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
         }
@@ -435,6 +441,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             case ALL:
             default:
                 telemetry.addData("Drive", "field-centric");
+                telemetry.addData("Drive cmd", robot.getDrivetrain().getStickStatus());
+                telemetry.addData("Wheels pwr", robot.getDrivetrain().getRequestedPowerStatus());
+                telemetry.addData("Wheels t/s", robot.getDrivetrain().getTicksPerSecStatus());
                 telemetry.addData("Fire State", firingState);
                 telemetry.addData("Intake ticks/s", "%.0f", robot.getIntake().getTicksPerSec());
                 telemetry.addData("Shooter ticks/s", "leader %.0f  follow %.0f",
@@ -442,9 +451,6 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 telemetry.addData("Hopper", "running=%s pwr=%s",
                         robot.getHopper().isRunning() ? "YES" : "NO",
                         motorPower(robot.hopper));
-                telemetry.addData("Wheels", "FL %s  FR %s  BL %s  BR %s",
-                        motorPower(robot.frontLeft), motorPower(robot.frontRight),
-                        motorPower(robot.backLeft), motorPower(robot.backRight));
                 break;
         }
         telemetry.update();
