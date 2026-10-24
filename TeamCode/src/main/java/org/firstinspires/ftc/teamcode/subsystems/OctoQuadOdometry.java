@@ -57,7 +57,9 @@ public class OctoQuadOdometry implements ImuInterface {
         waitUntilRunning();
         octoquad.resetAllPositions();
         update();
-        RobotLog.i("[OCTOQUAD] initialized. fw=%s axis=%s status=%s",
+        RobotLog.i("[OCTOQUAD] initialized. i2cBus=%d connection=%s fw=%s axis=%s status=%s",
+                TunableValues.OCTOQUAD_I2C_BUS,
+                octoquad.getConnectionInfo(),
                 octoquad.getFirmwareVersionString(),
                 octoquad.getLocalizerHeadingAxisChoice(),
                 octoquad.getLocalizerStatus());

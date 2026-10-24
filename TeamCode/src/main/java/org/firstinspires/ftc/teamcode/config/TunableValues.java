@@ -11,28 +11,28 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
  * Intake/shooter speed is encoder ticks per second (what setVelocity() takes).
  * No RPM conversion.
  *
- * Gamepad 1:
- *   Left stick Y     drive forward / back
- *   Left stick X     strafe left / right
- *   Right stick X    rotate
- *   Left trigger     intake at INTAKE_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)
- *   Right trigger    shooter at SHOOTER_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)
- *   Right bumper     hold: aim-assist (spool shooter, align, then hopper)
- *   X                hold: hopper 180-degree step; release returns upright
- *   D-pad up         telemetry page: ALL (summary)
- *   D-pad left       telemetry page: INTAKE
- *   D-pad down       telemetry page: HOPPER
- *   D-pad right      telemetry page: SHOOTER
- *   Back             reset OctoQuad heading (field-centric forward)
- *
- * Gamepad 2:
- *   D-pad up         both shooters target ticks/s += 25
- *   D-pad down       both shooters target ticks/s -= 25
- *
- * Unused: A, B, Y, left bumper, right stick Y, d-pad left/right.
+ * Gamepad map is {@link #GAMEPAD_CONTROLS}.
  */
 public final class TunableValues {
     private TunableValues() {}
+
+    public static final String GAMEPAD_CONTROLS =
+            "Gamepad 1:\n"
+                    + "  Left stick Y     drive forward / back (field-centric)\n"
+                    + "  Left stick X     strafe left / right (field-centric)\n"
+                    + "  Right stick X    rotate\n"
+                    + "  Left trigger     intake at INTAKE_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)\n"
+                    + "  Right trigger    shooter at SHOOTER_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)\n"
+                    + "  X                hold: hopper 180-degree step; release returns upright\n"
+                    + "  D-pad up         telemetry page: ALL (summary)\n"
+                    + "  D-pad left       telemetry page: INTAKE\n"
+                    + "  D-pad down       telemetry page: HOPPER\n"
+                    + "  D-pad right      telemetry page: SHOOTER\n"
+                    + "  Back             reset OctoQuad heading (field-centric forward)\n"
+                    + "Gamepad 2:\n"
+                    + "  D-pad up         both shooters target ticks/s += SHOOTER_TICKS_PER_SEC_STEP\n"
+                    + "  D-pad down       both shooters target ticks/s -= SHOOTER_TICKS_PER_SEC_STEP\n"
+                    + "Unused: A, B, Y, bumpers, Start, stick clicks, right stick Y.";
 
     // Hub on the robot's right side, upright: logo face toward the right wall,
     // USB-C ports toward the floor.
@@ -61,6 +61,11 @@ public final class TunableValues {
     public static double SHOOTER_I = 2.0;
     public static double SHOOTER_D = 1.0;
     public static double SHOOTER_F = 0.0;
+
+    // Control Hub I2C bus the OctoQuad is plugged into.
+    // Bus 0 is the built-in IMU (no external jack). First physical I2C jack is bus 1.
+    // Must match IronEaglesConfig.xml <OctoQuadFTC bus="...">.
+    public static int OCTOQUAD_I2C_BUS = 1;
 
     // OctoQuad MK2 dead wheels. Port 0 = forward (X), port 1 = strafe (Y).
     // *_DIR is +1 or -1. They do not change field-centric heading.
