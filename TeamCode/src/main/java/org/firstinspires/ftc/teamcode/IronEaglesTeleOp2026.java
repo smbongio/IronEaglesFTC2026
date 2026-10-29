@@ -8,14 +8,20 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
+import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
+import org.firstinspires.ftc.teamcode.subsystems.HardwareHealthMonitor;
 import org.firstinspires.ftc.teamcode.subsystems.OctoQuadOdometry;
+import org.firstinspires.ftc.teamcode.subsystems.TargetCellGate;
 
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private final IronEaglesHardware robot = new IronEaglesHardware();
     private final DriveVelocityAssist driveAssist = new DriveVelocityAssist();
+    private final TargetCellGate targetCell = new TargetCellGate();
     private OctoQuadOdometry imu;
+    private AprilTagVision vision;
+    private HardwareHealthMonitor hardwareHealth;
 
     private boolean wasFlywheelRunning = false;
     private boolean wasManualDriving = false;
@@ -38,6 +44,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
         robot.init(hardwareMap);
         imu = new OctoQuadOdometry(hardwareMap);
+        vision = new AprilTagVision(hardwareMap, robot.camera);
+        hardwareHealth = new HardwareHealthMonitor(hardwareMap, robot, imu, vision);
+        hardwareHealth.update();
+        if (hardwareHealth.hasErrors()) {
+            telemetry.addData("ERROR", hardwareHealth.getErrorLine());
+        }
 
         if (robot.missingDevices.isEmpty()) {
             telemetry.addData("Status", "Initialized - All devices found!");
@@ -51,36 +63,45 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         telemetry.addData("Heading", imu.isPresent()
                 ? String.format("%s  heading=%.1f", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING - drive is robot-centric");
+        telemetry.addData("Target", vision.isPresent() ? "waiting" : "FALSE");
         telemetry.update();
 
         RobotLog.i("[CONTROLS]\n%s", TunableValues.GAMEPAD_CONTROLS);
         waitForStart();
         RobotLog.i("OpMode Started: Match timer running. heading=%.1f", imu.getHeadingDegrees());
 
-        while (opModeIsActive()) {
-            imu.update();
+        try {
+            while (opModeIsActive()) {
+                imu.update();
+                targetCell.update(vision.sample());
+                hardwareHealth.update();
 
-            if (gamepad1.backWasPressed()) {
-                imu.resetYaw();
+                if (gamepad1.backWasPressed()) {
+                    imu.resetYaw();
+                }
+
+                double rawY  = -gamepad1.left_stick_y;
+                double rawX  =  gamepad1.left_stick_x;
+                double rawRx =  gamepad1.right_stick_x;
+                double y  = squareStick(Math.abs(rawY)  > 0.05 ? rawY  : 0.0);
+                double x  = squareStick(Math.abs(rawX)  > 0.05 ? rawX  : 0.0);
+                double rx = squareStick(Math.abs(rawRx) > 0.05 ? rawRx : 0.0);
+
+                updateShooterTargetFromGamepad2();
+                driveFieldCentric(x, y, rx);
+                updateIntake();
+                updateShooter();
+                updateHopper();
+
+                robot.getLed().update(targetCell.isTargetVisible());
+                robot.getDrivetrain().logWheelDiagnostics();
+                imu.logOdometryDiagnostics();
+                updateTelemetryPage();
+                writeTelemetry();
             }
-
-            double rawY  = -gamepad1.left_stick_y;
-            double rawX  =  gamepad1.left_stick_x;
-            double rawRx =  gamepad1.right_stick_x;
-            double y  = Math.abs(rawY)  > 0.05 ? rawY  : 0.0;
-            double x  = Math.abs(rawX)  > 0.05 ? rawX  : 0.0;
-            double rx = Math.abs(rawRx) > 0.05 ? rawRx : 0.0;
-
-            updateShooterTargetFromGamepad2();
-            driveFieldCentric(x, y, rx);
-            updateIntake();
-            updateShooter();
-            updateHopper();
-
-            robot.getDrivetrain().logWheelDiagnostics();
-            imu.logOdometryDiagnostics();
-            updateTelemetryPage();
-            writeTelemetry();
+        } finally {
+            robot.getLed().close();
+            hardwareHealth.close();
         }
     }
 
@@ -233,11 +254,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     }
 
     private void writeTelemetry() {
+        if (hardwareHealth.hasErrors()) {
+            telemetry.addData("ERROR", hardwareHealth.getErrorLine());
+        }
         telemetry.addData("Page", "%s  (Up=ALL L=INTAKE D=HOPPER R=SHOOTER)", telemetryPage);
         telemetry.addData("GP1 Pressed", pressedButtons(gamepad1));
         telemetry.addData("Heading", imu.isPresent()
                 ? String.format("%s  %.1f deg  (Back=zero)", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING");
+        telemetry.addData("Target", targetCell.getStatus());
+        telemetry.addData("LED", robot.getLed().getStatus());
         telemetry.addData("Pods", imu.getPodTickStatus());
         if (!robot.missingDevices.isEmpty()) {
             telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
@@ -270,6 +296,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 break;
             case ALL:
             default:
+                telemetry.addData("Target gate", targetCell.getGateStatus());
                 telemetry.addData("Drive", TunableValues.DRIVE_ASSIST_ENABLED
                         ? "field-centric + velocity PID"
                         : "field-centric");
@@ -332,5 +359,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             pressed.append(' ');
         }
         pressed.append(name);
+    }
+
+    private static double squareStick(double value) {
+        if (!TunableValues.DRIVE_STICK_SQUARED) {
+            return value;
+        }
+        return value * Math.abs(value);
     }
 }

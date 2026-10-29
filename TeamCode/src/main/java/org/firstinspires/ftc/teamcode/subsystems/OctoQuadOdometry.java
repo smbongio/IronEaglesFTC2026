@@ -35,6 +35,8 @@ public class OctoQuadOdometry implements ImuInterface {
     private double velYMmS;
     private double velHeadingRadS;
     private boolean localizerValid;
+    private int consecutiveBadPackets;
+    private String disconnectError;
     private double lastLoggedHeadingDegrees;
     private int lastLoggedForwardTicks;
     private int lastLoggedStrafeTicks;
@@ -73,18 +75,43 @@ public class OctoQuadOdometry implements ImuInterface {
                 octoquad.getFirmwareVersionString(),
                 octoquad.getLocalizerHeadingAxisChoice(),
                 octoquad.getLocalizerStatus());
+        RobotLog.i("[OCTOQUAD] post-cal snapshot status=%s heading=%.1f  pose x=%d y=%d mm  vx=%.0f vy=%.0f mm/s  w=%.2f rad/s  crc=%s valid=%s",
+                octoquad.getLocalizerStatus(),
+                headingDegrees,
+                posXMm,
+                posYMm,
+                velXMmS,
+                velYMmS,
+                velHeadingRadS,
+                localizer.crcOk,
+                localizerValid);
     }
 
     public void update() {
         localizerValid = false;
         if (octoquad == null) {
             if (hubImu != null) {
-                headingDegrees = hubImu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+                try {
+                    headingDegrees = hubImu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+                    disconnectError = null;
+                } catch (RuntimeException e) {
+                    disconnectError = "imu disconnected";
+                }
             }
             return;
         }
-        octoquad.readLocalizerDataAndAllEncoderData(localizer, encoders);
+        try {
+            octoquad.readLocalizerDataAndAllEncoderData(localizer, encoders);
+        } catch (RuntimeException e) {
+            consecutiveBadPackets++;
+            if (consecutiveBadPackets >= 10) {
+                disconnectError = "octoquad disconnected";
+            }
+            return;
+        }
         if (localizer.crcOk) {
+            consecutiveBadPackets = 0;
+            disconnectError = null;
             headingDegrees = Math.toDegrees(localizer.heading_rad);
             posXMm = localizer.posX_mm;
             posYMm = localizer.posY_mm;
@@ -92,11 +119,23 @@ public class OctoQuadOdometry implements ImuInterface {
             velYMmS = localizer.velY_mmS;
             velHeadingRadS = localizer.velHeading_radS;
             localizerValid = localizer.isDataValid();
+            if (localizer.localizerStatus == OctoQuad.LocalizerStatus.FAULT_NO_IMU) {
+                disconnectError = "octoquad IMU fault";
+            }
+        } else {
+            consecutiveBadPackets++;
+            if (consecutiveBadPackets >= 10) {
+                disconnectError = "octoquad disconnected";
+            }
         }
         if (encoders.crcOk) {
             forwardTicks = encoders.positions[TunableValues.OCTOQUAD_FORWARD_PORT];
             strafeTicks = encoders.positions[TunableValues.OCTOQUAD_STRAFE_PORT];
         }
+    }
+
+    public String getDisconnectError() {
+        return disconnectError;
     }
 
     public int getForwardTicks() {

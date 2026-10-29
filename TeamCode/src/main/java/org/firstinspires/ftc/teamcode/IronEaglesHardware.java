@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.hardware.digitalchickenlabs.OctoQuad;
 import com.qualcomm.hardware.lynx.LynxModule;
+import com.qualcomm.hardware.rev.RevBlinkinLedDriver;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -14,6 +15,7 @@ import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
 import org.firstinspires.ftc.teamcode.interfaces.IntakeInterface;
 import org.firstinspires.ftc.teamcode.interfaces.RobotHardwareInterface;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
+import org.firstinspires.ftc.teamcode.subsystems.BlinkinLedSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.HopperSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.MecanumDrivetrain;
@@ -34,6 +36,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     public DcMotor backLeft;
     public DcMotor frontLeft;
     public WebcamName camera;
+    public RevBlinkinLedDriver blinkin;
 
     // Expansion Hub Motors
     public DcMotor intake;
@@ -47,6 +50,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     private IntakeSubsystem intakeSubsystem;
     private HopperSubsystem hopperSubsystem;
     private ShooterSubsystem shooterSubsystem;
+    private BlinkinLedSubsystem ledSubsystem;
 
     private <T> T getHardwareSafely(HardwareMap hardwareMap, Class<T> clazz, String name) {
         try {
@@ -88,6 +92,13 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         } catch (Exception e) {
             RobotLog.i("No webcams found in active HardwareMap.");
         }
+
+        try {
+            List<RevBlinkinLedDriver> blinkins = hardwareMap.getAll(RevBlinkinLedDriver.class);
+            RobotLog.i("Total Blinkin LED Drivers found in active HardwareMap: " + blinkins.size());
+        } catch (Exception e) {
+            RobotLog.i("No Blinkin LED Drivers found in active HardwareMap.");
+        }
         RobotLog.i("============================================================");
     }
 
@@ -120,6 +131,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         // Webcam
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
         getHardwareSafely(hardwareMap, OctoQuad.class, "octoquad");
+        blinkin = getHardwareSafely(hardwareMap, RevBlinkinLedDriver.class, "blinkin");
 
         // Configure brake behavior and direction on drivetrain motors if present
         if (frontLeft != null)  frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -147,6 +159,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         intakeSubsystem     = new IntakeSubsystem(intake);
         hopperSubsystem     = new HopperSubsystem(hopper);
         shooterSubsystem    = new ShooterSubsystem(shooter, shooterFollow);
+        ledSubsystem        = new BlinkinLedSubsystem(blinkin);
     }
 
     @Override
@@ -167,5 +180,9 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     @Override
     public ShooterInterface getShooter() {
         return shooterSubsystem;
+    }
+
+    public BlinkinLedSubsystem getLed() {
+        return ledSubsystem;
     }
 }

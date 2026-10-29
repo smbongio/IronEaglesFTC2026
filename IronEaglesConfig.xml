@@ -6,6 +6,8 @@
             <Motor type="UnspecifiedMotor" name="backRight" port="1" />
             <Motor type="UnspecifiedMotor" name="backLeft" port="2" />
             <Motor type="UnspecifiedMotor" name="frontLeft" port="3" />
+            <!-- REV Blinkin LED Driver on servo/PWM port 0. Hardware map name is "blinkin". -->
+            <RevBlinkinLedDriver name="blinkin" port="0" />
             <ControlHubImuBHI260AP name="imu" port="0" bus="0" />
             <!-- I2C bus must match TunableValues.OCTOQUAD_I2C_BUS. Hub IMU owns bus 0. -->
             <OctoQuadFTC name="octoquad" port="0" bus="1" />

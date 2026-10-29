@@ -83,6 +83,9 @@ public final class TunableValues {
     public static float OCTOQUAD_TCP_OFFSET_Y_MM = 123.4f;
     public static float OCTOQUAD_IMU_SCALAR = 1.0f;
 
+    // Sign-preserving square on analog sticks after deadzone. Full stick is still full power.
+    public static boolean DRIVE_STICK_SQUARED = true;
+
     // Cancels OctoQuad motion on axes the driver is not holding. Held axes pass through.
     public static boolean DRIVE_ASSIST_ENABLED = true;
     public static double DRIVE_ASSIST_MAX_VEL_MM_S = 2000.0;
@@ -95,4 +98,14 @@ public final class TunableValues {
     public static double DRIVE_ASSIST_ROTATION_D = 0.0;
     public static double DRIVE_ASSIST_I_LIMIT = 0.25;
     public static double DRIVE_ASSIST_MAX_CORRECTION = 0.25;
+
+    // Red audience hive (tags 34-37). TRUE when SUCCESSES of the last SAMPLES frames saw it.
+    // Example: SAMPLE_RATE=10 and SUCCESS_RATE=3 means 3 of 10. Default is 5 of 10 (50%).
+    public static int VISION_TARGET_TAG_MIN = 34;
+    public static int VISION_TARGET_TAG_MAX = 37;
+    public static int VISION_SAMPLE_RATE = 10;
+    public static int VISION_SUCCESS_RATE = 5;
+
+    // Blinkin green on/off cycles per second while the target cell gate is TRUE.
+    public static double LED_FLASH_HZ = 5.0;
 }
