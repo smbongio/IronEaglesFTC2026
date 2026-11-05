@@ -16,6 +16,38 @@ An expansion hub will be used to connect the intake motor, shooter motors, and h
 
 If any single piece of hardware cannot be found, it should not result in an error. The device should report it as a warning and complete initialization.
 
+## Starting Position (this configuration)
+
+Field-centric drive and OctoQuad pose assume **one** start: red alliance, audience wall, robot upright facing into the field.
+
+Live constants: `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG` in `TunableValues.java`. Gamepad 1 Back restores this heading.
+
+### Field frame
+
+* **Origin:** center of the field (where the four center tiles meet), on the tile surface
+* Field interior is **144 in × 144 in**, so each wall is **72 in** from the origin
+* **+X:** toward the blue alliance, along the audience wall
+* **+Y:** into the field (away from the audience)
+* **Heading 0°:** +X (toward blue). **Heading 90°:** +Y (into the field)
+* Negative X is toward red. Negative Y is toward the audience.
+
+### Required placement
+
+* Robot is **18 in × 18 in** bumper-to-bumper
+* **Back bumper** against the audience wall (shooter / back faces the audience cell)
+* **Near (red-side) bumper** is **52 in** from the red-alliance wall
+* **Front** faces into the field (+Y)
+
+That puts the chassis center at:
+
+| | Value |
+|---|---|
+| **X** | **-11.0 in** (52 in to the near bumper + 9 in to center − 72 in to field center) |
+| **Y** | **-63.0 in** (9 in from the audience wall − 72 in to field center) |
+| **Heading** | **90°** |
+
+The robot **must** start in this pose for this configuration. A different wall, alliance, or facing needs its own start constants. Driver Hub **X** / **Y** are these field-center inches.
+
 ## Driver Input
 The robot must take inputs from Gamepad 1 and Gamepad 2.
 

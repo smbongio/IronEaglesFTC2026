@@ -52,7 +52,7 @@ These are OctoQuad ports, not Control Hub motor ports.
 
 Theoretical scale is `25.665` ticks/mm (`OCTOQUAD_*_TICKS_PER_MM`). Real TCP is the X-pod axle ∩ Y-pod axle. Code offsets that point to chassis center.
 
-Heading and field X/Y currently use the **Control Hub IMU + dead-wheel ticks** (`USE_OCTOQUAD_IMU = false`). The OctoQuad IMU / localizer block is still read for diagnostics.
+Heading and field X/Y currently use the **OctoQuad IMU / localizer** (`USE_OCTOQUAD_IMU = true`). Control Hub IMU gyro is still sampled for the `HUB GYRO` diagnostic line.
 
 ## Not in the robot config
 

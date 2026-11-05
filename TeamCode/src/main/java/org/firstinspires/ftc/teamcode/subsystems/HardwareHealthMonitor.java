@@ -3,18 +3,20 @@ package org.firstinspires.ftc.teamcode.subsystems;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.util.GlobalWarningSource;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.teamcode.IronEaglesHardware;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Polls hubs, motors, OctoQuad, and camera. Driver Station shows a global
- * warning while anything is missing or not responding.
+ * Polls hubs, motors, OctoQuad, and camera. Errors are shown only on the
+ * TeleOp ERROR telemetry line, never as a Driver Station global warning.
+ * Once an error is seen it stays on the line and in the log even if it clears.
  */
-public class HardwareHealthMonitor implements GlobalWarningSource {
+public class HardwareHealthMonitor {
     private static final String[] MOTOR_NAMES = {
             "frontLeft", "frontRight", "backLeft", "backRight",
             "intake", "hopper", "shooter", "shooterFollow"
@@ -24,9 +26,7 @@ public class HardwareHealthMonitor implements GlobalWarningSource {
     private final IronEaglesHardware robot;
     private final OctoQuadOdometry octoquad;
     private final AprilTagVision vision;
-    private final List<String> errors = new ArrayList<>();
-    private String lastLogged = "";
-    private volatile boolean suppressed;
+    private final Set<String> stickyErrors = new LinkedHashSet<>();
 
     public HardwareHealthMonitor(HardwareMap hardwareMap, IronEaglesHardware robot,
                                  OctoQuadOdometry octoquad, AprilTagVision vision) {
@@ -34,82 +34,45 @@ public class HardwareHealthMonitor implements GlobalWarningSource {
         this.robot = robot;
         this.octoquad = octoquad;
         this.vision = vision;
-        RobotLog.registerGlobalWarningSource(this);
     }
 
     public void update() {
-        errors.clear();
+        List<String> current = new ArrayList<>();
         for (String name : robot.missingDevices) {
-            errors.add(name + " missing");
+            current.add(name + " missing");
         }
-        checkHubs();
-        checkMotors();
-        addIfPresent(octoquad.getDisconnectError());
-        addIfPresent(vision.getDisconnectError());
-        String line = getErrorLine();
-        if (!line.equals(lastLogged)) {
-            if (line.isEmpty()) {
-                RobotLog.i("[HARDWARE] All devices responding.");
-            } else {
-                RobotLog.e("[HARDWARE] ERROR: %s", line);
+        checkHubs(current);
+        checkMotors(current);
+        current.addAll(octoquad.getCurrentHardwareErrors());
+        addIfPresent(current, vision.getDisconnectError());
+        for (String error : current) {
+            if (stickyErrors.add(error)) {
+                RobotLog.e("[HARDWARE] ERROR: %s", error);
+                RobotLog.e("[HARDWARE] SEEN: %s", String.join(" | ", stickyErrors));
             }
-            lastLogged = line;
         }
-    }
-
-    public boolean hasErrors() {
-        return !errors.isEmpty();
     }
 
     public String getErrorLine() {
-        if (errors.isEmpty()) {
+        if (stickyErrors.isEmpty()) {
             return "";
         }
-        return String.join(", ", errors);
+        return String.join(" | ", stickyErrors);
     }
 
     public void close() {
-        RobotLog.unregisterGlobalWarningSource(this);
+        vision.close();
     }
 
-    @Override
-    public String getGlobalWarning() {
-        if (suppressed) {
-            return null;
-        }
-        String line = getErrorLine();
-        return line.isEmpty() ? null : "ERROR: " + line;
-    }
-
-    @Override
-    public boolean shouldTriggerWarningSound() {
-        return hasErrors();
-    }
-
-    @Override
-    public void suppressGlobalWarning(boolean suppress) {
-        suppressed = suppress;
-    }
-
-    @Override
-    public void setGlobalWarning(String warning) {
-    }
-
-    @Override
-    public void clearGlobalWarning() {
-        errors.clear();
-    }
-
-    private void checkHubs() {
+    private void checkHubs(List<String> next) {
         for (LynxModule hub : hardwareMap.getAll(LynxModule.class)) {
-            String name = hub.getDeviceName();
             if (hub.isNotResponding()) {
-                errors.add(name + " disconnected");
+                next.add(hub.getDeviceName() + " disconnected");
             }
         }
     }
 
-    private void checkMotors() {
+    private void checkMotors(List<String> next) {
         for (String name : MOTOR_NAMES) {
             DcMotor motor = motorByName(name);
             if (motor == null) {
@@ -118,7 +81,7 @@ public class HardwareHealthMonitor implements GlobalWarningSource {
             try {
                 motor.getCurrentPosition();
             } catch (RuntimeException e) {
-                errors.add(name + " disconnected");
+                next.add(name + " disconnected");
             }
         }
     }
@@ -146,9 +109,9 @@ public class HardwareHealthMonitor implements GlobalWarningSource {
         }
     }
 
-    private void addIfPresent(String error) {
+    private static void addIfPresent(List<String> next, String error) {
         if (error != null && !error.isEmpty()) {
-            errors.add(error);
+            next.add(error);
         }
     }
 }

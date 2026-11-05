@@ -17,22 +17,23 @@ public final class TunableValues {
     private TunableValues() {}
 
     public static final String GAMEPAD_CONTROLS =
-            "Gamepad 1:\n"
-                    + "  Left stick Y     drive forward / back (field-centric)\n"
-                    + "  Left stick X     strafe left / right (field-centric)\n"
-                    + "  Right stick X    rotate\n"
-                    + "  Left trigger     intake at INTAKE_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)\n"
-                    + "  Right trigger    shooter at SHOOTER_TARGET_TICKS_PER_SEC (on/off; ignored below 0.2)\n"
-                    + "  X                hold: hopper 180-deg step after shooters are within SHOOTER_AT_SPEED_TOLERANCE; release returns upright\n"
-                    + "  D-pad up         telemetry page: ALL (summary)\n"
-                    + "  D-pad left       telemetry page: INTAKE\n"
-                    + "  D-pad down       telemetry page: HOPPER\n"
-                    + "  D-pad right      telemetry page: SHOOTER\n"
-                    + "  Back             reset OctoQuad heading (field-centric forward)\n"
-                    + "Gamepad 2:\n"
-                    + "  D-pad up         both shooters target ticks/s += SHOOTER_TICKS_PER_SEC_STEP\n"
-                    + "  D-pad down       both shooters target ticks/s -= SHOOTER_TICKS_PER_SEC_STEP\n"
-                    + "Unused: A, B, Y, bumpers, Start, stick clicks, right stick Y.";
+            "Gamepad 1 (Driver):\n"
+                    + "  Left stick       field-centric X/Y\n"
+                    + "  Right stick X    yaw\n"
+                    + "  A                hold: auto-align placeholder\n"
+                    + "  Back             restore start heading (into the field)\n"
+                    + "Gamepad 2 (Operator):\n"
+                    + "  RT               hold: shooter forward\n"
+                    + "  RB               hold: shooter reverse\n"
+                    + "  D-pad up         tap: shooter target += 25 ticks/s\n"
+                    + "  D-pad down       tap: shooter target -= 25 ticks/s\n"
+                    + "  D-pad right      tap: intake target += 25 ticks/s\n"
+                    + "  D-pad left       tap: intake target -= 25 ticks/s\n"
+                    + "  A                hold: auto-fire placeholder\n"
+                    + "  LT               hold: intake forward\n"
+                    + "  LB               hold: intake reverse\n"
+                    + "  X                hold: hopper forward\n"
+                    + "  Y                hold: hopper reverse";
 
     // Hub on the robot's right side, upright: logo face toward the right wall,
     // USB-C ports toward the floor.
@@ -53,10 +54,11 @@ public final class TunableValues {
 
     // Hub velocity command (encoder ticks per second).
     public static double INTAKE_TARGET_TICKS_PER_SEC = 500.0;
-    public static double SHOOTER_TARGET_TICKS_PER_SEC = 1500.0;
+    public static double INTAKE_TICKS_PER_SEC_STEP = 25.0;
+    public static double SHOOTER_TARGET_TICKS_PER_SEC = 1000.0;
     public static double SHOOTER_TICKS_PER_SEC_STEP = 25.0;
-    // Hopper X waits until both shooters are within this fraction of target ticks/s.
     public static double SHOOTER_AT_SPEED_TOLERANCE = 0.05;
+    public static double HOPPER_MANUAL_POWER = 0.6;
 
     // Shared velocity PIDF for shooter and shooterFollow. Hub firmware defaults.
     public static double SHOOTER_P = 10.0;
@@ -67,7 +69,11 @@ public final class TunableValues {
     // Control Hub I2C bus the OctoQuad is plugged into.
     // Bus 0 is the built-in IMU (no external jack). First physical I2C jack is bus 1.
     // Must match IronEaglesConfig.xml <OctoQuadFTC bus="...">.
-    public static int OCTOQUAD_I2C_BUS = 1;
+    public static int OCTOQUAD_I2C_BUS = 2;
+
+    // true: heading and X/Y come from the OctoQuad IMU/localizer.
+    // false: heading and X/Y come from Control Hub IMU + dead-wheel ticks.
+    public static boolean USE_OCTOQUAD_IMU = true;
 
     // OctoQuad MK2 dead wheels. Port 0 = forward (X), port 1 = strafe (Y).
     // *_DIR is +1 or -1. They do not change field-centric heading.
@@ -76,12 +82,31 @@ public final class TunableValues {
     public static int OCTOQUAD_FORWARD_DIR = 1;
     public static int OCTOQUAD_STRAFE_DIR = 1;
 
-    // Placeholders so the onboard localizer can start. Tune later for x/y pose.
-    public static float OCTOQUAD_FORWARD_TICKS_PER_MM = 12.34f;
-    public static float OCTOQUAD_STRAFE_TICKS_PER_MM = 12.34f;
-    public static float OCTOQUAD_TCP_OFFSET_X_MM = 123.4f;
-    public static float OCTOQUAD_TCP_OFFSET_Y_MM = 123.4f;
+    // REV Through Bore (quadrature 8192 ticks/rev) on 4.0 in diameter pods.
+    // Theoretical: 8192 / (pi * 4 * 25.4) mm. Push a known distance on carpet to refine.
+    public static float OCTOQUAD_FORWARD_TICKS_PER_MM = 25.665f;
+    public static float OCTOQUAD_STRAFE_TICKS_PER_MM = 25.665f;
+
+    // Real TCP is X-pod axle ∩ Y-pod axle: 7.75 in back, 4.25 in right of chassis center.
+    // Offset moves the virtual TCP to chassis center (+X forward, +Y left).
+    // If an in-place spin makes pose orbit, negate OCTOQUAD_TCP_OFFSET_Y_MM.
+    public static float OCTOQUAD_TCP_OFFSET_X_MM = 7.75f * 25.4f;
+    public static float OCTOQUAD_TCP_OFFSET_Y_MM = 4.25f * 25.4f;
     public static float OCTOQUAD_IMU_SCALAR = 1.0f;
+
+    // Field origin is the center of the field (four center tiles). Interior is 144 in square.
+    // +X toward blue along the audience wall. +Y into the field (away from audience).
+    // 18x18 robot, back bumper on the audience wall, near bumper 52 in from red wall.
+    // Front faces +Y (into the field); shooter/back faces the audience cell.
+    // Start center: X = 52+9-72 = -11 in, Y = 9-72 = -63 in, heading 90°.
+    public static double FIELD_SIZE_IN = 144.0;
+    public static double ROBOT_SIZE_IN = 18.0;
+    public static double START_NEAR_BUMPER_FROM_RED_IN = 52.0;
+    public static double START_POSE_X_IN =
+            START_NEAR_BUMPER_FROM_RED_IN + ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
+    public static double START_POSE_Y_IN =
+            ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
+    public static double START_HEADING_DEG = 90.0;
 
     // Sign-preserving square on analog sticks after deadzone. Full stick is still full power.
     public static boolean DRIVE_STICK_SQUARED = true;

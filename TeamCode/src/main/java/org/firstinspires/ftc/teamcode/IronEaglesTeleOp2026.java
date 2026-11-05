@@ -2,9 +2,6 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Gamepad;
-import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
@@ -26,17 +23,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasFlywheelRunning = false;
     private boolean wasManualDriving = false;
     private boolean wasIntakeRunning = false;
-    private boolean wasHopperXPressed = false;
-    private boolean wasHopperWaitingForSpeed = false;
-
-    private enum TelemetryPage { ALL, INTAKE, HOPPER, SHOOTER }
-    private TelemetryPage telemetryPage = TelemetryPage.ALL;
-    private boolean wasDpadUp = false;
-    private boolean wasDpadDown = false;
-    private boolean wasDpadLeft = false;
-    private boolean wasDpadRight = false;
+    private boolean wasHopperRunning = false;
     private boolean wasGp2DpadUp = false;
     private boolean wasGp2DpadDown = false;
+    private boolean wasGp2DpadLeft = false;
+    private boolean wasGp2DpadRight = false;
 
     @Override
     public void runOpMode() {
@@ -45,25 +36,28 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         robot.init(hardwareMap);
         imu = new OctoQuadOdometry(hardwareMap);
         vision = new AprilTagVision(hardwareMap, robot.camera);
+        vision.sample();
         hardwareHealth = new HardwareHealthMonitor(hardwareMap, robot, imu, vision);
         hardwareHealth.update();
-        if (hardwareHealth.hasErrors()) {
-            telemetry.addData("ERROR", hardwareHealth.getErrorLine());
-        }
+        telemetry.setMsTransmissionInterval(100);
 
         if (robot.missingDevices.isEmpty()) {
-            telemetry.addData("Status", "Initialized - All devices found!");
+            telemetry.addData("STATUS", "Initialized - All devices found!");
             RobotLog.i("Hardware Map Initialization Complete: All devices found.");
         } else {
             telemetry.addData("WARNING", "Initialized with missing config devices!");
-            telemetry.addData("Missing", String.join(", ", robot.missingDevices));
+            telemetry.addData("MISSING", String.join(", ", robot.missingDevices));
             RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s",
                     String.join(", ", robot.missingDevices));
         }
-        telemetry.addData("Heading", imu.isPresent()
+        telemetry.addData("X", poseXIn());
+        telemetry.addData("Y", poseYIn());
+        telemetry.addData("HEADING/YAW", imu.isPresent()
                 ? String.format("%s  heading=%.1f", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING - drive is robot-centric");
-        telemetry.addData("Target", vision.isPresent() ? "waiting" : "FALSE");
+        addOdometryBlockTelemetry();
+        telemetry.addData("TARGET", vision.isPresent() ? "waiting" : "FALSE");
+        addErrorLine();
         telemetry.update();
 
         RobotLog.i("[CONTROLS]\n%s", TunableValues.GAMEPAD_CONTROLS);
@@ -87,7 +81,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 double x  = squareStick(Math.abs(rawX)  > 0.05 ? rawX  : 0.0);
                 double rx = squareStick(Math.abs(rawRx) > 0.05 ? rawRx : 0.0);
 
-                updateShooterTargetFromGamepad2();
+                updateSpeedTargets();
                 driveFieldCentric(x, y, rx);
                 updateIntake();
                 updateShooter();
@@ -96,7 +90,6 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 robot.getLed().update(targetCell.isTargetVisible());
                 robot.getDrivetrain().logWheelDiagnostics();
                 imu.logOdometryDiagnostics();
-                updateTelemetryPage();
                 writeTelemetry();
             }
         } finally {
@@ -116,7 +109,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             wasManualDriving = false;
         }
 
-        double heading = imu.isPresent() ? imu.getHeadingDegrees() : 0.0;
+        double heading = imu.isPresent() ? imu.getDriveHeadingDegrees() : 0.0;
         if (imu.hasLocalizerVelocity()) {
             driveAssist.apply(x, y, rx, imu.getVelXMmS(), imu.getVelYMmS(), imu.getVelHeadingRadS());
             x = driveAssist.getX();
@@ -129,73 +122,73 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     }
 
     private void updateIntake() {
-        if (gamepad1.left_trigger > 0.2) {
-            if (!wasIntakeRunning) {
-                RobotLog.i("[MANUAL INTAKE] Left trigger squeezed -> Running intake at %.0f ticks/s.",
-                        TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
-                wasIntakeRunning = true;
-            }
+        if (gamepad2.left_trigger > 0.2) {
+            logIntakeStart("forward");
             robot.getIntake().runIntake(1.0);
+        } else if (gamepad2.left_bumper) {
+            logIntakeStart("reverse");
+            robot.getIntake().runIntake(-1.0);
         } else {
             if (wasIntakeRunning) {
-                RobotLog.i("[MANUAL INTAKE] Left trigger released -> Intake motor stopped.");
+                RobotLog.i("[MANUAL INTAKE] Released -> Intake stopped.");
                 wasIntakeRunning = false;
             }
             robot.getIntake().stop();
         }
     }
 
+    private void logIntakeStart(String direction) {
+        if (!wasIntakeRunning) {
+            RobotLog.i("[MANUAL INTAKE] %s at %.0f ticks/s.",
+                    direction, TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
+            wasIntakeRunning = true;
+        }
+    }
+
     private void updateShooter() {
-        if (gamepad1.right_trigger > 0.2) {
-            if (!wasFlywheelRunning) {
-                RobotLog.i("[FLYWHEEL] Manual trigger squeezed: Running flywheel at %.0f ticks/s.",
-                        TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-                wasFlywheelRunning = true;
-            }
+        if (gamepad2.right_trigger > 0.2) {
+            logShooterStart("forward");
             robot.getShooter().runShooter(1.0);
+        } else if (gamepad2.right_bumper) {
+            logShooterStart("reverse");
+            robot.getShooter().runShooter(-1.0);
         } else {
             if (wasFlywheelRunning) {
-                RobotLog.i("[FLYWHEEL] Flywheel motor stopped.");
+                RobotLog.i("[FLYWHEEL] Released -> Shooter stopped.");
                 wasFlywheelRunning = false;
             }
             robot.getShooter().stop();
         }
     }
 
+    private void logShooterStart(String direction) {
+        if (!wasFlywheelRunning) {
+            RobotLog.i("[FLYWHEEL] Manual %s at %.0f ticks/s.",
+                    direction, TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+            wasFlywheelRunning = true;
+        }
+    }
+
     private void updateHopper() {
-        if (gamepad1.x) {
-            if (!wasHopperXPressed) {
-                RobotLog.i("[GAMEPAD] X Button PRESSED");
-                wasHopperXPressed = true;
-            }
-            if (robot.getHopper().isStepping() || bothShootersAtTarget()) {
-                if (wasHopperWaitingForSpeed) {
-                    RobotLog.i("[HOPPER] Shooters at target +/- %.0f%%. Stepping 180 deg.",
-                            TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0);
-                    wasHopperWaitingForSpeed = false;
-                }
-                robot.getHopper().stepForward180();
-            } else {
-                if (!wasHopperWaitingForSpeed) {
-                    RobotLog.i("[HOPPER] Waiting for shooters at target +/- %.0f%% (leader %.0f  follow %.0f  target %.0f).",
-                            TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0,
-                            robot.getShooter().getTicksPerSec(),
-                            robot.getShooter().getFollowTicksPerSec(),
-                            TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-                    wasHopperWaitingForSpeed = true;
-                }
-            }
+        if (gamepad2.x) {
+            logHopperStart("forward");
+            robot.getHopper().runHopper(TunableValues.HOPPER_MANUAL_POWER);
+        } else if (gamepad2.y) {
+            logHopperStart("reverse");
+            robot.getHopper().runHopper(-TunableValues.HOPPER_MANUAL_POWER);
         } else {
-            if (wasHopperXPressed) {
-                RobotLog.i("[GAMEPAD] X Button RELEASED");
-                wasHopperXPressed = false;
-                wasHopperWaitingForSpeed = false;
+            if (wasHopperRunning) {
+                RobotLog.i("[HOPPER] Released -> Hopper stopped.");
+                wasHopperRunning = false;
             }
-            if (!robot.getHopper().isUpright()) {
-                robot.getHopper().returnToUpright();
-            } else {
-                robot.getHopper().stop();
-            }
+            robot.getHopper().stop();
+        }
+    }
+
+    private void logHopperStart(String direction) {
+        if (!wasHopperRunning) {
+            RobotLog.i("[HOPPER] Manual %s.", direction);
+            wasHopperRunning = true;
         }
     }
 
@@ -216,14 +209,21 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         return leaderOk && followOk;
     }
 
-    private void updateShooterTargetFromGamepad2() {
+    private void updateSpeedTargets() {
         if (gamepad2.dpad_up && !wasGp2DpadUp) {
             bumpShooterTarget(TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
         } else if (gamepad2.dpad_down && !wasGp2DpadDown) {
             bumpShooterTarget(-TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
         }
+        if (gamepad2.dpad_right && !wasGp2DpadRight) {
+            bumpIntakeTarget(TunableValues.INTAKE_TICKS_PER_SEC_STEP);
+        } else if (gamepad2.dpad_left && !wasGp2DpadLeft) {
+            bumpIntakeTarget(-TunableValues.INTAKE_TICKS_PER_SEC_STEP);
+        }
         wasGp2DpadUp = gamepad2.dpad_up;
         wasGp2DpadDown = gamepad2.dpad_down;
+        wasGp2DpadLeft = gamepad2.dpad_left;
+        wasGp2DpadRight = gamepad2.dpad_right;
     }
 
     private static void bumpShooterTarget(double deltaTicksPerSec) {
@@ -232,133 +232,87 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         RobotLog.i("[SHOOTER TARGET] %.0f ticks/s", TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
     }
 
-    private void updateTelemetryPage() {
-        TelemetryPage selected = telemetryPage;
-        if (gamepad1.dpad_up && !wasDpadUp) {
-            selected = TelemetryPage.ALL;
-        } else if (gamepad1.dpad_left && !wasDpadLeft) {
-            selected = TelemetryPage.INTAKE;
-        } else if (gamepad1.dpad_down && !wasDpadDown) {
-            selected = TelemetryPage.HOPPER;
-        } else if (gamepad1.dpad_right && !wasDpadRight) {
-            selected = TelemetryPage.SHOOTER;
+    private static void bumpIntakeTarget(double deltaTicksPerSec) {
+        TunableValues.INTAKE_TARGET_TICKS_PER_SEC =
+                Math.max(0.0, TunableValues.INTAKE_TARGET_TICKS_PER_SEC + deltaTicksPerSec);
+        RobotLog.i("[INTAKE TARGET] %.0f ticks/s", TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
+    }
+
+    private String autoStatus() {
+        boolean aligning = gamepad1.a;
+        boolean firing = gamepad2.a;
+        if (aligning && firing) {
+            return "AUTO-ALIGNING AUTO-FIRING";
         }
-        if (selected != telemetryPage) {
-            telemetryPage = selected;
-            RobotLog.i("[TELEMETRY PAGE] %s", telemetryPage);
+        if (aligning) {
+            return "AUTO-ALIGNING";
         }
-        wasDpadUp = gamepad1.dpad_up;
-        wasDpadDown = gamepad1.dpad_down;
-        wasDpadLeft = gamepad1.dpad_left;
-        wasDpadRight = gamepad1.dpad_right;
+        if (firing) {
+            return "AUTO-FIRING";
+        }
+        return " ";
     }
 
     private void writeTelemetry() {
-        if (hardwareHealth.hasErrors()) {
-            telemetry.addData("ERROR", hardwareHealth.getErrorLine());
-        }
-        telemetry.addData("Page", "%s  (Up=ALL L=INTAKE D=HOPPER R=SHOOTER)", telemetryPage);
-        telemetry.addData("GP1 Pressed", pressedButtons(gamepad1));
-        telemetry.addData("Heading", imu.isPresent()
-                ? String.format("%s  %.1f deg  (Back=zero)", imu.getHeadingSource(), imu.getHeadingDegrees())
-                : "MISSING");
-        telemetry.addData("Target", targetCell.getStatus());
+        telemetry.addData("SHOOTER TARGET", "%.0f ticks/s  (GP2 Up/Down)",
+                TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+        telemetry.addData("INTAKE TARGET", "%.0f ticks/s  (GP2 Left/Right)",
+                TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
+        telemetry.addData("SHOOTER TICKS/S", "leader %.0f  follow %.0f",
+                robot.getShooter().getTicksPerSec(), robot.getShooter().getFollowTicksPerSec());
+        telemetry.addData("SHOOTERS AT SPEED", bothShootersAtTarget()
+                ? "YES" : String.format("NO  (need +/- %.0f%%)",
+                TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0));
+        telemetry.addData("TARGET", targetCell.getStatus());
+        telemetry.addData("GATE", targetCell.getGateStatus());
         telemetry.addData("LED", robot.getLed().getStatus());
-        telemetry.addData("Pods", imu.getPodTickStatus());
-        if (!robot.missingDevices.isEmpty()) {
-            telemetry.addData("Missing Devices", String.join(", ", robot.missingDevices));
-        }
-
-        switch (telemetryPage) {
-            case INTAKE:
-                telemetry.addData("Intake cmd", robot.getIntake().getCommandStatus());
-                telemetry.addData("Intake ticks/s", "%.0f (target %.0f)",
-                        robot.getIntake().getTicksPerSec(), TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
-                break;
-            case HOPPER:
-                telemetry.addData("Hopper cmd", robot.getHopper().getCommandStatus());
-                telemetry.addData("Hopper Upright", robot.getHopper().isUpright() ? "YES" : "NO");
-                telemetry.addData("Shooters at speed", bothShootersAtTarget()
-                        ? "YES" : String.format("NO  (need +/- %.0f%%)",
-                        TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0));
-                break;
-            case SHOOTER:
-                addShooterMotorTelemetry(
-                        "shooter",
-                        TunableValues.SHOOTER_TARGET_TICKS_PER_SEC,
-                        robot.getShooter().getTicksPerSec(),
-                        robot.getShooter().getPidf());
-                addShooterMotorTelemetry(
-                        "shooterFollow",
-                        TunableValues.SHOOTER_TARGET_TICKS_PER_SEC,
-                        robot.getShooter().getFollowTicksPerSec(),
-                        robot.getShooter().getFollowPidf());
-                break;
-            case ALL:
-            default:
-                telemetry.addData("Target gate", targetCell.getGateStatus());
-                telemetry.addData("Drive", TunableValues.DRIVE_ASSIST_ENABLED
-                        ? "field-centric + velocity PID"
-                        : "field-centric");
-                telemetry.addData("Pose", imu.getPoseStatus());
-                telemetry.addData("Odo vel", imu.getVelocityStatus());
-                telemetry.addData("Assist", driveAssist.getStatus());
-                telemetry.addData("Drive cmd", robot.getDrivetrain().getStickStatus());
-                telemetry.addData("Wheels pwr", robot.getDrivetrain().getRequestedPowerStatus());
-                telemetry.addData("Wheels t/s", robot.getDrivetrain().getTicksPerSecStatus());
-                telemetry.addData("Intake ticks/s", "%.0f", robot.getIntake().getTicksPerSec());
-                telemetry.addData("Shooter ticks/s", "leader %.0f  follow %.0f",
-                        robot.getShooter().getTicksPerSec(), robot.getShooter().getFollowTicksPerSec());
-                telemetry.addData("Hopper", "running=%s pwr=%s",
-                        robot.getHopper().isRunning() ? "YES" : "NO",
-                        motorPower(robot.hopper));
-                break;
-        }
+        telemetry.addData("WHEELS T/S", robot.getDrivetrain().getTicksPerSecStatus());
+        telemetry.addData("X", poseXIn());
+        telemetry.addData("Y", poseYIn());
+        telemetry.addData("HEADING/YAW", imu.isPresent()
+                ? String.format("%s  %.1f deg  (Back=start)", imu.getHeadingSource(), imu.getHeadingDegrees())
+                : "MISSING");
+        addOdometryBlockTelemetry();
+        telemetry.addData("AUTO", autoStatus());
+        addErrorLine();
         telemetry.update();
     }
 
-    private void addShooterMotorTelemetry(String name, double targetTicksPerSec,
-                                          double currentTicksPerSec, PIDFCoefficients pidf) {
-        telemetry.addLine(name + ":");
-        telemetry.addLine(String.format("target ticks/s: %.0f", targetTicksPerSec));
-        telemetry.addLine(String.format("current ticks/s: %.0f", currentTicksPerSec));
-        telemetry.addLine(String.format("P: %.2f, I: %.2f, D: %.2f, F: %.2f",
-                pidf.p, pidf.i, pidf.d, pidf.f));
+    private String poseXIn() {
+        return imu.isPresent()
+                ? String.format("%.1f in", imu.getPosXMm() / 25.4)
+                : "MISSING";
     }
 
-    private static String motorPower(DcMotor motor) {
-        return motor == null ? "n/a" : String.format("%.2f", motor.getPower());
+    private String poseYIn() {
+        return imu.isPresent()
+                ? String.format("%.1f in", imu.getPosYMm() / 25.4)
+                : "MISSING";
     }
 
-    private static String pressedButtons(Gamepad gamepad) {
-        StringBuilder pressed = new StringBuilder();
-        appendPressed(pressed, gamepad.dpad_up, "D-Up");
-        appendPressed(pressed, gamepad.dpad_down, "D-Down");
-        appendPressed(pressed, gamepad.dpad_left, "D-Left");
-        appendPressed(pressed, gamepad.dpad_right, "D-Right");
-        appendPressed(pressed, gamepad.a, "A");
-        appendPressed(pressed, gamepad.b, "B");
-        appendPressed(pressed, gamepad.x, "X");
-        appendPressed(pressed, gamepad.y, "Y");
-        appendPressed(pressed, gamepad.left_bumper, "LB");
-        appendPressed(pressed, gamepad.right_bumper, "RB");
-        appendPressed(pressed, gamepad.left_trigger > 0.2, "LT");
-        appendPressed(pressed, gamepad.right_trigger > 0.2, "RT");
-        appendPressed(pressed, gamepad.left_stick_button, "L3");
-        appendPressed(pressed, gamepad.right_stick_button, "R3");
-        appendPressed(pressed, gamepad.start, "Start");
-        appendPressed(pressed, gamepad.back, "Back");
-        return pressed.length() == 0 ? "none" : pressed.toString();
-    }
-
-    private static void appendPressed(StringBuilder pressed, boolean isPressed, String name) {
-        if (!isPressed) {
+    private void addOdometryBlockTelemetry() {
+        if (!imu.isPresent()) {
+            telemetry.addData("ENC POS", "MISSING");
+            telemetry.addData("ENC VEL", "MISSING");
+            telemetry.addData("LOC STATUS", "MISSING");
+            telemetry.addData("LOC XY", "MISSING");
+            telemetry.addData("LOC VEL", "MISSING");
+            telemetry.addData("OCTO GYRO", "MISSING");
+            telemetry.addData("HUB GYRO", "MISSING");
             return;
         }
-        if (pressed.length() > 0) {
-            pressed.append(' ');
-        }
-        pressed.append(name);
+        telemetry.addData("ENC POS", imu.getEncoderPositionLine());
+        telemetry.addData("ENC VEL", imu.getEncoderVelocityLine());
+        telemetry.addData("LOC STATUS", imu.getLocalizerStatusLine());
+        telemetry.addData("LOC XY", imu.getLocalizerPoseLine());
+        telemetry.addData("LOC VEL", imu.getLocalizerVelocityLine());
+        telemetry.addData("OCTO GYRO", imu.getOctoGyroLine());
+        telemetry.addData("HUB GYRO", imu.getHubGyroLine());
+    }
+
+    private void addErrorLine() {
+        String line = hardwareHealth.getErrorLine();
+        telemetry.addData("ERROR", line.isEmpty() ? " " : line);
     }
 
     private static double squareStick(double value) {

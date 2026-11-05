@@ -7,24 +7,33 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AngularVelocity;
+import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.ImuInterface;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * OctoQuad MK2 named "octoquad". Heading comes from the onboard IMU via the
- * localizer. Missing board falls back to heading 0 (robot-centric).
+ * OctoQuad MK2 named "octoquad" for dead-wheel ticks. When
+ * {@link TunableValues#USE_OCTOQUAD_IMU} is false, heading is the Control Hub
+ * IMU and X/Y are integrated from the pods. The OctoQuad IMU/localizer is
+ * still read into the LOC diagnostic block only.
  */
 public class OctoQuadOdometry implements ImuInterface {
     private static final String CONFIG_NAME = "octoquad";
     private static final long CALIBRATE_TIMEOUT_MS = 5000L;
     private static final long CALIBRATE_POLL_MS = 50L;
     private static final double LOG_PERIOD_SEC = 0.10;
+    private static final int MAX_TICK_STEP = 8000;
 
     private final OctoQuad octoquad;
     private final IMU hubImu;
     private final OctoQuad.LocalizerDataBlock localizer = new OctoQuad.LocalizerDataBlock();
     private final OctoQuad.EncoderDataBlock encoders = new OctoQuad.EncoderDataBlock();
     private final ElapsedTime logTimer = new ElapsedTime();
+    private final ElapsedTime poseTimer = new ElapsedTime();
 
     private double headingDegrees;
     private int forwardTicks;
@@ -35,21 +44,51 @@ public class OctoQuadOdometry implements ImuInterface {
     private double velYMmS;
     private double velHeadingRadS;
     private boolean localizerValid;
+    private boolean localizerCrcOk;
+    private boolean encoderCrcOk;
+    private boolean readFailed;
+    private OctoQuad.LocalizerStatus localizerStatus;
+    private OctoQuad.LocalizerYawAxis headingAxis;
+    private final int[] encoderPositions = new int[OctoQuad.NUM_ENCODERS];
+    private final int[] encoderVelocities = new int[OctoQuad.NUM_ENCODERS];
     private int consecutiveBadPackets;
     private String disconnectError;
+    private String hubImuError;
     private double lastLoggedHeadingDegrees;
-    private int lastLoggedForwardTicks;
-    private int lastLoggedStrafeTicks;
+    private int lastLoggedPosXMm;
+    private int lastLoggedPosYMm;
+    private final int[] lastLoggedEncoderPositions = new int[OctoQuad.NUM_ENCODERS];
     private boolean wasActive;
+    private boolean wasRunning;
+    private boolean haveLastGoodPose;
+    private int lastGoodPosXMm;
+    private int lastGoodPosYMm;
+    private float lastGoodHeadingRad;
+    private double poseXMm;
+    private double poseYMm;
+    private int lastForwardTicks;
+    private int lastStrafeTicks;
+    private double lastHeadingRad;
+    private boolean haveEncoderBaseline;
+    private boolean hubPoseValid;
+    private double hubYawDeg;
+    private double hubPitchDeg;
+    private double hubRollDeg;
+    private double hubWxDegS;
+    private double hubWyDegS;
+    private double hubWzDegS;
+    private boolean hubGyroValid;
+    private int octoImuDiag;
 
     public OctoQuadOdometry(HardwareMap hardwareMap) {
+        hubImu = tryInitHubImu(hardwareMap);
         octoquad = hardwareMap.tryGet(OctoQuad.class, CONFIG_NAME);
         if (octoquad == null) {
             RobotLog.w("[OCTOQUAD] '%s' not found in the active robot config.", CONFIG_NAME);
-            hubImu = tryInitHubImu(hardwareMap);
+            sampleHubImu();
+            applyHubHeading();
             return;
         }
-        hubImu = null;
 
         octoquad.setSingleEncoderDirection(
                 TunableValues.OCTOQUAD_FORWARD_PORT, encoderDirection(TunableValues.OCTOQUAD_FORWARD_DIR));
@@ -67,60 +106,98 @@ public class OctoQuadOdometry implements ImuInterface {
 
         octoquad.resetLocalizerAndCalibrateIMU();
         waitUntilRunning();
+        headingAxis = octoquad.getLocalizerHeadingAxisChoice();
         octoquad.resetAllPositions();
+        octoquad.setLocalizerPose(startPoseXMm(), startPoseYMm(), startHeadingRad());
+        resetAppliedPoseToStart();
+        refreshOctoImuDiag();
+        sampleHubImu();
         update();
-        RobotLog.i("[OCTOQUAD] initialized. i2cBus=%d connection=%s fw=%s axis=%s status=%s",
+        RobotLog.i("[OCTOQUAD] initialized. i2cBus=%d connection=%s fw=%s axis=%s status=%s  headingSource=%s  startPose x=%.1f y=%.1f in heading=%.1f",
                 TunableValues.OCTOQUAD_I2C_BUS,
                 octoquad.getConnectionInfo(),
                 octoquad.getFirmwareVersionString(),
-                octoquad.getLocalizerHeadingAxisChoice(),
-                octoquad.getLocalizerStatus());
-        RobotLog.i("[OCTOQUAD] post-cal snapshot status=%s heading=%.1f  pose x=%d y=%d mm  vx=%.0f vy=%.0f mm/s  w=%.2f rad/s  crc=%s valid=%s",
+                headingAxis,
                 octoquad.getLocalizerStatus(),
-                headingDegrees,
-                posXMm,
-                posYMm,
-                velXMmS,
-                velYMmS,
-                velHeadingRadS,
-                localizer.crcOk,
-                localizerValid);
+                getHeadingSource(),
+                TunableValues.START_POSE_X_IN,
+                TunableValues.START_POSE_Y_IN,
+                headingDegrees);
+        RobotLog.i("[OCTOQUAD] POS %s", getEncoderBlockStatus());
+        RobotLog.i("[OCTOQUAD] LOC %s", getLocalizerBlockStatus());
     }
 
     public void update() {
         localizerValid = false;
+        readFailed = false;
+        sampleHubImu();
         if (octoquad == null) {
-            if (hubImu != null) {
-                try {
-                    headingDegrees = hubImu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
-                    disconnectError = null;
-                } catch (RuntimeException e) {
-                    disconnectError = "imu disconnected";
-                }
-            }
+            applyHubHeading();
             return;
         }
         try {
             octoquad.readLocalizerDataAndAllEncoderData(localizer, encoders);
         } catch (RuntimeException e) {
+            readFailed = true;
             consecutiveBadPackets++;
             if (consecutiveBadPackets >= 10) {
                 disconnectError = "octoquad disconnected";
             }
+            applyHubHeadingIfSelected();
+            lastHeadingRad = Math.toRadians(headingDegrees);
             return;
         }
-        if (localizer.crcOk) {
+        localizerCrcOk = localizer.crcOk;
+        localizerStatus = localizer.localizerStatus;
+        boolean running = localizerCrcOk && localizerStatus == OctoQuad.LocalizerStatus.RUNNING;
+        if (running) {
             consecutiveBadPackets = 0;
             disconnectError = null;
-            headingDegrees = Math.toDegrees(localizer.heading_rad);
-            posXMm = localizer.posX_mm;
-            posYMm = localizer.posY_mm;
-            velXMmS = localizer.velX_mmS;
-            velYMmS = localizer.velY_mmS;
-            velHeadingRadS = localizer.velHeading_radS;
-            localizerValid = localizer.isDataValid();
-            if (localizer.localizerStatus == OctoQuad.LocalizerStatus.FAULT_NO_IMU) {
+            if (!wasRunning && haveLastGoodPose) {
+                try {
+                    headingAxis = octoquad.getLocalizerHeadingAxisChoice();
+                } catch (RuntimeException ignored) {
+                    // Keep the last cached axis if the recovery read fails.
+                }
+                octoquad.setLocalizerPose(lastGoodPosXMm, lastGoodPosYMm, lastGoodHeadingRad);
+                localizerValid = false;
+                if (useOctoQuadHeading()) {
+                    headingDegrees = Math.toDegrees(lastGoodHeadingRad);
+                    posXMm = lastGoodPosXMm;
+                    posYMm = lastGoodPosYMm;
+                    poseXMm = posXMm;
+                    poseYMm = posYMm;
+                    velXMmS = 0.0;
+                    velYMmS = 0.0;
+                    velHeadingRadS = 0.0;
+                }
+                RobotLog.w("[OCTOQUAD] localizer recovered; restored pose x=%d y=%d mm heading=%.1f axis=%s",
+                        lastGoodPosXMm, lastGoodPosYMm, Math.toDegrees(lastGoodHeadingRad), headingAxis);
+            } else {
+                localizerValid = localizer.isDataValid();
+                lastGoodPosXMm = localizer.posX_mm;
+                lastGoodPosYMm = localizer.posY_mm;
+                lastGoodHeadingRad = localizer.heading_rad;
+                haveLastGoodPose = true;
+                if (useOctoQuadHeading()) {
+                    headingDegrees = Math.toDegrees(localizer.heading_rad);
+                    posXMm = localizer.posX_mm;
+                    posYMm = localizer.posY_mm;
+                    poseXMm = posXMm;
+                    poseYMm = posYMm;
+                    velXMmS = localizer.velX_mmS;
+                    velYMmS = localizer.velY_mmS;
+                    velHeadingRadS = localizer.velHeading_radS;
+                }
+            }
+        } else if (localizerCrcOk) {
+            consecutiveBadPackets = 0;
+            localizerValid = false;
+            if (localizerStatus == OctoQuad.LocalizerStatus.FAULT_NO_IMU) {
                 disconnectError = "octoquad IMU fault";
+            }
+            if (wasRunning) {
+                RobotLog.w("[OCTOQUAD] localizer left RUNNING; status=%s. Holding last pose.", localizerStatus);
             }
         } else {
             consecutiveBadPackets++;
@@ -128,14 +205,52 @@ public class OctoQuadOdometry implements ImuInterface {
                 disconnectError = "octoquad disconnected";
             }
         }
-        if (encoders.crcOk) {
-            forwardTicks = encoders.positions[TunableValues.OCTOQUAD_FORWARD_PORT];
-            strafeTicks = encoders.positions[TunableValues.OCTOQUAD_STRAFE_PORT];
+        wasRunning = running;
+        encoderCrcOk = encoders.crcOk;
+        if (encoderCrcOk) {
+            System.arraycopy(encoders.positions, 0, encoderPositions, 0, encoderPositions.length);
+            for (int i = 0; i < encoderVelocities.length; i++) {
+                encoderVelocities[i] = encoders.velocities[i];
+            }
+            forwardTicks = encoderPositions[TunableValues.OCTOQUAD_FORWARD_PORT];
+            strafeTicks = encoderPositions[TunableValues.OCTOQUAD_STRAFE_PORT];
+        }
+        applyHubHeadingIfSelected();
+        if (!useOctoQuadHeading()) {
+            integrateHubPose();
         }
     }
 
     public String getDisconnectError() {
         return disconnectError;
+    }
+
+    public List<String> getCurrentHardwareErrors() {
+        List<String> errors = new ArrayList<>();
+        if (hubImuError != null) {
+            errors.add(hubImuError);
+        }
+        if (octoquad == null) {
+            errors.add("octoquad missing");
+            return errors;
+        }
+        if (disconnectError != null) {
+            errors.add(disconnectError);
+        }
+        if (readFailed) {
+            errors.add("octoquad i2c read failed");
+            return errors;
+        }
+        if (!encoderCrcOk) {
+            errors.add("octoquad encoder crc bad");
+        }
+        if (!localizerCrcOk) {
+            errors.add("octoquad localizer crc bad");
+        }
+        if (localizerStatus != null && localizerStatus != OctoQuad.LocalizerStatus.RUNNING) {
+            errors.add("octoquad localizer " + localizerStatus);
+        }
+        return errors;
     }
 
     public int getForwardTicks() {
@@ -150,6 +265,114 @@ public class OctoQuadOdometry implements ImuInterface {
         return String.format("fwd %d  strafe %d", forwardTicks, strafeTicks);
     }
 
+    public String getEncoderBlockStatus() {
+        return formatEncoderValues(encoderPositions)
+                + "  vel "
+                + formatEncoderValues(encoderVelocities)
+                + encoderCrcSuffix();
+    }
+
+    public String getEncoderPositionLine() {
+        return formatEncoderValues(encoderPositions) + encoderCrcSuffix();
+    }
+
+    public String getEncoderVelocityLine() {
+        return formatEncoderValues(encoderVelocities) + encoderCrcSuffix();
+    }
+
+    public String getLocalizerBlockStatus() {
+        if (octoquad == null) {
+            return "MISSING";
+        }
+        return getLocalizerStatusLine()
+                + "  "
+                + getLocalizerPoseLine()
+                + "  "
+                + getLocalizerVelocityLine();
+    }
+
+    public String getLocalizerStatusLine() {
+        if (octoquad == null) {
+            return "MISSING";
+        }
+        String status = localizerStatus == null ? "NONE" : localizerStatus.name();
+        return String.format("status=%s crc=%s valid=%s axis=%s%s",
+                status,
+                localizerCrcOk ? "OK" : "BAD",
+                localizer.isDataValid(),
+                headingAxis,
+                readFailed ? "  read=FAIL" : "");
+    }
+
+    public String getLocalizerPoseLine() {
+        if (octoquad == null) {
+            return "MISSING";
+        }
+        return String.format("heading=%.1f  x=%d y=%d mm  (%.1f %.1f in)",
+                Math.toDegrees(localizer.heading_rad),
+                (int) localizer.posX_mm,
+                (int) localizer.posY_mm,
+                localizer.posX_mm / 25.4,
+                localizer.posY_mm / 25.4);
+    }
+
+    public String getLocalizerVelocityLine() {
+        if (octoquad == null) {
+            return "MISSING";
+        }
+        return String.format("vx=%.0f vy=%.0f mm/s  w=%.2f rad/s (%.1f deg/s)",
+                (double) localizer.velX_mmS,
+                (double) localizer.velY_mmS,
+                (double) localizer.velHeading_radS,
+                Math.toDegrees(localizer.velHeading_radS));
+    }
+
+    public String getOctoGyroLine() {
+        if (octoquad == null) {
+            return "MISSING";
+        }
+        return String.format("axis=%s  heading=%.1f deg  w=%.1f deg/s  diag=%d",
+                headingAxis,
+                Math.toDegrees(localizer.heading_rad),
+                Math.toDegrees(localizer.velHeading_radS),
+                octoImuDiag);
+    }
+
+    public String getHubGyroLine() {
+        if (hubImu == null) {
+            return "MISSING";
+        }
+        if (!hubGyroValid) {
+            return hubImuError != null ? hubImuError : "READ FAIL";
+        }
+        return String.format("yaw=%.1f pitch=%.1f roll=%.1f  wx=%.1f wy=%.1f wz=%.1f deg/s",
+                hubYawDeg, hubPitchDeg, hubRollDeg, hubWxDegS, hubWyDegS, hubWzDegS);
+    }
+
+    private String encoderCrcSuffix() {
+        String suffix = "  crc=" + (encoderCrcOk ? "OK" : "BAD");
+        if (readFailed) {
+            suffix += "  read=FAIL";
+        }
+        return suffix;
+    }
+
+    private static String formatEncoderValues(int[] values) {
+        StringBuilder line = new StringBuilder();
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) {
+                line.append("  ");
+            }
+            if (i == TunableValues.OCTOQUAD_FORWARD_PORT) {
+                line.append("X");
+            } else if (i == TunableValues.OCTOQUAD_STRAFE_PORT) {
+                line.append("Y");
+            }
+            line.append(i).append("=").append(values[i]);
+        }
+        return line.toString();
+    }
+
     public int getPosXMm() {
         return posXMm;
     }
@@ -159,11 +382,28 @@ public class OctoQuadOdometry implements ImuInterface {
     }
 
     public String getPoseStatus() {
-        return String.format("x=%d y=%d mm", posXMm, posYMm);
+        return String.format("x=%.1f y=%.1f in", posXMm / 25.4, posYMm / 25.4);
+    }
+
+    /**
+     * Heading for field-centric drive: 0 is the start facing (into the field).
+     */
+    public double getDriveHeadingDegrees() {
+        double heading = headingDegrees - TunableValues.START_HEADING_DEG;
+        while (heading > 180.0) {
+            heading -= 360.0;
+        }
+        while (heading <= -180.0) {
+            heading += 360.0;
+        }
+        return heading;
     }
 
     public boolean hasLocalizerVelocity() {
-        return localizerValid;
+        if (useOctoQuadHeading()) {
+            return localizerValid;
+        }
+        return hubPoseValid && encoderCrcOk;
     }
 
     public double getVelXMmS() {
@@ -183,11 +423,11 @@ public class OctoQuadOdometry implements ImuInterface {
     }
 
     /**
-     * Writes heading, raw pod ticks, and localizer pose to RobotLog when due.
-     * Same cadence as mecanum wheel diagnostics: ~10 Hz while moving, quiet when still.
+     * Writes the encoder position block and localizer block to RobotLog when due.
+     * ~10 Hz while pods, pose, heading, or CRC/status are changing; quiet when still.
      */
     public String getHeadingSource() {
-        if (octoquad != null) {
+        if (useOctoQuadHeading()) {
             return "OctoQuad";
         }
         if (hubImu != null) {
@@ -207,13 +447,40 @@ public class OctoQuadOdometry implements ImuInterface {
         if (active == wasActive && logTimer.seconds() < LOG_PERIOD_SEC) {
             return;
         }
-        RobotLog.i("[OCTOQUAD] source=%s heading=%.1f  %s  pose x=%d y=%d mm  %s",
-                getHeadingSource(), headingDegrees, getPodTickStatus(), posXMm, posYMm, getVelocityStatus());
+        if (octoquad == null) {
+            RobotLog.i("[IMU] source=%s heading=%.1f  HUB GYRO %s",
+                    getHeadingSource(), headingDegrees, getHubGyroLine());
+            logTimer.reset();
+            wasActive = active;
+            lastLoggedHeadingDegrees = headingDegrees;
+            return;
+        }
+        refreshOctoImuDiag();
+        boolean podsMoved = encoderPositionsChanged();
+        double rawHeadingDeg = Math.toDegrees(localizer.heading_rad);
+        boolean poseMoved = localizer.posX_mm != lastLoggedPosXMm || localizer.posY_mm != lastLoggedPosYMm;
+        boolean headingMoved = Math.abs(rawHeadingDeg - lastLoggedHeadingDegrees) > 0.1;
+        RobotLog.i("[OCTOQUAD] POS %s", getEncoderBlockStatus());
+        RobotLog.i("[OCTOQUAD] LOC %s", getLocalizerBlockStatus());
+        RobotLog.i("[OCTOQUAD] GYRO %s", getOctoGyroLine());
+        RobotLog.i("[IMU] HUB GYRO %s", getHubGyroLine());
+        RobotLog.i("[OCTOQUAD] COMPARE source=%s pods=%s pose=%s heading=%s  applied x=%.1f y=%.1f in h=%.1f  raw x=%.1f y=%.1f in h=%.1f",
+                useOctoQuadHeading() ? "octoquad" : "hub+pods",
+                podsMoved,
+                poseMoved,
+                headingMoved,
+                posXMm / 25.4,
+                posYMm / 25.4,
+                headingDegrees,
+                localizer.posX_mm / 25.4,
+                localizer.posY_mm / 25.4,
+                rawHeadingDeg);
         logTimer.reset();
         wasActive = active;
-        lastLoggedHeadingDegrees = headingDegrees;
-        lastLoggedForwardTicks = forwardTicks;
-        lastLoggedStrafeTicks = strafeTicks;
+        lastLoggedHeadingDegrees = rawHeadingDeg;
+        lastLoggedPosXMm = localizer.posX_mm;
+        lastLoggedPosYMm = localizer.posY_mm;
+        System.arraycopy(encoderPositions, 0, lastLoggedEncoderPositions, 0, encoderPositions.length);
     }
 
     @Override
@@ -223,16 +490,20 @@ public class OctoQuadOdometry implements ImuInterface {
 
     @Override
     public void resetYaw() {
-        if (octoquad != null) {
-            octoquad.setLocalizerHeading(0.0f);
-            headingDegrees = 0.0;
-            RobotLog.i("[OCTOQUAD] Heading zeroed (Back button).");
-            return;
-        }
         if (hubImu != null) {
             hubImu.resetYaw();
-            headingDegrees = 0.0;
-            RobotLog.i("[IMU] Heading zeroed (Back button).");
+            headingDegrees = TunableValues.START_HEADING_DEG;
+            lastHeadingRad = Math.toRadians(TunableValues.START_HEADING_DEG);
+            RobotLog.i("[IMU] Heading restored to start %.1f deg (Back button).",
+                    TunableValues.START_HEADING_DEG);
+        }
+        if (octoquad != null) {
+            octoquad.setLocalizerHeading(startHeadingRad());
+            if (useOctoQuadHeading()) {
+                headingDegrees = TunableValues.START_HEADING_DEG;
+            }
+            RobotLog.i("[OCTOQUAD] Localizer heading restored to start %.1f deg (Back button).",
+                    TunableValues.START_HEADING_DEG);
         }
     }
 
@@ -242,9 +513,31 @@ public class OctoQuadOdometry implements ImuInterface {
     }
 
     private boolean isActive() {
-        return Math.abs(headingDegrees - lastLoggedHeadingDegrees) > 0.1
-                || forwardTicks != lastLoggedForwardTicks
-                || strafeTicks != lastLoggedStrafeTicks;
+        if (octoquad != null) {
+            if (readFailed || !encoderCrcOk || !localizerCrcOk) {
+                return true;
+            }
+            if (localizerStatus != null && localizerStatus != OctoQuad.LocalizerStatus.RUNNING) {
+                return true;
+            }
+            if (Math.abs(Math.toDegrees(localizer.heading_rad) - lastLoggedHeadingDegrees) > 0.1) {
+                return true;
+            }
+            if (localizer.posX_mm != lastLoggedPosXMm || localizer.posY_mm != lastLoggedPosYMm) {
+                return true;
+            }
+            return encoderPositionsChanged();
+        }
+        return Math.abs(headingDegrees - lastLoggedHeadingDegrees) > 0.1;
+    }
+
+    private boolean encoderPositionsChanged() {
+        for (int i = 0; i < encoderPositions.length; i++) {
+            if (encoderPositions[i] != lastLoggedEncoderPositions[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void waitUntilRunning() {
@@ -268,21 +561,174 @@ public class OctoQuadOdometry implements ImuInterface {
         RobotLog.w("[OCTOQUAD] IMU calibration timed out. status=%s", octoquad.getLocalizerStatus());
     }
 
-    private static IMU tryInitHubImu(HardwareMap hardwareMap) {
+    private IMU tryInitHubImu(HardwareMap hardwareMap) {
         IMU imu = hardwareMap.tryGet(IMU.class, "imu");
         if (imu == null) {
-            RobotLog.w("[OCTOQUAD] Control Hub IMU also missing. Driving will be robot-centric.");
+            RobotLog.w("[IMU] Control Hub IMU 'imu' not found. Heading falls back to OctoQuad or 0.");
             return null;
         }
         RevHubOrientationOnRobot orientation = new RevHubOrientationOnRobot(
                 TunableValues.IMU_LOGO_DIRECTION, TunableValues.IMU_USB_DIRECTION);
         imu.initialize(new IMU.Parameters(orientation));
         imu.resetYaw();
-        RobotLog.w("[OCTOQUAD] Using Control Hub IMU for heading until 'octoquad' is in the active config.");
+        headingDegrees = TunableValues.START_HEADING_DEG;
+        RobotLog.i("[IMU] Control Hub IMU initialized. logo=%s usb=%s. Yaw zeroed at start heading %.1f.",
+                TunableValues.IMU_LOGO_DIRECTION,
+                TunableValues.IMU_USB_DIRECTION,
+                TunableValues.START_HEADING_DEG);
         return imu;
+    }
+
+    private boolean useOctoQuadHeading() {
+        return octoquad != null && (TunableValues.USE_OCTOQUAD_IMU || hubImu == null);
+    }
+
+    private void applyHubHeadingIfSelected() {
+        if (!useOctoQuadHeading()) {
+            applyHubHeading();
+        }
+    }
+
+    private void applyHubHeading() {
+        if (!hubGyroValid) {
+            return;
+        }
+        headingDegrees = wrapDegrees(hubYawDeg + TunableValues.START_HEADING_DEG);
+    }
+
+    private void sampleHubImu() {
+        if (hubImu == null) {
+            hubGyroValid = false;
+            return;
+        }
+        try {
+            YawPitchRollAngles ypr = hubImu.getRobotYawPitchRollAngles();
+            AngularVelocity rates = hubImu.getRobotAngularVelocity(AngleUnit.DEGREES);
+            hubYawDeg = ypr.getYaw(AngleUnit.DEGREES);
+            hubPitchDeg = ypr.getPitch(AngleUnit.DEGREES);
+            hubRollDeg = ypr.getRoll(AngleUnit.DEGREES);
+            hubWxDegS = rates.xRotationRate;
+            hubWyDegS = rates.yRotationRate;
+            hubWzDegS = rates.zRotationRate;
+            hubGyroValid = true;
+            hubImuError = null;
+        } catch (RuntimeException e) {
+            hubGyroValid = false;
+            hubImuError = "control hub imu disconnected";
+        }
+    }
+
+    private void refreshOctoImuDiag() {
+        if (octoquad == null) {
+            return;
+        }
+        try {
+            octoImuDiag = octoquad.getIMUDiagParam();
+        } catch (RuntimeException ignored) {
+            // Keep the last cached diagnostic if this extra I2C read fails.
+        }
+    }
+
+    private void resetAppliedPoseToStart() {
+        poseXMm = startPoseXMm();
+        poseYMm = startPoseYMm();
+        posXMm = (int) Math.round(poseXMm);
+        posYMm = (int) Math.round(poseYMm);
+        lastHeadingRad = Math.toRadians(TunableValues.START_HEADING_DEG);
+        haveEncoderBaseline = false;
+        hubPoseValid = false;
+        velXMmS = 0.0;
+        velYMmS = 0.0;
+        velHeadingRadS = 0.0;
+        poseTimer.reset();
+    }
+
+    private void integrateHubPose() {
+        double headingRad = Math.toRadians(headingDegrees);
+        if (!encoderCrcOk) {
+            lastHeadingRad = headingRad;
+            return;
+        }
+        if (!haveEncoderBaseline) {
+            lastForwardTicks = forwardTicks;
+            lastStrafeTicks = strafeTicks;
+            lastHeadingRad = headingRad;
+            haveEncoderBaseline = true;
+            hubPoseValid = true;
+            poseTimer.reset();
+            return;
+        }
+        int dFwdTicks = forwardTicks - lastForwardTicks;
+        int dStrTicks = strafeTicks - lastStrafeTicks;
+        lastForwardTicks = forwardTicks;
+        lastStrafeTicks = strafeTicks;
+        double dHeading = wrapRadians(headingRad - lastHeadingRad);
+        lastHeadingRad = headingRad;
+        double dt = poseTimer.seconds();
+        poseTimer.reset();
+        if (Math.abs(dFwdTicks) > MAX_TICK_STEP || Math.abs(dStrTicks) > MAX_TICK_STEP) {
+            RobotLog.w("[OCTOQUAD] skipped encoder step fwd=%d strafe=%d ticks (I2C reset?)",
+                    dFwdTicks, dStrTicks);
+            velXMmS = 0.0;
+            velYMmS = 0.0;
+            velHeadingRadS = 0.0;
+            return;
+        }
+        double dFwdMm = dFwdTicks / (double) TunableValues.OCTOQUAD_FORWARD_TICKS_PER_MM;
+        double dStrMm = dStrTicks / (double) TunableValues.OCTOQUAD_STRAFE_TICKS_PER_MM;
+        double tcpX = TunableValues.OCTOQUAD_TCP_OFFSET_X_MM;
+        double tcpY = TunableValues.OCTOQUAD_TCP_OFFSET_Y_MM;
+        double dxRobot = dFwdMm - tcpY * dHeading;
+        double dyRobot = dStrMm + tcpX * dHeading;
+        double theta = headingRad - dHeading / 2.0;
+        double cos = Math.cos(theta);
+        double sin = Math.sin(theta);
+        double dxField = dxRobot * cos - dyRobot * sin;
+        double dyField = dxRobot * sin + dyRobot * cos;
+        poseXMm += dxField;
+        poseYMm += dyField;
+        posXMm = (int) Math.round(poseXMm);
+        posYMm = (int) Math.round(poseYMm);
+        if (dt > 0.001) {
+            velXMmS = dxField / dt;
+            velYMmS = dyField / dt;
+            velHeadingRadS = dHeading / dt;
+        }
+    }
+
+    private static double wrapRadians(double heading) {
+        while (heading > Math.PI) {
+            heading -= 2.0 * Math.PI;
+        }
+        while (heading <= -Math.PI) {
+            heading += 2.0 * Math.PI;
+        }
+        return heading;
+    }
+
+    private static double wrapDegrees(double heading) {
+        while (heading > 180.0) {
+            heading -= 360.0;
+        }
+        while (heading <= -180.0) {
+            heading += 360.0;
+        }
+        return heading;
     }
 
     private static OctoQuad.EncoderDirection encoderDirection(int dir) {
         return dir < 0 ? OctoQuad.EncoderDirection.REVERSE : OctoQuad.EncoderDirection.FORWARD;
+    }
+
+    private static int startPoseXMm() {
+        return (int) Math.round(TunableValues.START_POSE_X_IN * 25.4);
+    }
+
+    private static int startPoseYMm() {
+        return (int) Math.round(TunableValues.START_POSE_Y_IN * 25.4);
+    }
+
+    private static float startHeadingRad() {
+        return (float) Math.toRadians(TunableValues.START_HEADING_DEG);
     }
 }
