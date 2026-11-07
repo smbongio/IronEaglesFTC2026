@@ -18,33 +18,35 @@ If any single piece of hardware cannot be found, it should not result in an erro
 
 ## Starting Position (this configuration)
 
-Field-centric drive and OctoQuad pose assume **one** start: red alliance, audience wall, robot upright facing into the field.
+Field-centric drive and OctoQuad pose assume **one** start: red alliance, audience wall, robot upright facing +X.
 
 Live constants: `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG` in `TunableValues.java`. Gamepad 1 Back restores this heading.
 
 ### Field frame
 
+Official FTC Field Coordinate System ([ftc-docs](https://ftc-docs.firstinspires.org/en/latest/game_specific_resources/field_coordinate_system/field-coordinate-system.html)). BIOBUZZ is a square field with the red alliance on the audience-left, same as DECODE inverted.
+
 * **Origin:** center of the field (where the four center tiles meet), on the tile surface
-* Field interior is **144 in × 144 in**, so each wall is **72 in** from the origin
-* **+X:** toward the blue alliance, along the audience wall
-* **+Y:** into the field (away from the audience)
-* **Heading 0°:** +X (toward blue). **Heading 90°:** +Y (into the field)
-* Negative X is toward red. Negative Y is toward the audience.
+* Field interior is **144 in × 144 in**, so each wall is **±72 in** from the origin
+* Stand at the **Red Wall** looking into the field
+* **+Y:** away from red, toward the blue alliance (red is min Y, blue is max Y)
+* **+X:** to the right, toward the audience (audience wall is max X, far wall is min X)
+* **Heading 0°:** +X (toward the audience). **Heading 90°:** +Y (toward blue). **Heading 180°:** into the field
 
 ### Required placement
 
 * Robot is **18 in × 18 in** bumper-to-bumper
-* **Back bumper** against the audience wall (shooter / back faces the audience cell)
+* **Front bumper** against the audience wall (the +X wall / cell)
 * **Near (red-side) bumper** is **52 in** from the red-alliance wall
-* **Front** faces into the field (+Y)
+* **Front** faces +X (toward the audience)
 
 That puts the chassis center at:
 
 | | Value |
 |---|---|
-| **X** | **-11.0 in** (52 in to the near bumper + 9 in to center − 72 in to field center) |
-| **Y** | **-63.0 in** (9 in from the audience wall − 72 in to field center) |
-| **Heading** | **90°** |
+| **X** | **+63.0 in** (72 in to the audience wall − 9 in to center) |
+| **Y** | **-11.0 in** (52 in to the near bumper + 9 in to center − 72 in to field center) |
+| **Heading** | **0°** |
 
 The robot **must** start in this pose for this configuration. A different wall, alliance, or facing needs its own start constants. Driver Hub **X** / **Y** are these field-center inches.
 

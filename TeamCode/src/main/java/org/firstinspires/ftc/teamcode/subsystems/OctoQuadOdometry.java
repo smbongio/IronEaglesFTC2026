@@ -34,6 +34,7 @@ public class OctoQuadOdometry implements ImuInterface {
     private final OctoQuad.EncoderDataBlock encoders = new OctoQuad.EncoderDataBlock();
     private final ElapsedTime logTimer = new ElapsedTime();
     private final ElapsedTime poseTimer = new ElapsedTime();
+    private final ElapsedTime uptimeTimer = new ElapsedTime();
 
     private double headingDegrees;
     private int forwardTicks;
@@ -79,6 +80,11 @@ public class OctoQuadOdometry implements ImuInterface {
     private double hubWzDegS;
     private boolean hubGyroValid;
     private int octoImuDiag;
+    private int octoUptimeMs;
+    private int lastGoodUptimeMs;
+    private int octoRebootCount;
+    private boolean haveUptime;
+    private boolean uptimeReset;
 
     public OctoQuadOdometry(HardwareMap hardwareMap) {
         hubImu = tryInitHubImu(hardwareMap);
@@ -98,8 +104,11 @@ public class OctoQuadOdometry implements ImuInterface {
         octoquad.setLocalizerPortY(TunableValues.OCTOQUAD_STRAFE_PORT);
         octoquad.setLocalizerCountsPerMM_X(TunableValues.OCTOQUAD_FORWARD_TICKS_PER_MM);
         octoquad.setLocalizerCountsPerMM_Y(TunableValues.OCTOQUAD_STRAFE_TICKS_PER_MM);
-        octoquad.setLocalizerTcpOffsetMM_X(TunableValues.OCTOQUAD_TCP_OFFSET_X_MM);
-        octoquad.setLocalizerTcpOffsetMM_Y(TunableValues.OCTOQUAD_TCP_OFFSET_Y_MM);
+        double[] tcp = rotateVec(TunableValues.OCTOQUAD_TCP_OFFSET_X_MM,
+                TunableValues.OCTOQUAD_TCP_OFFSET_Y_MM,
+                -TunableValues.OCTOQUAD_POSE_ROTATION_DEG);
+        octoquad.setLocalizerTcpOffsetMM_X((float) tcp[0]);
+        octoquad.setLocalizerTcpOffsetMM_Y((float) tcp[1]);
         octoquad.setLocalizerImuHeadingScalar(TunableValues.OCTOQUAD_IMU_SCALAR);
         octoquad.setLocalizerVelocityIntervalMS(25);
         octoquad.setI2cRecoveryMode(OctoQuad.I2cRecoveryMode.MODE_1_PERIPH_RST_ON_FRAME_ERR);
@@ -108,12 +117,12 @@ public class OctoQuadOdometry implements ImuInterface {
         waitUntilRunning();
         headingAxis = octoquad.getLocalizerHeadingAxisChoice();
         octoquad.resetAllPositions();
-        octoquad.setLocalizerPose(startPoseXMm(), startPoseYMm(), startHeadingRad());
+        octoquad.setLocalizerPose(startPoseXOctoMm(), startPoseYOctoMm(), startHeadingRad());
         resetAppliedPoseToStart();
         refreshOctoImuDiag();
         sampleHubImu();
         update();
-        RobotLog.i("[OCTOQUAD] initialized. i2cBus=%d connection=%s fw=%s axis=%s status=%s  headingSource=%s  startPose x=%.1f y=%.1f in heading=%.1f",
+        RobotLog.i("[OCTOQUAD] initialized. i2cBus=%d connection=%s fw=%s axis=%s status=%s  headingSource=%s  startPose x=%.1f y=%.1f in heading=%.1f  poseRot=%.0f  uptime=%s",
                 TunableValues.OCTOQUAD_I2C_BUS,
                 octoquad.getConnectionInfo(),
                 octoquad.getFirmwareVersionString(),
@@ -122,7 +131,9 @@ public class OctoQuadOdometry implements ImuInterface {
                 getHeadingSource(),
                 TunableValues.START_POSE_X_IN,
                 TunableValues.START_POSE_Y_IN,
-                headingDegrees);
+                headingDegrees,
+                TunableValues.OCTOQUAD_POSE_ROTATION_DEG,
+                getUptimeStatus());
         RobotLog.i("[OCTOQUAD] POS %s", getEncoderBlockStatus());
         RobotLog.i("[OCTOQUAD] LOC %s", getLocalizerBlockStatus());
     }
@@ -154,6 +165,7 @@ public class OctoQuadOdometry implements ImuInterface {
             consecutiveBadPackets = 0;
             disconnectError = null;
             if (!wasRunning && haveLastGoodPose) {
+                sampleUptime(true);
                 try {
                     headingAxis = octoquad.getLocalizerHeadingAxisChoice();
                 } catch (RuntimeException ignored) {
@@ -162,17 +174,10 @@ public class OctoQuadOdometry implements ImuInterface {
                 octoquad.setLocalizerPose(lastGoodPosXMm, lastGoodPosYMm, lastGoodHeadingRad);
                 localizerValid = false;
                 if (useOctoQuadHeading()) {
-                    headingDegrees = Math.toDegrees(lastGoodHeadingRad);
-                    posXMm = lastGoodPosXMm;
-                    posYMm = lastGoodPosYMm;
-                    poseXMm = posXMm;
-                    poseYMm = posYMm;
-                    velXMmS = 0.0;
-                    velYMmS = 0.0;
-                    velHeadingRadS = 0.0;
+                    applyOctoPose(lastGoodPosXMm, lastGoodPosYMm, lastGoodHeadingRad, 0.0, 0.0, 0.0);
                 }
-                RobotLog.w("[OCTOQUAD] localizer recovered; restored pose x=%d y=%d mm heading=%.1f axis=%s",
-                        lastGoodPosXMm, lastGoodPosYMm, Math.toDegrees(lastGoodHeadingRad), headingAxis);
+                RobotLog.w("[OCTOQUAD] localizer recovered; restored pose x=%.1f y=%.1f in heading=%.1f axis=%s",
+                        poseXMm / 25.4, poseYMm / 25.4, headingDegrees, headingAxis);
             } else {
                 localizerValid = localizer.isDataValid();
                 lastGoodPosXMm = localizer.posX_mm;
@@ -180,14 +185,13 @@ public class OctoQuadOdometry implements ImuInterface {
                 lastGoodHeadingRad = localizer.heading_rad;
                 haveLastGoodPose = true;
                 if (useOctoQuadHeading()) {
-                    headingDegrees = Math.toDegrees(localizer.heading_rad);
-                    posXMm = localizer.posX_mm;
-                    posYMm = localizer.posY_mm;
-                    poseXMm = posXMm;
-                    poseYMm = posYMm;
-                    velXMmS = localizer.velX_mmS;
-                    velYMmS = localizer.velY_mmS;
-                    velHeadingRadS = localizer.velHeading_radS;
+                    applyOctoPose(
+                            localizer.posX_mm,
+                            localizer.posY_mm,
+                            localizer.heading_rad,
+                            localizer.velX_mmS,
+                            localizer.velY_mmS,
+                            localizer.velHeading_radS);
                 }
             }
         } else if (localizerCrcOk) {
@@ -214,6 +218,7 @@ public class OctoQuadOdometry implements ImuInterface {
             }
             forwardTicks = encoderPositions[TunableValues.OCTOQUAD_FORWARD_PORT];
             strafeTicks = encoderPositions[TunableValues.OCTOQUAD_STRAFE_PORT];
+            sampleUptime(false);
         }
         applyHubHeadingIfSelected();
         if (!useOctoQuadHeading()) {
@@ -223,6 +228,29 @@ public class OctoQuadOdometry implements ImuInterface {
 
     public String getDisconnectError() {
         return disconnectError;
+    }
+
+    public String getUptimeStatus() {
+        if (octoquad == null) {
+            return "MISSING";
+        }
+        if (!haveUptime) {
+            return "NONE";
+        }
+        if (octoRebootCount > 0) {
+            return String.format("%d ms  reboots=%d", octoUptimeMs, octoRebootCount);
+        }
+        return String.format("%d ms", octoUptimeMs);
+    }
+
+    public boolean hasUptimeReset() {
+        return uptimeReset;
+    }
+
+    public boolean consumeUptimeReset() {
+        boolean reset = uptimeReset;
+        uptimeReset = false;
+        return reset;
     }
 
     public List<String> getCurrentHardwareErrors() {
@@ -363,9 +391,9 @@ public class OctoQuadOdometry implements ImuInterface {
             if (i > 0) {
                 line.append("  ");
             }
-            if (i == TunableValues.OCTOQUAD_FORWARD_PORT) {
+            if (i == TunableValues.OCTOQUAD_STRAFE_PORT) {
                 line.append("X");
-            } else if (i == TunableValues.OCTOQUAD_STRAFE_PORT) {
+            } else if (i == TunableValues.OCTOQUAD_FORWARD_PORT) {
                 line.append("Y");
             }
             line.append(i).append("=").append(values[i]);
@@ -386,7 +414,7 @@ public class OctoQuadOdometry implements ImuInterface {
     }
 
     /**
-     * Heading for field-centric drive: 0 is the start facing (into the field).
+     * Heading for field-centric drive: 0 is the start facing (+X).
      */
     public double getDriveHeadingDegrees() {
         double heading = headingDegrees - TunableValues.START_HEADING_DEG;
@@ -463,6 +491,7 @@ public class OctoQuadOdometry implements ImuInterface {
         RobotLog.i("[OCTOQUAD] POS %s", getEncoderBlockStatus());
         RobotLog.i("[OCTOQUAD] LOC %s", getLocalizerBlockStatus());
         RobotLog.i("[OCTOQUAD] GYRO %s", getOctoGyroLine());
+        RobotLog.i("[OCTOQUAD] UPTIME %s", getUptimeStatus());
         RobotLog.i("[IMU] HUB GYRO %s", getHubGyroLine());
         RobotLog.i("[OCTOQUAD] COMPARE source=%s pods=%s pose=%s heading=%s  applied x=%.1f y=%.1f in h=%.1f  raw x=%.1f y=%.1f in h=%.1f",
                 useOctoQuadHeading() ? "octoquad" : "hub+pods",
@@ -618,6 +647,30 @@ public class OctoQuadOdometry implements ImuInterface {
         }
     }
 
+    private void sampleUptime(boolean force) {
+        if (octoquad == null || readFailed) {
+            return;
+        }
+        if (!force && haveUptime && uptimeTimer.seconds() < 0.10) {
+            return;
+        }
+        try {
+            int uptime = octoquad.getUptimeMs();
+            uptimeTimer.reset();
+            if (haveUptime && uptime + 250 < lastGoodUptimeMs) {
+                uptimeReset = true;
+                octoRebootCount++;
+                RobotLog.w("[OCTOQUAD] uptime reset %d -> %d ms (board rebooted / lost power) reboots=%d",
+                        lastGoodUptimeMs, uptime, octoRebootCount);
+            }
+            octoUptimeMs = uptime;
+            lastGoodUptimeMs = uptime;
+            haveUptime = true;
+        } catch (RuntimeException ignored) {
+            // Keep the last cached uptime if this extra I2C read fails.
+        }
+    }
+
     private void refreshOctoImuDiag() {
         if (octoquad == null) {
             return;
@@ -720,6 +773,20 @@ public class OctoQuadOdometry implements ImuInterface {
         return dir < 0 ? OctoQuad.EncoderDirection.REVERSE : OctoQuad.EncoderDirection.FORWARD;
     }
 
+    private void applyOctoPose(int octoXMm, int octoYMm, float headingRad,
+                              double octoVelX, double octoVelY, double velHeading) {
+        headingDegrees = Math.toDegrees(headingRad);
+        double[] xy = octoToField(octoXMm, octoYMm);
+        poseXMm = xy[0];
+        poseYMm = xy[1];
+        posXMm = (int) Math.round(poseXMm);
+        posYMm = (int) Math.round(poseYMm);
+        double[] vel = octoToField(octoVelX, octoVelY);
+        velXMmS = vel[0];
+        velYMmS = vel[1];
+        velHeadingRadS = velHeading;
+    }
+
     private static int startPoseXMm() {
         return (int) Math.round(TunableValues.START_POSE_X_IN * 25.4);
     }
@@ -728,7 +795,39 @@ public class OctoQuadOdometry implements ImuInterface {
         return (int) Math.round(TunableValues.START_POSE_Y_IN * 25.4);
     }
 
+    private static int startPoseXOctoMm() {
+        return (int) Math.round(fieldToOcto(startPoseXMm(), startPoseYMm())[0]);
+    }
+
+    private static int startPoseYOctoMm() {
+        return (int) Math.round(fieldToOcto(startPoseXMm(), startPoseYMm())[1]);
+    }
+
     private static float startHeadingRad() {
         return (float) Math.toRadians(TunableValues.START_HEADING_DEG);
+    }
+
+    /**
+     * OctoQuad onboard XY is rotated {@link TunableValues#OCTOQUAD_POSE_ROTATION_DEG}
+     * from the FTC field. Heading is already field yaw and is not rotated.
+     */
+    private static double[] octoToField(double x, double y) {
+        double[] xy = rotateVec(x, y, TunableValues.OCTOQUAD_POSE_ROTATION_DEG);
+        xy[0] *= TunableValues.OCTOQUAD_POSE_X_DIR;
+        xy[1] *= TunableValues.OCTOQUAD_POSE_Y_DIR;
+        return xy;
+    }
+
+    private static double[] fieldToOcto(double x, double y) {
+        return rotateVec(x * TunableValues.OCTOQUAD_POSE_X_DIR,
+                y * TunableValues.OCTOQUAD_POSE_Y_DIR,
+                -TunableValues.OCTOQUAD_POSE_ROTATION_DEG);
+    }
+
+    private static double[] rotateVec(double x, double y, double deg) {
+        double rad = Math.toRadians(deg);
+        double cos = Math.cos(rad);
+        double sin = Math.sin(rad);
+        return new double[] { x * cos - y * sin, x * sin + y * cos };
     }
 }

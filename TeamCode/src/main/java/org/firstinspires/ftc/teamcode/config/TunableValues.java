@@ -21,7 +21,7 @@ public final class TunableValues {
                     + "  Left stick       field-centric X/Y\n"
                     + "  Right stick X    yaw\n"
                     + "  A                hold: auto-align placeholder\n"
-                    + "  Back             restore start heading (into the field)\n"
+                    + "  Back             restore start heading (+X)\n"
                     + "Gamepad 2 (Operator):\n"
                     + "  RT               hold: shooter forward\n"
                     + "  RB               hold: shooter reverse\n"
@@ -69,16 +69,18 @@ public final class TunableValues {
     // Control Hub I2C bus the OctoQuad is plugged into.
     // Bus 0 is the built-in IMU (no external jack). First physical I2C jack is bus 1.
     // Must match IronEaglesConfig.xml <OctoQuadFTC bus="...">.
-    public static int OCTOQUAD_I2C_BUS = 2;
+    public static int OCTOQUAD_I2C_BUS = 1;
 
     // true: heading and X/Y come from the OctoQuad IMU/localizer.
     // false: heading and X/Y come from Control Hub IMU + dead-wheel ticks.
     public static boolean USE_OCTOQUAD_IMU = true;
 
-    // OctoQuad MK2 dead wheels. Port 0 = forward (X), port 1 = strafe (Y).
+    // OctoQuad MK2 dead wheels (encoder jacks on the OctoQuad, not hub motor ports).
+    // X wheel = robot horizontal / strafe, port 7.
+    // Y wheel = robot forward/back, port 6.
     // *_DIR is +1 or -1. They do not change field-centric heading.
-    public static int OCTOQUAD_FORWARD_PORT = 0;
-    public static int OCTOQUAD_STRAFE_PORT = 1;
+    public static int OCTOQUAD_FORWARD_PORT = 6;
+    public static int OCTOQUAD_STRAFE_PORT = 7;
     public static int OCTOQUAD_FORWARD_DIR = 1;
     public static int OCTOQUAD_STRAFE_DIR = 1;
 
@@ -87,26 +89,38 @@ public final class TunableValues {
     public static float OCTOQUAD_FORWARD_TICKS_PER_MM = 25.665f;
     public static float OCTOQUAD_STRAFE_TICKS_PER_MM = 25.665f;
 
-    // Real TCP is X-pod axle ∩ Y-pod axle: 7.75 in back, 4.25 in right of chassis center.
-    // Offset moves the virtual TCP to chassis center (+X forward, +Y left).
+    // Chassis inches, origin at center, +X right, +Y forward, bumpers at ±9:
+    // OctoQuad board (−3, 1, 11), X/strafe pod (0, −7.5), Y/forward pod (4, 1).
+    // TCP is pod-axis intersection (4, −7.5). Offset is TCP → center in the
+    // OctoQuad localizer frame (+X forward, +Y left): 7.5 in forward, 4 in left.
     // If an in-place spin makes pose orbit, negate OCTOQUAD_TCP_OFFSET_Y_MM.
-    public static float OCTOQUAD_TCP_OFFSET_X_MM = 7.75f * 25.4f;
-    public static float OCTOQUAD_TCP_OFFSET_Y_MM = 4.25f * 25.4f;
+    public static float OCTOQUAD_TCP_OFFSET_X_MM = 7.5f * 25.4f;
+    public static float OCTOQUAD_TCP_OFFSET_Y_MM = 4.0f * 25.4f;
+    // Board height above the field. MK2 localizer has no Z TCP; this is docs only.
+    public static float OCTOQUAD_HEIGHT_Z_IN = 11.0f;
     public static float OCTOQUAD_IMU_SCALAR = 1.0f;
+    // Board remounted flat (logs: IMU axis=Z). OctoQuad onboard XY is 90° CW from
+    // the FTC field. Rotate readings CCW so Driver Hub X/Y are +X audience, +Y blue.
+    public static double OCTOQUAD_POSE_ROTATION_DEG = 90.0;
+    // -1 if driving toward the +X wall makes X decrease.
+    public static int OCTOQUAD_POSE_X_DIR = -1;
+    // -1 if driving toward +Y (blue) makes Y decrease.
+    public static int OCTOQUAD_POSE_Y_DIR = -1;
 
-    // Field origin is the center of the field (four center tiles). Interior is 144 in square.
-    // +X toward blue along the audience wall. +Y into the field (away from audience).
-    // 18x18 robot, back bumper on the audience wall, near bumper 52 in from red wall.
-    // Front faces +Y (into the field); shooter/back faces the audience cell.
-    // Start center: X = 52+9-72 = -11 in, Y = 9-72 = -63 in, heading 90°.
+    // Official FTC field frame (BIOBUZZ square, red alliance audience-left):
+    // origin at field center, walls at ±72 in. Stand at the Red Wall looking in:
+    // +Y toward blue, +X to the right (toward the audience).
+    // 18x18 robot, front bumper on the audience wall (the +X wall / cell),
+    // near bumper 52 in from the red wall, front faces +X.
+    // Start center: X = 72-9 = +63 in, Y = 52+9-72 = -11 in, heading 0°.
     public static double FIELD_SIZE_IN = 144.0;
     public static double ROBOT_SIZE_IN = 18.0;
     public static double START_NEAR_BUMPER_FROM_RED_IN = 52.0;
     public static double START_POSE_X_IN =
-            START_NEAR_BUMPER_FROM_RED_IN + ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
+            FIELD_SIZE_IN / 2.0 - ROBOT_SIZE_IN / 2.0;
     public static double START_POSE_Y_IN =
-            ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
-    public static double START_HEADING_DEG = 90.0;
+            START_NEAR_BUMPER_FROM_RED_IN + ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
+    public static double START_HEADING_DEG = 0.0;
 
     // Sign-preserving square on analog sticks after deadzone. Full stick is still full power.
     public static boolean DRIVE_STICK_SQUARED = true;
@@ -133,4 +147,14 @@ public final class TunableValues {
 
     // Blinkin green on/off cycles per second while the target cell gate is TRUE.
     public static double LED_FLASH_HZ = 5.0;
+
+    // Hub power logging. Events fire when voltage/current steps past these
+    // amounts, or when the rail is below the low threshold.
+    public static double POWER_VIN_LOW_V = 11.0;
+    public static double POWER_VIN_STEP_V = 0.50;
+    public static double POWER_V5_LOW_V = 4.75;
+    public static double POWER_V5_STEP_V = 0.15;
+    public static double POWER_CURRENT_STEP_A = 2.0;
+    // FTC legal pack has a 20A inline fuse. Flag before it blows.
+    public static double POWER_PACK_HIGH_A = 18.0;
 }

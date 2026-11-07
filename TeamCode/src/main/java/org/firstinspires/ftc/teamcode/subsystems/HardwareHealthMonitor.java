@@ -26,6 +26,7 @@ public class HardwareHealthMonitor {
     private final IronEaglesHardware robot;
     private final OctoQuadOdometry octoquad;
     private final AprilTagVision vision;
+    private final HubPowerMonitor power;
     private final Set<String> stickyErrors = new LinkedHashSet<>();
 
     public HardwareHealthMonitor(HardwareMap hardwareMap, IronEaglesHardware robot,
@@ -34,6 +35,7 @@ public class HardwareHealthMonitor {
         this.robot = robot;
         this.octoquad = octoquad;
         this.vision = vision;
+        this.power = new HubPowerMonitor(hardwareMap, octoquad);
     }
 
     public void update() {
@@ -43,6 +45,8 @@ public class HardwareHealthMonitor {
         }
         checkHubs(current);
         checkMotors(current);
+        power.update();
+        current.addAll(power.getCurrentErrors());
         current.addAll(octoquad.getCurrentHardwareErrors());
         addIfPresent(current, vision.getDisconnectError());
         for (String error : current) {
@@ -60,7 +64,12 @@ public class HardwareHealthMonitor {
         return String.join(" | ", stickyErrors);
     }
 
+    public String getPowerLine() {
+        return power.getTelemetryLine();
+    }
+
     public void close() {
+        power.logSummary();
         vision.close();
     }
 

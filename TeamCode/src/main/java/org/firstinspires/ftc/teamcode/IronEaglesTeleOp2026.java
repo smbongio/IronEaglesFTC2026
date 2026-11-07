@@ -56,6 +56,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 ? String.format("%s  heading=%.1f", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING - drive is robot-centric");
         addOdometryBlockTelemetry();
+        telemetry.addData("POWER", hardwareHealth.getPowerLine());
         telemetry.addData("TARGET", vision.isPresent() ? "waiting" : "FALSE");
         addErrorLine();
         telemetry.update();
@@ -273,6 +274,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 ? String.format("%s  %.1f deg  (Back=start)", imu.getHeadingSource(), imu.getHeadingDegrees())
                 : "MISSING");
         addOdometryBlockTelemetry();
+        telemetry.addData("POWER", hardwareHealth.getPowerLine());
         telemetry.addData("AUTO", autoStatus());
         addErrorLine();
         telemetry.update();
