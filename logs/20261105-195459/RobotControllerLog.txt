@@ -1,0 +1,460 @@
+11-05 19:44:32.672   978  1248 I RobotCore: [POWER] ok | CH vin=12.55 v5=5.15 A=0.32 i2c=62mA | EH vin=12.49 v5=5.12 A=0.01 i2c=26mA | octo 156334 ms  reboots=1
+11-05 19:44:33.756   978  1248 I RobotCore: [POWER] ok | CH vin=12.55 v5=5.15 A=0.28 i2c=47mA | EH vin=12.49 v5=5.12 A=0.01 i2c=23mA | octo 157366 ms  reboots=1
+11-05 19:44:34.783   978  1248 I RobotCore: [POWER] ok | CH vin=12.55 v5=5.15 A=0.28 i2c=68mA | EH vin=12.49 v5=5.13 A=0.00 i2c=26mA | octo 158444 ms  reboots=1
+11-05 19:44:35.830   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.29 i2c=47mA | EH vin=12.49 v5=5.12 A=0.00 i2c=26mA | octo 159401 ms  reboots=1
+11-05 19:44:36.870   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.28 i2c=65mA | EH vin=12.49 v5=5.12 A=0.00 i2c=26mA | octo 160533 ms  reboots=1
+11-05 19:44:37.972   978  1248 I RobotCore: [POWER] ok | CH vin=12.55 v5=5.15 A=0.30 i2c=59mA | EH vin=12.50 v5=5.12 A=0.01 i2c=26mA | octo 161587 ms  reboots=1
+11-05 19:44:39.011   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.29 i2c=68mA | EH vin=12.50 v5=5.12 A=0.00 i2c=26mA | octo 162597 ms  reboots=1
+11-05 19:44:40.046   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.29 i2c=50mA | EH vin=12.50 v5=5.12 A=0.00 i2c=23mA | octo 163613 ms  reboots=1
+11-05 19:44:41.101   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.29 i2c=47mA | EH vin=12.50 v5=5.12 A=0.01 i2c=26mA | octo 164674 ms  reboots=1
+11-05 19:44:42.183   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.28 i2c=62mA | EH vin=12.50 v5=5.12 A=0.01 i2c=26mA | octo 165750 ms  reboots=1
+11-05 19:44:43.220   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.28 i2c=53mA | EH vin=12.50 v5=5.13 A=0.00 i2c=26mA | octo 166840 ms  reboots=1
+11-05 19:44:44.226   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.28 i2c=56mA | EH vin=12.50 v5=5.12 A=0.01 i2c=26mA | octo 167887 ms  reboots=1
+11-05 19:44:45.303   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.31 i2c=56mA | EH vin=12.50 v5=5.13 A=0.01 i2c=23mA | octo 168877 ms  reboots=1
+11-05 19:44:46.363   978  1248 I RobotCore: [POWER] ok | CH vin=12.56 v5=5.15 A=0.30 i2c=68mA | EH vin=12.50 v5=5.13 A=0.00 i2c=26mA | octo 169988 ms  reboots=1
+11-05 19:44:47.406   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.28 i2c=47mA | EH vin=12.50 v5=5.12 A=0.01 i2c=26mA | octo 171030 ms  reboots=1
+11-05 19:44:48.449   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.29 i2c=50mA | EH vin=12.49 v5=5.12 A=0.00 i2c=26mA | octo 172070 ms  reboots=1
+11-05 19:44:49.452   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.28 i2c=47mA | EH vin=12.51 v5=5.13 A=0.00 i2c=26mA | octo 173025 ms  reboots=1
+11-05 19:44:50.510   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.29 i2c=47mA | EH vin=12.51 v5=5.12 A=0.00 i2c=26mA | octo 174172 ms  reboots=1
+11-05 19:44:51.573   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.28 i2c=53mA | EH vin=12.51 v5=5.12 A=0.01 i2c=29mA | octo 175234 ms  reboots=1
+11-05 19:44:52.629   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.29 i2c=68mA | EH vin=12.51 v5=5.12 A=0.00 i2c=23mA | octo 176290 ms  reboots=1
+11-05 19:44:53.665   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.31 i2c=56mA | EH vin=12.51 v5=5.12 A=0.00 i2c=26mA | octo 177328 ms  reboots=1
+11-05 19:44:54.734   978  1248 I RobotCore: [POWER] ok | CH vin=12.58 v5=5.15 A=0.28 i2c=68mA | EH vin=12.51 v5=5.12 A=0.00 i2c=26mA | octo 178396 ms  reboots=1
+11-05 19:44:55.805   978  1248 I RobotCore: [POWER] ok | CH vin=12.57 v5=5.15 A=0.29 i2c=56mA | EH vin=12.51 v5=5.12 A=0.00 i2c=26mA | octo 179470 ms  reboots=1
+11-05 19:44:56.886   978  1248 I RobotCore: [POWER] ok | CH vin=12.58 v5=5.15 A=0.28 i2c=59mA | EH vin=12.52 v5=5.12 A=0.00 i2c=26mA | octo 180547 ms  reboots=1
+11-05 19:44:57.409   978  1152 V Robocol : received command: CMD_INIT_OP_MODE(12809) $Stop$Robot$
+11-05 19:44:57.446   978  1248 W RobotCore: [POWER] DROP EH vin 12.51->0.00 d=-12.51 | DROP | CH vin=12.58 v5=5.15 A=0.29 i2c=50mA | EH vin=0.00 v5=0.00 A=0.00 i2c=0mA | octo 181003 ms  reboots=1
+11-05 19:44:57.447   978  1248 W RobotCore: [POWER] DROP EH 5V 5.12->0.00 d=-5.12 | DROP | CH vin=12.58 v5=5.15 A=0.29 i2c=50mA | EH vin=0.00 v5=0.00 A=0.00 i2c=0mA | octo 181003 ms  reboots=1
+11-05 19:44:57.473   978  1248 I RobotCore: [POWER] SUMMARY CH vin min=10.60 max=12.69 | EH vin min=10.67 max=12.62 | end | CH vin=12.58 v5=5.15 A=0.29 i2c=50mA | EH vin=0.00 v5=0.00 A=0.00 i2c=0mA | octo 181003 ms  reboots=1
+11-05 19:44:57.473   978  1248 D RobotCore: User runOpModeMethod exited
+11-05 19:44:57.473   978  1248 V RobotCore: thread: ...terminating 'OpModeThread'
+11-05 19:44:57.481   978  1190 V Robocol : sending CMD_STREAM_CHANGE(22062), attempt: 0
+11-05 19:44:57.487   978  1154 D RobotCore: system telemetry: key=$System$Warning$ msg="Unable to find webcam "camera" with serial number 4B75BEAF."
+11-05 19:44:57.489   978  1167 D OctoQuadImpl: OctoQuad uptime delta agrees with OpMode runtime
+11-05 19:44:57.489   978  1167 D OctoQuadImpl: OctoQuad IMU diagnostic param OK
+11-05 19:44:57.489   978  1167 I RobotCore: Attempting to switch to OpMode $Stop$Robot$
+11-05 19:44:57.491   978  1167 I RobotCore: ******************** STOP - OPMODE /storage/emulated/0/FIRST/matchlogs/Match-0-IronEaglesTeleOp2026.txt ********************
+11-05 19:44:57.495   978  1166 D SoundPlayer: playing volume=0.000000 samp=2|ms=2509
+11-05 19:44:57.510   978  1821 I RobotCore: saving match logcat to /storage/emulated/0/FIRST/matchlogs/Match-0-IronEaglesTeleOp2026.txt
+11-05 19:44:57.510   978  1167 D HardwareMap: Clearing which device instances have been retrieved
+11-05 19:44:57.510   978  1821 I RobotCore: logging command line: exec logcat -d -T '11-5 19:43:21.000' -f '/storage/emulated/0/FIRST/matchlogs/Match-0-IronEaglesTeleOp2026.txt' -n4 -v threadtime UsbRequestJNI:S UsbRequest:S art:W ThreadPool:W System:W ExtendedExtractor:W OMXClient:W MediaPlayer:W dalvikvm:W  *:V
+11-05 19:44:57.514   978  1823 V RobotCore: thread: 'OpModeThread' starting...
+11-05 19:44:57.521   978  1190 V Robocol : sending CMD_PLAY_SOUND(22070), attempt: 0
+11-05 19:44:57.522   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22071), attempt: 0
+11-05 19:44:57.523   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22073), attempt: 0
+11-05 19:44:57.525  1822  1822 I sh      : type=1400 audit(0.0:121): avc: denied { read } for name="/" dev="rootfs" ino=1 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:rootfs:s0 tclass=dir permissive=1
+11-05 19:44:57.528  1822  1822 I sh      : type=1400 audit(0.0:122): avc: denied { open } for path="/" dev="rootfs" ino=1 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:rootfs:s0 tclass=dir permissive=1
+11-05 19:44:57.566   978  1821 I RobotCore: Done running exec logcat -d -T '11-5 19:43:21.000' -f '/storage/emulated/0/FIRST/matchlogs/Match-0-IronEaglesTeleOp2026.txt' -n4 -v threadtime UsbRequestJNI:S UsbRequest:S art:W ThreadPool:W System:W ExtendedExtractor:W OMXClient:W MediaPlayer:W dalvikvm:W  *:V
+11-05 19:44:57.566   978  1821 I RobotCore: exiting match logcat for /storage/emulated/0/FIRST/matchlogs/Match-0-IronEaglesTeleOp2026.txt
+11-05 19:44:58.610   978  1152 V Robocol : received command: CMD_INIT_OP_MODE(12833) $Stop$Robot$
+11-05 19:44:58.638   978  1823 V RobotCore: thread: ...terminating 'OpModeThread'
+11-05 19:44:58.642   978  1167 I RobotCore: Attempting to switch to OpMode $Stop$Robot$
+11-05 19:44:58.645   978  1167 D HardwareMap: Clearing which device instances have been retrieved
+11-05 19:44:58.649   978  1847 V RobotCore: thread: 'OpModeThread' starting...
+11-05 19:44:58.681   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 0
+11-05 19:44:58.683   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 0
+11-05 19:44:58.922   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 1
+11-05 19:44:58.923   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 1
+11-05 19:44:59.161   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 2
+11-05 19:44:59.163   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 2
+11-05 19:44:59.401   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 3
+11-05 19:44:59.403   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 3
+11-05 19:44:59.642   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 4
+11-05 19:44:59.643   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 4
+11-05 19:44:59.881   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 5
+11-05 19:44:59.883   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 5
+11-05 19:45:00.121   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 6
+11-05 19:45:00.123   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 6
+11-05 19:45:00.361   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 7
+11-05 19:45:00.363   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 7
+11-05 19:45:00.562   978  1190 V Robocol : sending CMD_NOTIFY_INIT_OP_MODE(22300), attempt: 8
+11-05 19:45:00.601   978  1190 V Robocol : sending CMD_NOTIFY_RUN_OP_MODE(22302), attempt: 8
+11-05 19:45:00.642   978  1190 V UpdateUI: Network: active, disconnected
+11-05 19:45:00.643   978  1190 I EventLoopManager: Lost connection while running OpMode: $Stop$Robot$
+11-05 19:45:00.643   978  1190 V NetworkConnectionHandler: Peer connection lost
+11-05 19:45:00.647   978  1166 W AudioTrack: AUDIO_OUTPUT_FLAG_FAST denied by client; transfer 4, track 48000 Hz, output 44100 Hz
+11-05 19:45:00.674   978  1166 D SoundPlayer: playing volume=0.000000 samp=4|ms=901
+11-05 19:45:01.158   978  1847 V RobotCore: thread: ...terminating 'OpModeThread'
+11-05 19:45:01.163   978  1167 I RobotCore: Attempting to switch to OpMode $Stop$Robot$
+11-05 19:45:01.166   978  1167 D HardwareMap: Clearing which device instances have been retrieved
+11-05 19:45:01.169   978  1896 V RobotCore: thread: 'OpModeThread' starting...
+--------- beginning of main
+12-31 19:00:14.154   980   980 V OnBotJava: ctor()...
+12-31 19:00:14.156   980   980 V OnBotJava: ...ctor()
+12-31 19:00:14.161   980   980 I PermissionValidatorActivity: Lifecycle onCreate : 6b2280a
+12-31 19:00:14.168   980   980 I PermissionValidatorActivity: Lifecycle onStart : 6b2280a
+12-31 19:00:14.169   980   980 I PermissionValidator: Checking permission for android.permission.WRITE_EXTERNAL_STORAGE
+12-31 19:00:14.169   980   980 I PermissionValidator:     Granted: android.permission.WRITE_EXTERNAL_STORAGE
+12-31 19:00:14.170   980   980 I PermissionValidator: Checking permission for android.permission.READ_EXTERNAL_STORAGE
+12-31 19:00:14.170   980   980 I PermissionValidator:     Granted: android.permission.READ_EXTERNAL_STORAGE
+12-31 19:00:14.170   980   980 I PermissionValidator: Checking permission for android.permission.CAMERA
+12-31 19:00:14.171   980   980 I PermissionValidator:     Granted: android.permission.CAMERA
+12-31 19:00:14.171   980   980 I PermissionValidator: Checking permission for android.permission.ACCESS_COARSE_LOCATION
+12-31 19:00:14.172   980   980 I PermissionValidator:     Granted: android.permission.ACCESS_COARSE_LOCATION
+12-31 19:00:14.172   980   980 I PermissionValidator: Checking permission for android.permission.ACCESS_FINE_LOCATION
+12-31 19:00:14.173   980   980 I PermissionValidator:     Granted: android.permission.ACCESS_FINE_LOCATION
+12-31 19:00:14.173   980   980 I PermissionValidator: Checking permission for android.permission.READ_PHONE_STATE
+12-31 19:00:14.174   980   980 I PermissionValidator:     Granted: android.permission.READ_PHONE_STATE
+12-31 19:00:14.176   980   980 V ServiceStarter: attempting to start service MediaTransferProtocolMonitorService
+12-31 19:00:14.177   980   980 V ServiceStarter: started service MediaTransferProtocolMonitorService
+12-31 19:00:14.177   980   980 V ServiceStarter: attempting to start service OnBotJavaService
+12-31 19:00:14.179   980   980 V ServiceStarter: started service OnBotJavaService
+12-31 19:00:14.179   980   980 I PermissionValidatorActivity: All permissions validated.  Starting RobotController
+12-31 19:00:14.188   980   980 V MTPMonitorService: onStartCommand() intent=Intent { cmp=com.qualcomm.ftcrobotcontroller/org.firstinspires.ftc.robotcore.internal.files.MediaTransferProtocolMonitorService } flags=0x0 startId=2
+12-31 19:00:14.192   980   980 V MTPMonitor: observing: /storage/emulated/0
+12-31 19:00:14.233   980   980 W FileObserverManager: upgrading mask: path=/storage/emulated/0/FIRST/java/control old=0x00000ffc new=0x00004ffc: might possibly miss event
+12-31 19:00:14.264   980   980 V OnBotJavaService: onStartCommand() intent=Intent { cmp=com.qualcomm.ftcrobotcontroller/org.firstinspires.ftc.onbotjava.OnBotJavaService } flags=0x0 startId=2
+12-31 19:00:14.264   980   980 V OnBotJava: ctor()...
+12-31 19:00:14.264   980   980 W FileObserverManager: upgrading mask: path=/storage/emulated/0/FIRST/java/control/buildRequest.txt old=0x00000ffc new=0x00000ffe: might possibly miss event
+12-31 19:00:14.265   980   980 V OnBotJava: ...ctor()
+12-31 19:00:14.276   980   980 V RCActivity: Permissions validated already
+12-31 19:00:14.276   980   980 V RCActivity: onCreate()
+12-31 19:00:14.278   980   980 V RCActivity: rootActivity is of class PermissionValidatorWrapper
+12-31 19:00:14.278   980   980 V RCActivity: launchActivity is of class class org.firstinspires.ftc.robotcontroller.internal.PermissionValidatorWrapper
+12-31 19:00:14.287   980  1103 V CallbackLooper: thread=71
+12-31 19:00:14.294   980   980 V NetDiscover_wifiDirectAgent: doStart()...
+12-31 19:00:14.299   980   980 V NetDiscover_wifiDirectAgent: ...doStart()
+12-31 19:00:14.300   980   980 V NetDiscover_prefremrc: ----- all preferences -----
+12-31 19:00:14.300   980   980 V NetDiscover_prefremrc: name='android.permission.READ_PHONE_STATE' value=false
+12-31 19:00:14.300   980   980 V NetDiscover_prefremrc: name='pref_app_version' value=unavailable
+12-31 19:00:14.300   980   980 V NetDiscover_prefremrc: name='pref_autostarted_robot_controller' value=true
+12-31 19:00:14.300   980   980 V NetDiscover_prefremrc: name='pref_warn_about_obsolete_software' value=true
+12-31 19:00:14.300   980   980 V NetDiscover_prefremrc: name='pref_network_protocol_version' value=unavailable
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_has_independent_phone_battery' value=false
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='android.permission.CAMERA' value=false
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_wifip2p_remote_channel_change_works' value=false
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_hardware_config_filename' value={"isDirty":false,"location":"LOCAL_STORAGE","name":"IronEaglesConfig","resourceId":0}
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_build_time' value=unavailable
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_sound_on_off' value=false
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_warn_about_mismatched_app_versions' value=true
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='pref_ftc_season_year_of_current_rc_new' value=2026
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc: name='App Restrictions' value=AAAAAA==
+12-31 19:00:14.301   980   980 V NetDiscover_prefremrc:     
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_warn_about_incorrect_clocks' value=true
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='android.permission.ACCESS_COARSE_LOCATION' value=false
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_has_speaker' value=false
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='android.permission.WRITE_EXTERNAL_STORAGE' value=false
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_connection_owner_password' value=Parkway1
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_pairing_kind' value=RCWIRELESSAP
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_device_name_internal' value=27106-RC
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_app_theme' value=red
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='android.permission.ACCESS_FINE_LOCATION' value=false
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_device_name' value=27106-RC
+12-31 19:00:14.302   980   980 V NetDiscover_prefremrc: name='pref_network_connection_info' value=unavailable
+12-31 19:00:14.303   980   980 V NetDiscover_prefremrc: name='pref_warn_about_2_4_ghz_band' value=true
+12-31 19:00:14.303   980   980 V NetDiscover_prefremrc: name='android.permission.READ_EXTERNAL_STORAGE' value=false
+12-31 19:00:14.303   980   980 V NetDiscover_prefremrc: name='pref_device_name_tracking' value=WIFIAP
+12-31 19:00:14.303   980   980 V NetDiscover_prefremrc: name='pref_rc_connected' value=true
+12-31 19:00:14.303   980   980 V NetDiscover_prefremrc: name='pref_lib_version' value=unavailable
+12-31 19:00:14.310   980   980 V Robocol : SendOnceRunnable created
+12-31 19:00:14.312   980   980 V NetDiscover_prefremrc: doStart()...
+12-31 19:00:14.313   980   980 V NetDiscover_prefremrc: ...doStart()
+12-31 19:00:14.355   980   980 W System  : ClassLoader referenced unknown path: /system/app/webview/lib/arm64
+12-31 19:00:14.356   980   980 D ApplicationLoaders: ignored Vulkan layer search path /system/app/webview/lib/arm64:/system/app/webview/webview.apk!/lib/arm64-v8a:/system/lib64:/vendor/lib64 for namespace 0x777e1b60f0
+12-31 19:00:14.359   980   980 I WebViewFactory: Loading com.android.webview version 52.0.2743.100 (code 275610050)
+12-31 19:00:14.444   980   980 I cr_LibraryLoader: Time to load native libraries: 47 ms (timestamps 4396-4443)
+12-31 19:00:14.444   980   980 I cr_LibraryLoader: Expected native library version number "52.0.2743.100", actual native library version number "52.0.2743.100"
+12-31 19:00:14.502   980   980 V WebViewChromiumFactoryProvider: Binding Chromium to main looper Looper (main, tid 1) {d538d22}
+12-31 19:00:14.502   980   980 I cr_LibraryLoader: Expected native library version number "52.0.2743.100", actual native library version number "52.0.2743.100"
+12-31 19:00:14.539   980   980 I chromium: [INFO:library_loader_hooks.cc(143)] Chromium logging enabled: level = 0, default verbosity = 0
+12-31 19:00:14.559   980   980 I cr_BrowserStartup: Initializing chromium process, singleProcess=true
+12-31 19:00:14.632   980   980 I mali_so : [File] : hardware/rockchip/driver/./src/base/arch/arch_011_udd/base_arch_main.c; [Line] : 565; [Func] : deal_with_version_affairs_rk_ext;
+12-31 19:00:14.632   980   980 I mali_so : arm_release_ver of this mali_so is 'r7p0-00rel1', rk_so_ver is '1@2' for 3328h_android_7.1, built at '15:47:51', on 'Jun 28 2017'.
+12-31 19:00:14.632   980   980 I mali_so : [File] : hardware/rockchip/driver/./src/base/arch/arch_011_udd/base_arch_main.c; [Line] : 578; [Func] : deal_with_version_affairs_rk_ext;
+12-31 19:00:14.632   980   980 I mali_so : mali_ver_property has been set to 'r7p0-00rel1-5-1@2', to return.
+12-31 19:00:14.752   980   980 I cr_DRP  : No DRP key due to exception:java.lang.ClassNotFoundException: com.android.webview.chromium.Drp
+12-31 19:00:14.818   980   980 W cr_AwContents: onDetachedFromWindow called when already detached. Ignoring
+12-31 19:00:15.116   980   980 V OnBotJava: getCurrentOutputDir() unavailable
+12-31 19:00:15.116   980   980 V OnBotJava: getCurrentOutputDir() unavailable
+12-31 19:00:15.117   980   980 W System  : ClassLoader referenced unknown path: 
+12-31 19:00:17.174   980   980 V UpdateUI: Network: inactive, disconnected
+12-31 19:00:17.175   980   980 V ServiceStarter: attempting to start service FtcRobotControllerWatchdogService
+12-31 19:00:17.177   980   980 V ServiceStarter: started service FtcRobotControllerWatchdogService
+12-31 19:00:17.199   980   980 I RobotCore: App info: version=12.0.0 appId=com.qualcomm.ftcrobotcontroller
+12-31 19:00:17.199   980   980 I RobotCore: Android Device: maker=REV Robotics model=Control Hub v1.0 sdk=25 serial=bf9039506746b36b
+12-31 19:00:17.199   980   980 V AndroidBoard: REV Control Hub contains REV3328
+12-31 19:00:17.199   980   980 V AndroidBoard: Communicating with embedded REV hub via /dev/ttyS1
+12-31 19:00:17.201   980   980 V RCActivity: onStart()
+12-31 19:00:17.205   980   980 V RCActivity: onResume()
+12-31 19:00:17.226   980   980 V NetDiscover_prefremrc: onSharedPreferenceChanged(name=App Restrictions, value=AAAAAA==
+12-31 19:00:17.226   980   980 V NetDiscover_prefremrc: )
+12-31 19:00:17.237   980   980 V FtcRobotControllerWatchdogService: onCreate()
+12-31 19:00:17.238   980   980 V FtcRobotControllerWatchdogService: onStartCommand() intent=Intent { cmp=com.qualcomm.ftcrobotcontroller/org.firstinspires.ftc.ftccommon.internal.FtcRobotControllerWatchdogService } flags=0x0 startId=1
+12-31 19:00:17.239   980   980 V FtcRobotControllerWatchdogService: shouldAutoLauchRobotController() result=true
+12-31 19:00:17.240   980   980 V FTCService: onCreate()
+12-31 19:00:17.271   980   980 W art     : Before Android 4.1, method double java.util.concurrent.ThreadLocalRandom.internalNextDouble(double, double) would have incorrectly overridden the package-private method in java.util.Random
+12-31 19:00:17.271   980   980 W art     : Before Android 4.1, method int java.util.concurrent.ThreadLocalRandom.internalNextInt(int, int) would have incorrectly overridden the package-private method in java.util.Random
+12-31 19:00:17.271   980   980 W art     : Before Android 4.1, method long java.util.concurrent.ThreadLocalRandom.internalNextLong(long, long) would have incorrectly overridden the package-private method in java.util.Random
+12-31 19:00:17.300   980   980 V FTCService: onBind()
+12-31 19:00:17.325   980   980 V CoreRobotWebServer: creating NanoHTTPD(8080)
+12-31 19:00:17.331   980   980 V WebSocketManager: Registered broadcast-only namespace progress
+12-31 19:00:17.338   980   980 V WebSocketManager: Registered handler for namespace ControlHubUpdater
+12-31 19:00:17.339   980   980 V RobotCore: Getting network assistant of type: RCWIRELESSAP
+12-31 19:00:17.341   980   980 I RobotControllerAccessPointAssistant: Enabling network services
+12-31 19:00:17.343   980   980 I RobotControllerAccessPointAssistant: Sending SSID and password to AP service
+12-31 19:00:17.344   980   980 I RobotCore: Parkway1
+12-31 19:00:17.344   980   980 D RobotControllerAccessPointAssistant: setNetworkProperties(deviceName=27106-RC, password=Parkway1, ApChannel=null) sendSettingsIndividually=false
+12-31 19:00:17.344   980   980 I NetDiscover_ControlHubNameManager: Robot controller name: 27106-RC
+12-31 19:00:17.345   980   980 I ControlHubPasswordManager: Robot controller password: Parkway1
+12-31 19:00:17.345   980   980 D RobotControllerAccessPointAssistant: Sending bulk settings broadcast intent
+12-31 19:00:17.394   980  1134 I OpenGLRenderer: Initialized EGL, version 1.4
+12-31 19:00:17.394   980  1134 D OpenGLRenderer: Swap behavior 1
+12-31 19:00:17.404   980   980 I RobotControllerAccessPointAssistant: Wi-Fi state change:, wifiApState: 13
+12-31 19:00:17.405   980   980 I FTCService: onNetworkConnectionEvent: CONNECTION_INFO_AVAILABLE
+12-31 19:00:17.405   980   980 I RobotCore: Parkway1
+12-31 19:00:17.405   980   980 I FTCService: Network Connection Passphrase: Parkway1
+12-31 19:00:17.406   980   980 V CoreRobotWebServer: starting port=8080
+12-31 19:00:17.418   980   980 V RobotCore: Getting network assistant of type: RCWIRELESSAP
+12-31 19:00:17.418   980   980 V CoreRobotWebServer: started port=8080
+12-31 19:00:17.419   980   980 V FTCService: RCActivity.controllerService=bound
+12-31 19:00:17.419   980   980 V UpdateUI: Network: active, disconnected
+12-31 19:00:17.420   980   980 V RobotCore: Robot Status: stopped
+12-31 19:00:17.426   980  1139 V TooTallWebSocketServer: Started WebSocket server on port 8081
+12-31 19:00:17.436   980  1142 V RobotCore: thread: 'RobotSetupRunnable.run()' starting...
+12-31 19:00:17.437   980  1142 V FTCService: Processing robot setup
+12-31 19:00:17.437   980  1142 V RobotCore: Robot Status: stopped, scanning for USB devices
+12-31 19:00:17.437   980  1142 I AppAliveNotifier: Telling the OS to set the RC alive notification timeout to 10 seconds
+12-31 19:00:17.462   980   980 V WebSocketManager: Registered handler for namespace ONBOTJAVA
+12-31 19:00:17.465   980   980 V WebSocketManager: Registered handler for namespace MC
+12-31 19:00:17.475   980  1134 I [Gralloc]:  ion device open success! fd = 90
+12-31 19:00:17.550   980   980 I PermissionValidatorActivity: Lifecycle onDestroy : 6b2280a
+12-31 19:00:17.552   980   980 V AppUtil : rootActivity=PermissionValidatorWrapper destroyed
+12-31 19:00:17.552   980   980 V AppUtil : rootActivity=FtcRobotControllerActivity
+12-31 19:00:17.552   980   980 I PermissionValidatorActivity: Lifecycle onDestroy : 6d5214a
+12-31 19:00:22.445   980  1142 V RobotCore: EventLoopManager state is NOT_STARTED
+12-31 19:00:22.445   980  1142 V FTCService: Waiting for a connection to a Wi-Fi service
+12-31 19:00:22.446   980  1142 V RobotCore: Robot Status: stopped, waiting for network to become active
+12-31 19:00:22.447   980  1142 I RobotControllerAccessPointAssistant: Wi-Fi AP is enabled
+12-31 19:00:22.447   980  1142 V CoreRobotWebServer: Asked an already running WebServer to start
+12-31 19:00:22.448   980  1142 V RobotCore: Robot Status: stopped, starting robot
+12-31 19:00:22.448   980  1142 V Robocol : EventLoopManager.start()
+12-31 19:00:22.448   980  1142 V RobotCore: Getting network assistant of type: RCWIRELESSAP
+12-31 19:00:22.449   980  1142 I RobotControllerAccessPointAssistant: Wi-Fi AP is enabled
+12-31 19:00:22.449   980  1142 V Robocol : Spoofing a Network Connection event...
+12-31 19:00:22.449   980  1142 I EventLoopManager: onNetworkConnectionEvent: CONNECTION_INFO_AVAILABLE
+12-31 19:00:22.449   980  1142 I Robocol : Received network connection event
+12-31 19:00:22.450   980  1142 I RobotControllerAccessPointAssistant: Wi-Fi AP is enabled
+12-31 19:00:22.450   980  1142 I NetworkConnectionHandler: Handling new network connection infomation, connected: true setup needed: true
+12-31 19:00:22.451   980  1142 I RobotControllerAccessPointAssistant: Wi-Fi AP is enabled
+12-31 19:00:25.495   980  1151 V RobotCore: thread: 'SetupRunnable.run()' starting...
+12-31 19:00:25.495   980  1142 V RobotCore: EventLoopManager state is STOPPED
+12-31 19:00:25.497   980  1142 V Robocol : eventLoop=FtcEventLoop
+12-31 19:00:25.497   980  1142 V RobotCore: EventLoopManager state is INIT
+12-31 19:00:25.499   980  1142 V RobotCore: Robot Status: initializing, starting robot
+12-31 19:00:25.500   980  1142 I FtcEventLoop: ======= INIT START =======
+12-31 19:00:25.501   980  1142 V OpmodeRegistration: registered {DefaultOpMode} as {$Stop$Robot$}
+12-31 19:00:25.508   980  1151 D Robocol : RobocolDatagramSocket listening addr=/192.168.43.1:20884 cbRec=65520 cbSend=106496 msRecTO=300
+12-31 19:00:25.509   980  1151 V Robocol : RecvLoopRunnable created
+12-31 19:00:25.512   980  1152 V Robocol : PacketProcessor started
+12-31 19:00:25.513   980  1153 V Robocol : CommandProcessor started
+12-31 19:00:25.516   980  1154 V RobotCore: thread: 'RecvLoopRunnable.run()' starting...
+12-31 19:00:25.518   980  1151 V PeerDiscovery: Starting peer discovery remote: /192.168.43.1 local: /192.168.43.1
+12-31 19:00:25.518   980  1151 V PeerDiscovery: No need for initiating peer discovery, we are the Robot Controller
+12-31 19:00:25.518   980  1151 V RobotCore: Setup complete
+12-31 19:00:25.518   980  1151 V RobotCore: thread: ...terminating 'SetupRunnable.run()'
+12-31 19:00:25.759   980  1142 V OpmodeRegistration: registered instance as {JohnOpMode}
+12-31 19:00:25.761   980  1142 V OpmodeRegistration: registered instance as {Nathan op mode}
+12-31 19:00:25.802   980  1142 V OpmodeRegistration: registered {ManualControlOpMode} as {$Manual$Control$}
+12-31 19:00:25.803   980  1142 V OpmodeRegistration: registered {UtilityTestHardware} as {Test Hardware (Built-in)}
+12-31 19:00:25.804   980  1142 V OpmodeRegistration: registered {UtilityTestGamepad} as {Test Gamepad (Built-in)}
+12-31 19:00:25.804   980  1142 V OpmodeRegistration: registered {IronEaglesTeleOp2026} as {IronEaglesTeleOp2026}
+12-31 19:00:25.817   980  1154 E Robocol : exception SocketTimeoutException(Receive timed out): no packet received [java.net.PlainDatagramSocketImpl.receive0(Native Method)]
+12-31 19:00:25.858   980  1142 V FtcEventLoop: Ensuring that the embedded Control Hub module is set up correctly
+12-31 19:00:25.859   980  1142 V RobotCore: Creating REV Robotics USB Expansion Hub Portal [(embedded)]
+12-31 19:00:25.860   980  1142 V LynxUsb : creating new [(embedded)]: 0x0c1f7e67
+12-31 19:00:25.865   980  1142 V FtDeviceManager: createDeviceInfoList(): 0 USB devices
+12-31 19:00:25.865   980  1142 V RobotUsbManagerCombining: FTDI driver failed to open USB device with serial number (embedded) (returned null device)
+12-31 19:00:25.863   980   980 I pRunnable.run(): type=1400 audit(0.0:97): avc: denied { read } for name="ttyS1" dev="tmpfs" ino=5231 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:serial_device:s0 tclass=chr_file permissive=1
+12-31 19:00:25.863   980   980 I pRunnable.run(): type=1400 audit(0.0:98): avc: denied { write } for name="ttyS1" dev="tmpfs" ino=5231 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:serial_device:s0 tclass=chr_file permissive=1
+12-31 19:00:25.863   980   980 I pRunnable.run(): type=1400 audit(0.0:99): avc: denied { open } for path="/dev/ttyS1" dev="tmpfs" ino=5231 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:serial_device:s0 tclass=chr_file permissive=1
+12-31 19:00:25.866   980   980 I pRunnable.run(): type=1400 audit(0.0:100): avc: denied { ioctl } for path="/dev/ttyS1" dev="tmpfs" ino=5231 ioctlcmd=5401 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:serial_device:s0 tclass=chr_file permissive=1
+12-31 19:00:25.866   980  1142 V SerialPortNative: [SerialPort.cpp:150] opened(/dev/ttyS1): fd=96
+12-31 19:00:25.867   980  1142 V RobotUsbDeviceTTY: opening serial=(embedded) file=/dev/ttyS1
+12-31 19:00:25.868   980  1142 V LynxUsb : armDevice() serial=(embedded)...
+12-31 19:00:25.868   980  1142 V LynxUsb : resetDevice() serial=(embedded)
+12-31 19:00:25.869   980  1142 V LynxModule: resetting embedded usb device: isPresent: was=true
+12-31 19:00:26.226   980  1142 V LynxUsb : ...done armDevice()
+12-31 19:00:26.227   980  1156 V RobotCore: thread: 'lynx incoming datagrams' starting...
+12-31 19:00:26.227   980  1142 V LynxUsb : 0x02672ab2 on 0x0c1f7e67: new delegate to [(embedded)]
+12-31 19:00:26.228   980  1142 V LynxUsb : addConfiguredModule() module#=173
+12-31 19:00:26.235   980  1142 V LynxModule: pingAndQueryKnownInterfaces mod=173
+12-31 19:00:26.238   980  1156 V LynxUsb : synchronization gained: serial=(embedded)
+12-31 19:00:26.257   980  1142 V LynxModule: mod#=173 queryInterface(DEKA)=54 commands starting at 4096
+12-31 19:00:26.269   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(true) wasInterrupted=false
+12-31 19:00:26.277   980  1142 V LynxModule: sendLEDPatternSteps(): steps=[Step(color=65280, msDuration=1000)]
+12-31 19:00:26.282   980  1142 V LynxModule: setAsControlHubEmbeddedModule(mod=173)
+12-31 19:00:26.282   980  1142 V EmbeddedControlHubModule: setting embedded module
+12-31 19:00:26.285   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(false) wasInterrupted=false
+12-31 19:00:26.288   980  1142 V LynxModule: close(#173)
+12-31 19:00:26.289   980  1142 V LynxUsb : Verified that the embedded Control Hub module has the correct address
+12-31 19:00:26.290   980  1142 V LynxUsb : addConfiguredModule() module#=173
+12-31 19:00:26.292   980  1142 V LynxModule: pingAndQueryKnownInterfaces mod=173
+12-31 19:00:26.308   980  1142 V LynxModule: mod#=173 queryInterface(DEKA)=54 commands starting at 4096
+12-31 19:00:26.320   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(true) wasInterrupted=false
+12-31 19:00:26.325   980  1142 V LynxModule: sendLEDPatternSteps(): steps=[Step(color=65280, msDuration=1000)]
+12-31 19:00:26.329   980  1142 V LynxModule: setAsControlHubEmbeddedModule(mod=173)
+12-31 19:00:26.329   980  1142 V EmbeddedControlHubModule: setting embedded module
+12-31 19:00:26.335   980  1156 V RobotCore: nack rec'd mod=173 msg#=8 ref#=0 reason=PARAM0:0
+12-31 19:00:26.336   980  1159 V LynxModule: mod#=173 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:26.337   980  1159 I RobotCore: LynxFirmwareVersionManager: LynxI2cDeviceSynchV2
+12-31 19:00:26.338   980  1159 V LynxI2cDeviceSynch: initializeHardware() mod#=173
+12-31 19:00:26.338   980  1159 V BNO055  : Suppressing I2C warnings while we check for a BNO055 IMU
+12-31 19:00:26.343   980  1159 V BNO055  : No BNO055 IMU found
+12-31 19:00:26.344   980  1159 V BHI260IMU: Suppressing I2C warnings while we check for a BHI260AP IMU
+12-31 19:00:26.348   980  1159 V BHI260IMU: Found BHI260AP IMU
+12-31 19:00:26.349   980  1159 V EmbeddedControlHubModule: setting embedded IMU type
+12-31 19:00:26.349   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(false) wasInterrupted=false
+12-31 19:00:26.351   980  1142 V LynxModule: close(#173)
+12-31 19:00:26.353   980  1142 V LynxUsb : addConfiguredModule() module#=173
+12-31 19:00:26.354   980  1142 V LynxModule: pingAndQueryKnownInterfaces mod=173
+12-31 19:00:26.367   980  1142 V LynxModule: mod#=173 queryInterface(DEKA)=54 commands starting at 4096
+12-31 19:00:26.377   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(true) wasInterrupted=false
+12-31 19:00:26.381   980  1142 V LynxModule: sendLEDPatternSteps(): steps=[Step(color=65280, msDuration=1000)]
+12-31 19:00:26.386   980  1142 V LynxModule: setAsControlHubEmbeddedModule(mod=173)
+12-31 19:00:26.386   980  1142 V EmbeddedControlHubModule: setting embedded module
+12-31 19:00:26.388   980  1159 I RobotCore: LynxFirmwareVersionManager: LynxI2cDeviceSynchV2
+12-31 19:00:26.389   980  1159 V LynxI2cDeviceSynch: initializeHardware() mod#=173
+12-31 19:00:26.414   980  1159 V BHI260IMU: flashFirmwareIfNecessary() alreadyFlashed=true firmwareVersion=20
+12-31 19:00:26.415   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(false) wasInterrupted=false
+12-31 19:00:26.417   980  1142 V LynxModule: close(#173)
+12-31 19:00:26.418   980  1142 V HardwareFactory: createHardwareMap()
+12-31 19:00:26.418   980  1142 V EmbeddedControlHubModule: clearing embedded module
+12-31 19:00:26.429   980  1142 V ReadXMLFileHandler: embedded lynx USB device and module are already present
+12-31 19:00:26.430   980  1142 V RobotCore: Creating REV Robotics USB Expansion Hub Portal [(embedded)]
+12-31 19:00:26.430   980  1142 V LynxUsb : using existing [(embedded)]: 0x0c1f7e67
+12-31 19:00:26.431   980  1142 V LynxUsb : 0x02e62d91 on 0x0c1f7e67: new delegate to [(embedded)]
+12-31 19:00:26.431   980  1142 V LynxUsb : addConfiguredModule() module#=173
+12-31 19:00:26.432   980  1142 V LynxModule: pingAndQueryKnownInterfaces mod=173
+12-31 19:00:26.443   980  1142 V LynxModule: mod#=173 queryInterface(DEKA)=54 commands starting at 4096
+12-31 19:00:26.451   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(true) wasInterrupted=false
+12-31 19:00:26.454   980  1142 V LynxModule: sendLEDPatternSteps(): steps=[Step(color=65280, msDuration=1000)]
+12-31 19:00:26.458   980  1142 V LynxModule: setAsControlHubEmbeddedModule(mod=173)
+12-31 19:00:26.458   980  1142 V EmbeddedControlHubModule: setting embedded module
+12-31 19:00:26.458   980  1142 V LynxUsb : addConfiguredModule() module#=2
+12-31 19:00:26.459   980  1142 V LynxModule: pingAndQueryKnownInterfaces mod=2
+12-31 19:00:26.476   980  1142 V LynxModule: mod#=2 queryInterface(DEKA)=54 commands starting at 4096
+12-31 19:00:26.481   980  1162 W HubPowerCycle: Expansion Hub 2 regained power after a complete power loss. No user OpMode was running.
+12-31 19:00:26.482   980  1162 V LynxModule: resendCurrentPattern()
+12-31 19:00:26.482   980  1162 V LynxModule: sendLEDPatternSteps(): steps=[]
+12-31 19:00:26.485   980  1142 V LynxModule: sending LynxFtdiResetControlCommand(true) wasInterrupted=false
+12-31 19:00:26.496   980  1142 V LynxModule: sendLEDPatternSteps(): steps=[Step(color=65280, msDuration=4500), Step(color=0, msDuration=500), Step(color=255, msDuration=500), Step(color=0, msDuration=500), Step(color=255, msDuration=500), Step(color=0, msDuration=500)]
+12-31 19:00:26.505   980  1142 V LynxMotor: initializeHardware() mod#=2
+12-31 19:00:26.602   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.602   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.603   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.603   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.605   980  1142 V LynxServoController: initializeHardware() mod#=2
+12-31 19:00:26.652   980  1142 V LynxVoltageSensor: initializeHardware() mod#=2
+12-31 19:00:26.653   980  1142 V LynxAnalogInputController: initializeHardware() mod#=2
+12-31 19:00:26.655   980  1142 V LynxDigitalChannelController: initializeHardware() mod#=2
+12-31 19:00:26.683   980  1142 V LynxMotor: initializeHardware() mod#=173
+12-31 19:00:26.745   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.746   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.746   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.746   980  1142 V RobotCore: DcMotorImpl(type=Motor)
+12-31 19:00:26.748   980  1142 V LynxServoController: initializeHardware() mod#=173
+12-31 19:00:26.777   980  1142 V LynxVoltageSensor: initializeHardware() mod#=173
+12-31 19:00:26.778   980  1142 V LynxAnalogInputController: initializeHardware() mod#=173
+12-31 19:00:26.779   980  1142 V LynxDigitalChannelController: initializeHardware() mod#=173
+12-31 19:00:26.797   980  1142 V RobotCore: Creating user sensor REV internal IMU (BHI260AP) - on Lynx module=173 bus=0
+12-31 19:00:26.797   980  1142 I RobotCore: LynxFirmwareVersionManager: LynxI2cDeviceSynchV2
+12-31 19:00:26.797   980  1142 V LynxI2cDeviceSynch: initializeHardware() mod#=173
+12-31 19:00:26.799   980  1142 V BHI260IMU: Suppressing I2C warnings while we check for a BHI260AP IMU
+12-31 19:00:26.807   980  1142 V BHI260IMU: Found BHI260AP IMU
+12-31 19:00:26.814   980  1142 V BHI260IMU: Suppressing I2C warnings while we check for a BHI260AP IMU
+12-31 19:00:26.818   980  1142 V BHI260IMU: Found BHI260AP IMU
+12-31 19:00:26.839   980  1142 D BHI260IMU: Firmware version: 20
+12-31 19:00:26.953   980  1142 V RobotCore: Creating user sensor OctoQuadFTC - on Lynx module=173 bus=2
+12-31 19:00:26.953   980  1142 I RobotCore: LynxFirmwareVersionManager: LynxI2cDeviceSynchV2
+12-31 19:00:26.953   980  1142 V LynxI2cDeviceSynch: initializeHardware() mod#=173
+12-31 19:00:26.955   980  1142 V RobotCore: Creating Webcam [4B75BEAF]
+12-31 19:00:26.956   980  1142 V CameraManager: construct(hash=0x01287618|inst#=0)
+12-31 19:00:26.957   980  1142 D libusb  : [ 0.000181] [00000476] libusb: debug [op_init] sysfs(/sys/bus/usb/devices) available
+12-31 19:00:26.957   980  1142 D libusb  : [ 0.000262] [00000476] libusb: debug [op_init] sysfs can relate devices
+12-31 19:00:26.957   980  1142 D libusb  : [ 0.000285] [00000476] libusb: debug [op_init] sysfs has complete descriptors
+12-31 19:00:26.958   980  1142 D libusb  : [ 0.000306] [00000476] libusb: debug [op_init] sysfs has serial numbers
+12-31 19:00:26.956   980   980 I pRunnable.run(): type=1400 audit(0.0:101): avc: denied { read } for name="devices" dev="sysfs" ino=7267 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:sysfs:s0 tclass=dir permissive=1
+12-31 19:00:26.959   980  1142 V UvcContext: construct(pointer=0x777bd35cc0|inst#=0)
+12-31 19:00:26.956   980   980 I pRunnable.run(): type=1400 audit(0.0:102): avc: denied { open } for path="/sys/bus/usb/devices" dev="sysfs" ino=7267 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:sysfs:s0 tclass=dir permissive=1
+12-31 19:00:26.964   980  1142 W RobotCore: Unable to find webcam with serial number 4B75BEAF
+12-31 19:00:26.967   980  1142 E WebcamNameImpl: exception RobotCoreException(Unable to find webcam with serial number 4B75BEAF): exception arming 4B75BEAF [com.qualcomm.robotcore.util.RobotLog.logAndThrow(RobotLog.java:316)]
+12-31 19:00:26.968   980  1142 I RobotCore: ========= Device Information ===================================================
+12-31 19:00:26.968   980  1142 I RobotCore: Type                                               Name                           Connection
+12-31 19:00:26.968   980  1142 I RobotCore: Motor                                              intake                         USB (embedded); module 2; port 0
+12-31 19:00:26.969   980  1142 I RobotCore: Motor                                              frontLeft                      USB (embedded); module 173; port 3
+12-31 19:00:26.969   980  1142 I RobotCore: Motor                                              shooterFollow                  USB (embedded); module 2; port 3
+12-31 19:00:26.970   980  1142 I RobotCore: Motor                                              shooter                        USB (embedded); module 2; port 2
+12-31 19:00:26.971   980  1142 I RobotCore: Motor                                              hopper                         USB (embedded); module 2; port 1
+12-31 19:00:26.971   980  1142 I RobotCore: Motor                                              backLeft                       USB (embedded); module 173; port 2
+12-31 19:00:26.972   980  1142 I RobotCore: REV Robotics USB Expansion Hub Portal              Control Hub Portal             USB (embedded)
+12-31 19:00:26.972   980  1142 I RobotCore: Motor                                              backRight                      USB (embedded); module 173; port 1
+12-31 19:00:26.972   980  1142 I RobotCore: OctoQuadFTC                                        octoquad                       USB (embedded); module 173; bus 2; addr7=0x30
+12-31 19:00:26.973   980  1142 I RobotCore: Expansion Hub DC Motor Controller                  Expansion Hub 2                USB (embedded); module 2
+12-31 19:00:26.974   980  1142 I RobotCore: Expansion Hub Servo Controller                     Expansion Hub 2                USB (embedded); module 2
+12-31 19:00:26.976   980  1142 I RobotCore: Expansion Hub Voltage Sensor                       Expansion Hub 2                USB (embedded); module 2
+12-31 19:00:26.977   980  1142 I RobotCore: Expansion Hub Analog Input Controller              Expansion Hub 2                USB (embedded); module 2
+12-31 19:00:26.977   980  1142 I RobotCore: Expansion Hub Digital Channel Controller           Expansion Hub 2                USB (embedded); module 2
+12-31 19:00:26.982   980  1142 I RobotCore: Expansion Hub (HW: 20, Maj: 1, Min: 8, Eng: 2)     Expansion Hub 2                USB (embedded); module 2
+12-31 19:00:26.983   980  1142 I RobotCore: REV Blinkin LED Driver                             blinkin                        USB (embedded); module 173; port 0
+12-31 19:00:26.983   980  1142 I RobotCore: REV internal IMU (BHI260AP)                        imu                            BHI260 IMU on USB (embedded); module 173; bus 0; addr7=0x28
+12-31 19:00:26.984   980  1142 I RobotCore: Expansion Hub DC Motor Controller                  Control Hub                    USB (embedded); module 173
+12-31 19:00:26.984   980  1142 I RobotCore: Expansion Hub Servo Controller                     Control Hub                    USB (embedded); module 173
+12-31 19:00:26.985   980  1142 I RobotCore: Expansion Hub Voltage Sensor                       Control Hub                    USB (embedded); module 173
+12-31 19:00:26.985   980  1142 I RobotCore: Expansion Hub Analog Input Controller              Control Hub                    USB (embedded); module 173
+12-31 19:00:26.985   980  1142 I RobotCore: Expansion Hub Digital Channel Controller           Control Hub                    USB (embedded); module 173
+12-31 19:00:26.988   980  1142 I RobotCore: Expansion Hub (HW: 20, Maj: 1, Min: 8, Eng: 2)     Control Hub                    USB (embedded); module 173
+12-31 19:00:26.989   980  1142 I RobotCore: Motor                                              frontRight                     USB (embedded); module 173; port 0
+12-31 19:00:26.995   980  1142 I RobotCore: Webcam                                             camera                         USB (4B75BEAF)
+12-31 19:00:27.000   980  1156 V RobotCore: nack rec'd mod=173 msg#=120 ref#=0 reason=PARAM0:0
+12-31 19:00:27.001   980  1142 V LynxModule: mod#=173 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:27.002   980  1142 I RobotCore: LynxFirmwareVersionManager: LynxI2cDeviceSynchV2
+12-31 19:00:27.002   980  1142 V LynxI2cDeviceSynch: initializeHardware() mod#=173
+12-31 19:00:27.002   980  1142 V BNO055  : Suppressing I2C warnings while we check for a BNO055 IMU
+12-31 19:00:27.006   980  1142 V BNO055  : No BNO055 IMU found
+12-31 19:00:27.006   980  1142 V BHI260IMU: Suppressing I2C warnings while we check for a BHI260AP IMU
+12-31 19:00:27.009   980  1142 V BHI260IMU: Found BHI260AP IMU
+12-31 19:00:27.011   980  1156 V RobotCore: nack rec'd mod=173 msg#=125 ref#=0 reason=PARAM0:0
+12-31 19:00:27.012   980  1142 V LynxModule: mod#=173 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:27.020   980  1156 V RobotCore: nack rec'd mod=2 msg#=61 ref#=0 reason=PARAM0:0
+12-31 19:00:27.021   980  1142 V LynxModule: mod#=2 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:27.021   980  1142 I RobotCore: LynxFirmwareVersionManager: LynxI2cDeviceSynchV2
+12-31 19:00:27.022   980  1142 V LynxI2cDeviceSynch: initializeHardware() mod#=2
+12-31 19:00:27.022   980  1142 V BNO055  : Suppressing I2C warnings while we check for a BNO055 IMU
+12-31 19:00:27.027   980  1142 V RobotCore: addr=false data=true arb=false clock=false
+12-31 19:00:27.027   980  1142 E LynxI2cDeviceSynch: readStatusQuery: cbExpected=1 cbRead=0
+12-31 19:00:27.027   980  1142 E LynxI2cDeviceSynch: placeholder: readStatusQuery
+12-31 19:00:27.027   980  1142 V BNO055  : No BNO055 IMU found
+12-31 19:00:27.030   980  1156 V RobotCore: nack rec'd mod=2 msg#=64 ref#=0 reason=PARAM0:0
+12-31 19:00:27.031   980  1142 V LynxModule: mod#=2 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:27.038   980  1156 V RobotCore: nack rec'd mod=173 msg#=127 ref#=0 reason=PARAM0:0
+12-31 19:00:27.039   980  1142 V LynxModule: mod#=173 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:27.047   980  1156 V RobotCore: nack rec'd mod=2 msg#=66 ref#=0 reason=PARAM0:0
+12-31 19:00:27.048   980  1142 V LynxModule: mod#=2 queryInterface(): interface SERVO_HUB is not supported
+12-31 19:00:27.048   980  1142 V LynxUsb : 0x02672ab2 on 0x0c1f7e67: releasing delegate to [(embedded)]
+12-31 19:00:27.048   980  1142 I FtcEventLoop: ======= INIT FINISH =======
+12-31 19:00:27.048   980  1142 V RobotCore: EventLoopManager state is RUNNING
+12-31 19:00:27.066   980  1142 V RobotCore: Robot Status: running, starting robot
+12-31 19:00:27.070   980  1142 V RobotCore: Robot Status: running
+12-31 19:00:27.072   980  1167 V RobotCore: thread: 'EventLoop' starting...
+12-31 19:00:27.074   980  1142 D FTCService: Detecting Wi-Fi reset
+12-31 19:00:27.075   980  1142 D RobotControllerAccessPointAssistant: detectWifiReset button=false
+12-31 19:00:27.076   980  1142 V RobotCore: thread: ...terminating 'RobotSetupRunnable.run()'
+12-31 19:00:27.079   980  1167 D RobotCore: system telemetry: key=$System$Warning$ msg="Unable to find webcam "camera" with serial number 4B75BEAF."
+12-31 19:00:27.217   980  1166 V SoundInfo: construct(0x028fa106)
+12-31 19:00:27.254   980  1165 E WVMExtractor: Failed to open libwvm.so: dlopen failed: "/system/vendor/lib64/libwvm.so" is 32-bit instead of 64-bit
+12-31 19:00:27.280   980  1165 I MediaCodec: callingProcessName:com.qualcomm.ftcrobotcontroller
+12-31 19:00:27.284   980  1173 I ACodec  : onAllocateComponent:6752 mSoftCodecPref:0 componentName:
+12-31 19:00:27.285   980  1173 I ACodec  : onAllocateComponent:6783 mSoftCodecPref:0 componentName:OMX.google.raw.decoder
+12-31 19:00:27.341   980  1103 D SoundPlayer: onLoadComplete(samp=1|ms=4506, samp=1)=0
+12-31 19:00:27.350   980  1166 W AudioTrack: AUDIO_OUTPUT_FLAG_FAST denied by client; transfer 4, track 48000 Hz, output 44100 Hz
+12-31 19:00:27.525   980  1166 D SoundPlayer: playing volume=0.000000 samp=1|ms=4506
+12-31 19:00:27.590   980  1167 I RobotCore: Attempting to switch to OpMode $Stop$Robot$
+12-31 19:00:27.593   980  1167 D HardwareMap: Clearing which device instances have been retrieved
+12-31 19:00:27.597   980  1182 V RobotCore: thread: 'OpModeThread' starting...
+12-31 19:00:27.656   980  1166 V SoundInfo: construct(0x0b13cade)
+12-31 19:00:27.703   980  1165 I MediaCodec: callingProcessName:com.qualcomm.ftcrobotcontroller
+12-31 19:00:27.706   980  1183 I ACodec  : onAllocateComponent:6752 mSoftCodecPref:0 componentName:
+12-31 19:00:27.708   980  1183 I ACodec  : onAllocateComponent:6783 mSoftCodecPref:0 componentName:OMX.google.raw.decoder
+12-31 19:00:27.755   980  1103 D SoundPlayer: onLoadComplete(samp=2|ms=2509, samp=2)=0
+12-31 19:00:31.851   980  1186 W AudioTrack: AUDIO_OUTPUT_FLAG_FAST denied by client; transfer 4, track 48000 Hz, output 44100 Hz
+12-31 19:00:31.857   980  1186 D SoundPlayer: playing volume=0.000000 samp=2|ms=2509
