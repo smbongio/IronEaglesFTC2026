@@ -9,7 +9,7 @@
             <!-- REV Blinkin LED Driver on servo/PWM port 0. Hardware map name is "blinkin". -->
             <RevBlinkinLedDriver name="blinkin" port="0" />
             <ControlHubImuBHI260AP name="imu" port="0" bus="0" />
-            <!-- I2C bus must match TunableValues.OCTOQUAD_I2C_BUS. Hub IMU owns bus 0. -->
+            <!-- I2C bus must match TunableValues.OCTOQUAD_I2C_BUS. Control Hub first external jack is I2C 1. -->
             <OctoQuadFTC name="octoquad" port="0" bus="1" />
         </LynxModule>
         <LynxModule name="Expansion Hub 2" port="2">

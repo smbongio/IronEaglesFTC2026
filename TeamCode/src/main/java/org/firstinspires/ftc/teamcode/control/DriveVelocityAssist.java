@@ -8,8 +8,8 @@ import org.firstinspires.ftc.teamcode.config.TunableValues;
  * Cancels motion on axes the driver is not commanding. Does not lock heading
  * or change speed on an axis the stick is holding.
  *
- * OctoQuad field frame at heading 0: +X forward, +Y right, heading CCW.
- * Stick frame: +y forward, +x right, +rx clockwise.
+ * Stick frame matches the field for a red-wall driver: +y is field +Y (blue),
+ * +x is field +X (audience), +rx is clockwise.
  */
 public class DriveVelocityAssist {
     private static final double MIN_DT_SEC = 0.005;
@@ -62,8 +62,8 @@ public class DriveVelocityAssist {
 
         double maxVel = Math.max(TunableValues.DRIVE_ASSIST_MAX_VEL_MM_S, 1.0);
         double maxOmega = Math.max(TunableValues.DRIVE_ASSIST_MAX_OMEGA_RAD_S, 0.01);
-        measX = velYMmS / maxVel;
-        measY = velXMmS / maxVel;
+        measX = velXMmS / maxVel;
+        measY = velYMmS / maxVel;
         measRx = -velHeadingRadS / maxOmega;
 
         if (!TunableValues.DRIVE_ASSIST_ENABLED

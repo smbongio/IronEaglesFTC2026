@@ -36,7 +36,7 @@ Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 | Config name | Plug | Hardware |
 |---|---|---|
 | `imu` | Built-in I2C **bus 0** (no external jack) | `ControlHubImuBHI260AP`. Mount in code: hub on the **right** side, logo **RIGHT**, USB **DOWN**. |
-| `octoquad` | I2C **bus 1**, port 0, addr `0x30` | Digital Chicken OctoQuad FTC MK2, firmware **3.1.0**. Chassis inches, origin center, +X right, +Y forward, +Z up: board at **(−3, 1, 11)**. Logs: IMU axis **Z**. |
+| `octoquad` | Control Hub I2C **bus 1** (first external jack), port 0, addr `0x30` | Digital Chicken OctoQuad FTC MK2, firmware **3.1.0**. Chassis inches, origin center, +X right, +Y forward, +Z up: board at **(−3, 1, 11)**. Logs: IMU axis **Z**. |
 | `blinkin` | Servo / PWM **port 0** | REV Blinkin LED Driver. The LED strip plugs into the Blinkin, not a hub port. |
 | `camera` | Control Hub USB | Webcam serial **`4B75BEAF`**. Logs have shown USB permission declined / not streaming. |
 
@@ -46,8 +46,8 @@ These are OctoQuad ports, not Control Hub motor ports.
 
 | OctoQuad port | Software name | Encoder | Mount |
 |---|---|---|---|
-| 6 (`Y6`) | Forward / Y wheel (`OCTOQUAD_FORWARD_PORT`) | REV Through Bore, 8192 ticks/rev, 4 in wheel | **(4, 1)** in, 4 in right and 1 in forward of center |
-| 7 (`X7`) | Strafe / horizontal X wheel (`OCTOQUAD_STRAFE_PORT`) | Same | **(0, −7.5)** in, rear centerline |
+| 6 (`X6`) | Forward / X wheel (`OCTOQUAD_FORWARD_PORT`) | REV Through Bore, 8192 ticks/rev, 4 in wheel | **(4, 1)** in, 4 in right and 1 in forward of center |
+| 7 (`Y7`) | Strafe / Y wheel (`OCTOQUAD_STRAFE_PORT`) | Same | **(0, −7.5)** in, rear centerline |
 | 0–5 | Unused | — | Logs stay at 0 |
 
 Theoretical scale is `25.665` ticks/mm (`OCTOQUAD_*_TICKS_PER_MM`). TCP is the pod-axis intersection at **(4, −7.5)** in. Code offsets that point to chassis center: 7.5 in forward, 4 in left in the OctoQuad frame.
@@ -65,4 +65,4 @@ These exist on the robot or at the field, but there is no hub port to list:
 
 ## Runtime check
 
-`logs/20261031-123210` hardware-map dump: **8 motors, 0 servos, 1 webcam, 1 Blinkin**, OctoQuad on bus 1. Nothing else is configured.
+`logs/20261031-123210` hardware-map dump: **8 motors, 0 servos, 1 webcam, 1 Blinkin**. OctoQuad is now on Control Hub I2C bus 1.

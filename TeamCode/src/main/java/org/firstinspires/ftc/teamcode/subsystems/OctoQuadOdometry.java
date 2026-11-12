@@ -85,6 +85,7 @@ public class OctoQuadOdometry implements ImuInterface {
     private int octoRebootCount;
     private boolean haveUptime;
     private boolean uptimeReset;
+    private double lastLoggedHubYawDeg;
 
     public OctoQuadOdometry(HardwareMap hardwareMap) {
         hubImu = tryInitHubImu(hardwareMap);
@@ -93,6 +94,8 @@ public class OctoQuadOdometry implements ImuInterface {
             RobotLog.w("[OCTOQUAD] '%s' not found in the active robot config.", CONFIG_NAME);
             sampleHubImu();
             applyHubHeading();
+            RobotLog.i("[IMU] HUB GYRO %s", getHubGyroLine());
+            RobotLog.i("[IMU] COMPARE %s", getImuCompareLine());
             return;
         }
 
@@ -136,6 +139,9 @@ public class OctoQuadOdometry implements ImuInterface {
                 getUptimeStatus());
         RobotLog.i("[OCTOQUAD] POS %s", getEncoderBlockStatus());
         RobotLog.i("[OCTOQUAD] LOC %s", getLocalizerBlockStatus());
+        RobotLog.i("[OCTOQUAD] GYRO %s", getOctoGyroLine());
+        RobotLog.i("[IMU] HUB GYRO %s", getHubGyroLine());
+        RobotLog.i("[IMU] COMPARE %s", getImuCompareLine());
     }
 
     public void update() {
@@ -377,6 +383,31 @@ public class OctoQuadOdometry implements ImuInterface {
                 hubYawDeg, hubPitchDeg, hubRollDeg, hubWxDegS, hubWyDegS, hubWzDegS);
     }
 
+    /**
+     * OctoQuad heading vs Control Hub yaw. Hub yaw is reset at init, so both
+     * should start at {@link TunableValues#START_HEADING_DEG} and track together.
+     * A growing dYaw or a jump on one side only is the stutter signature.
+     */
+    public String getImuCompareLine() {
+        boolean octoOk = octoquad != null && localizerCrcOk;
+        if (!octoOk && !hubGyroValid) {
+            return "octo=MISSING  hub=MISSING";
+        }
+        if (!octoOk) {
+            return String.format("octo=MISSING  hub yaw=%.1f wz=%.1f deg/s",
+                    hubFieldHeadingDeg(), hubWzDegS);
+        }
+        double octoHeading = Math.toDegrees(localizer.heading_rad);
+        double octoW = Math.toDegrees(localizer.velHeading_radS);
+        if (!hubGyroValid) {
+            return String.format("octo h=%.1f w=%.1f deg/s  hub=%s",
+                    octoHeading, octoW, hubImuError != null ? hubImuError : "MISSING");
+        }
+        double hubHeading = hubFieldHeadingDeg();
+        return String.format("octo h=%.1f w=%.1f  hub h=%.1f wz=%.1f  dYaw=%.1f deg",
+                octoHeading, octoW, hubHeading, hubWzDegS, wrapDegrees(octoHeading - hubHeading));
+    }
+
     private String encoderCrcSuffix() {
         String suffix = "  crc=" + (encoderCrcOk ? "OK" : "BAD");
         if (readFailed) {
@@ -391,9 +422,9 @@ public class OctoQuadOdometry implements ImuInterface {
             if (i > 0) {
                 line.append("  ");
             }
-            if (i == TunableValues.OCTOQUAD_STRAFE_PORT) {
+            if (i == TunableValues.OCTOQUAD_FORWARD_PORT) {
                 line.append("X");
-            } else if (i == TunableValues.OCTOQUAD_FORWARD_PORT) {
+            } else if (i == TunableValues.OCTOQUAD_STRAFE_PORT) {
                 line.append("Y");
             }
             line.append(i).append("=").append(values[i]);
@@ -414,10 +445,12 @@ public class OctoQuadOdometry implements ImuInterface {
     }
 
     /**
-     * Heading for field-centric drive: 0 is the start facing (+X).
+     * Heading for field-centric drive. Stick-up is field +Y (red-wall view),
+     * not robot-forward, so this is IMU heading minus {@link TunableValues#DRIVE_STICK_ZERO_DEG}.
      */
     public double getDriveHeadingDegrees() {
-        double heading = headingDegrees - TunableValues.START_HEADING_DEG;
+        double heading = headingDegrees - TunableValues.START_HEADING_DEG
+                - TunableValues.DRIVE_STICK_ZERO_DEG;
         while (heading > 180.0) {
             heading -= 360.0;
         }
@@ -481,6 +514,7 @@ public class OctoQuadOdometry implements ImuInterface {
             logTimer.reset();
             wasActive = active;
             lastLoggedHeadingDegrees = headingDegrees;
+            lastLoggedHubYawDeg = hubYawDeg;
             return;
         }
         refreshOctoImuDiag();
@@ -493,7 +527,8 @@ public class OctoQuadOdometry implements ImuInterface {
         RobotLog.i("[OCTOQUAD] GYRO %s", getOctoGyroLine());
         RobotLog.i("[OCTOQUAD] UPTIME %s", getUptimeStatus());
         RobotLog.i("[IMU] HUB GYRO %s", getHubGyroLine());
-        RobotLog.i("[OCTOQUAD] COMPARE source=%s pods=%s pose=%s heading=%s  applied x=%.1f y=%.1f in h=%.1f  raw x=%.1f y=%.1f in h=%.1f",
+        RobotLog.i("[IMU] COMPARE %s", getImuCompareLine());
+        RobotLog.i("[OCTOQUAD] COMPARE source=%s pods=%s pose=%s heading=%s  applied x=%.1f y=%.1f in h=%.1f  raw x=%.1f y=%.1f in h=%.1f  hub h=%.1f dYaw=%.1f",
                 useOctoQuadHeading() ? "octoquad" : "hub+pods",
                 podsMoved,
                 poseMoved,
@@ -503,10 +538,13 @@ public class OctoQuadOdometry implements ImuInterface {
                 headingDegrees,
                 localizer.posX_mm / 25.4,
                 localizer.posY_mm / 25.4,
-                rawHeadingDeg);
+                rawHeadingDeg,
+                hubFieldHeadingDeg(),
+                wrapDegrees(rawHeadingDeg - hubFieldHeadingDeg()));
         logTimer.reset();
         wasActive = active;
         lastLoggedHeadingDegrees = rawHeadingDeg;
+        lastLoggedHubYawDeg = hubYawDeg;
         lastLoggedPosXMm = localizer.posX_mm;
         lastLoggedPosYMm = localizer.posY_mm;
         System.arraycopy(encoderPositions, 0, lastLoggedEncoderPositions, 0, encoderPositions.length);
@@ -555,9 +593,29 @@ public class OctoQuadOdometry implements ImuInterface {
             if (localizer.posX_mm != lastLoggedPosXMm || localizer.posY_mm != lastLoggedPosYMm) {
                 return true;
             }
+            if (hubImuMoved()) {
+                return true;
+            }
             return encoderPositionsChanged();
         }
-        return Math.abs(headingDegrees - lastLoggedHeadingDegrees) > 0.1;
+        return Math.abs(headingDegrees - lastLoggedHeadingDegrees) > 0.1 || hubImuMoved();
+    }
+
+    private boolean hubImuMoved() {
+        if (!hubGyroValid) {
+            return hubImuError != null;
+        }
+        if (Math.abs(wrapDegrees(hubYawDeg - lastLoggedHubYawDeg)) > 0.1) {
+            return true;
+        }
+        return Math.abs(hubWzDegS) > 5.0;
+    }
+
+    private double hubFieldHeadingDeg() {
+        if (!hubGyroValid) {
+            return 0.0;
+        }
+        return wrapDegrees(hubYawDeg + TunableValues.START_HEADING_DEG);
     }
 
     private boolean encoderPositionsChanged() {

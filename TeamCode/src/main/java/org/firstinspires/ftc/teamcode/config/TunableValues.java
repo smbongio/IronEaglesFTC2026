@@ -66,9 +66,8 @@ public final class TunableValues {
     public static double SHOOTER_D = 1.0;
     public static double SHOOTER_F = 0.0;
 
-    // Control Hub I2C bus the OctoQuad is plugged into.
-    // Bus 0 is the built-in IMU (no external jack). First physical I2C jack is bus 1.
-    // Must match IronEaglesConfig.xml <OctoQuadFTC bus="...">.
+    // Control Hub I2C bus the OctoQuad is plugged into (first external jack is I2C 1).
+    // Must match IronEaglesConfig.xml <OctoQuadFTC bus="..."> on Control Hub.
     public static int OCTOQUAD_I2C_BUS = 1;
 
     // true: heading and X/Y come from the OctoQuad IMU/localizer.
@@ -76,8 +75,8 @@ public final class TunableValues {
     public static boolean USE_OCTOQUAD_IMU = true;
 
     // OctoQuad MK2 dead wheels (encoder jacks on the OctoQuad, not hub motor ports).
-    // X wheel = robot horizontal / strafe, port 7.
-    // Y wheel = robot forward/back, port 6.
+    // X wheel = robot forward/back, port 6. At heading 0 this is field +X.
+    // Y wheel = robot left/right strafe, port 7. At heading 0 this is field +Y.
     // *_DIR is +1 or -1. They do not change field-centric heading.
     public static int OCTOQUAD_FORWARD_PORT = 6;
     public static int OCTOQUAD_STRAFE_PORT = 7;
@@ -90,7 +89,7 @@ public final class TunableValues {
     public static float OCTOQUAD_STRAFE_TICKS_PER_MM = 25.665f;
 
     // Chassis inches, origin at center, +X right, +Y forward, bumpers at ±9:
-    // OctoQuad board (−3, 1, 11), X/strafe pod (0, −7.5), Y/forward pod (4, 1).
+    // OctoQuad board (−3, 1, 11), X/forward pod (4, 1), Y/strafe pod (0, −7.5).
     // TCP is pod-axis intersection (4, −7.5). Offset is TCP → center in the
     // OctoQuad localizer frame (+X forward, +Y left): 7.5 in forward, 4 in left.
     // If an in-place spin makes pose orbit, negate OCTOQUAD_TCP_OFFSET_Y_MM.
@@ -121,6 +120,9 @@ public final class TunableValues {
     public static double START_POSE_Y_IN =
             START_NEAR_BUMPER_FROM_RED_IN + ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
     public static double START_HEADING_DEG = 0.0;
+    // Stick-up is field +Y (toward blue, away from a red-side driver). IMU heading
+    // 0 is field +X (audience), so field-centric drive uses heading minus this.
+    public static double DRIVE_STICK_ZERO_DEG = 90.0;
 
     // Sign-preserving square on analog sticks after deadzone. Full stick is still full power.
     public static boolean DRIVE_STICK_SQUARED = true;

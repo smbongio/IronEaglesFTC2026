@@ -50,16 +50,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s",
                     String.join(", ", robot.missingDevices));
         }
-        telemetry.addData("X", poseXIn());
-        telemetry.addData("Y", poseYIn());
-        telemetry.addData("HEADING/YAW", imu.isPresent()
-                ? String.format("%s  heading=%.1f", imu.getHeadingSource(), imu.getHeadingDegrees())
-                : "MISSING - drive is robot-centric");
-        addOdometryBlockTelemetry();
-        telemetry.addData("POWER", hardwareHealth.getPowerLine());
-        telemetry.addData("TARGET", vision.isPresent() ? "waiting" : "FALSE");
-        addErrorLine();
-        telemetry.update();
+        writeTelemetry();
 
         RobotLog.i("[CONTROLS]\n%s", TunableValues.GAMEPAD_CONTROLS);
         waitForStart();
@@ -193,23 +184,6 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         }
     }
 
-    private boolean motorAtTarget(double measuredTicksPerSec, double targetTicksPerSec) {
-        double target = Math.abs(targetTicksPerSec);
-        double band = target * TunableValues.SHOOTER_AT_SPEED_TOLERANCE;
-        return Math.abs(Math.abs(measuredTicksPerSec) - target) <= band;
-    }
-
-    private boolean bothShootersAtTarget() {
-        boolean leaderOk = motorAtTarget(
-                robot.getShooter().getTicksPerSec(), TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-        if (robot.shooterFollow == null) {
-            return leaderOk;
-        }
-        boolean followOk = motorAtTarget(
-                robot.getShooter().getFollowTicksPerSec(), TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-        return leaderOk && followOk;
-    }
-
     private void updateSpeedTargets() {
         if (gamepad2.dpad_up && !wasGp2DpadUp) {
             bumpShooterTarget(TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
@@ -239,82 +213,49 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         RobotLog.i("[INTAKE TARGET] %.0f ticks/s", TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
     }
 
-    private String autoStatus() {
-        boolean aligning = gamepad1.a;
-        boolean firing = gamepad2.a;
-        if (aligning && firing) {
-            return "AUTO-ALIGNING AUTO-FIRING";
-        }
-        if (aligning) {
-            return "AUTO-ALIGNING";
-        }
-        if (firing) {
-            return "AUTO-FIRING";
-        }
-        return " ";
-    }
-
     private void writeTelemetry() {
-        telemetry.addData("SHOOTER TARGET", "%.0f ticks/s  (GP2 Up/Down)",
+        telemetry.addData("X", poseInches(true));
+        telemetry.addData("Y", poseInches(false));
+        telemetry.addData("X POD TICKS", podTicks(true));
+        telemetry.addData("Y POD TICKS", podTicks(false));
+        telemetry.addData("HEADING/YAW DEGREES", headingLine());
+        telemetry.addData("SHOOTER TARGET TICKS/SEC", "%.0f",
                 TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-        telemetry.addData("INTAKE TARGET", "%.0f ticks/s  (GP2 Left/Right)",
-                TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
-        telemetry.addData("SHOOTER TICKS/S", "leader %.0f  follow %.0f",
-                robot.getShooter().getTicksPerSec(), robot.getShooter().getFollowTicksPerSec());
-        telemetry.addData("SHOOTERS AT SPEED", bothShootersAtTarget()
-                ? "YES" : String.format("NO  (need +/- %.0f%%)",
-                TunableValues.SHOOTER_AT_SPEED_TOLERANCE * 100.0));
-        telemetry.addData("TARGET", targetCell.getStatus());
-        telemetry.addData("GATE", targetCell.getGateStatus());
-        telemetry.addData("LED", robot.getLed().getStatus());
-        telemetry.addData("WHEELS T/S", robot.getDrivetrain().getTicksPerSecStatus());
-        telemetry.addData("X", poseXIn());
-        telemetry.addData("Y", poseYIn());
-        telemetry.addData("HEADING/YAW", imu.isPresent()
-                ? String.format("%s  %.1f deg  (Back=start)", imu.getHeadingSource(), imu.getHeadingDegrees())
-                : "MISSING");
-        addOdometryBlockTelemetry();
-        telemetry.addData("POWER", hardwareHealth.getPowerLine());
-        telemetry.addData("AUTO", autoStatus());
-        addErrorLine();
+        telemetry.addData("SHOOTER TICKS/SEC", "%.0f",
+                robot.getShooter().getTicksPerSec());
+        telemetry.addData("SHOOTER TICKS/SEC (FOLLOWER)", "%.0f",
+                robot.getShooter().getFollowTicksPerSec());
+        telemetry.addData("INTAKE TICKS/SEC", "%.0f",
+                robot.getIntake().getTicksPerSec());
+        telemetry.addData("ERRORS", errorLine());
         telemetry.update();
     }
 
-    private String poseXIn() {
-        return imu.isPresent()
-                ? String.format("%.1f in", imu.getPosXMm() / 25.4)
-                : "MISSING";
-    }
-
-    private String poseYIn() {
-        return imu.isPresent()
-                ? String.format("%.1f in", imu.getPosYMm() / 25.4)
-                : "MISSING";
-    }
-
-    private void addOdometryBlockTelemetry() {
+    private String poseInches(boolean x) {
         if (!imu.isPresent()) {
-            telemetry.addData("ENC POS", "MISSING");
-            telemetry.addData("ENC VEL", "MISSING");
-            telemetry.addData("LOC STATUS", "MISSING");
-            telemetry.addData("LOC XY", "MISSING");
-            telemetry.addData("LOC VEL", "MISSING");
-            telemetry.addData("OCTO GYRO", "MISSING");
-            telemetry.addData("HUB GYRO", "MISSING");
-            return;
+            return "MISSING";
         }
-        telemetry.addData("ENC POS", imu.getEncoderPositionLine());
-        telemetry.addData("ENC VEL", imu.getEncoderVelocityLine());
-        telemetry.addData("LOC STATUS", imu.getLocalizerStatusLine());
-        telemetry.addData("LOC XY", imu.getLocalizerPoseLine());
-        telemetry.addData("LOC VEL", imu.getLocalizerVelocityLine());
-        telemetry.addData("OCTO GYRO", imu.getOctoGyroLine());
-        telemetry.addData("HUB GYRO", imu.getHubGyroLine());
+        double mm = x ? imu.getPosXMm() : imu.getPosYMm();
+        return String.format("%.1f", mm / 25.4);
     }
 
-    private void addErrorLine() {
+    private String podTicks(boolean xPod) {
+        if (!imu.isPresent()) {
+            return "MISSING";
+        }
+        return Integer.toString(xPod ? imu.getForwardTicks() : imu.getStrafeTicks());
+    }
+
+    private String headingLine() {
+        if (!imu.isPresent()) {
+            return "MISSING";
+        }
+        return String.format("%.1f", imu.getHeadingDegrees());
+    }
+
+    private String errorLine() {
         String line = hardwareHealth.getErrorLine();
-        telemetry.addData("ERROR", line.isEmpty() ? " " : line);
+        return line.isEmpty() ? " " : line;
     }
 
     private static double squareStick(double value) {
