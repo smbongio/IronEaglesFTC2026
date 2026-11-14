@@ -12,7 +12,7 @@ public interface IntakeInterface extends MechanismInterface {
     void runIntake(double speed);
 
     /**
-     * Measured intake encoder speed, in ticks per second.
+     * Motor power actually applied this loop, -1 to 1.
      */
-    double getTicksPerSec();
+    double getAppliedPower();
 }

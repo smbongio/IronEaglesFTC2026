@@ -7,7 +7,7 @@ import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
 import org.firstinspires.ftc.teamcode.subsystems.HardwareHealthMonitor;
-import org.firstinspires.ftc.teamcode.subsystems.OctoQuadOdometry;
+import org.firstinspires.ftc.teamcode.subsystems.DeadWheelOdometry;
 import org.firstinspires.ftc.teamcode.subsystems.TargetCellGate;
 
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
@@ -16,7 +16,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private final IronEaglesHardware robot = new IronEaglesHardware();
     private final DriveVelocityAssist driveAssist = new DriveVelocityAssist();
     private final TargetCellGate targetCell = new TargetCellGate();
-    private OctoQuadOdometry imu;
+    private DeadWheelOdometry odometry;
     private AprilTagVision vision;
     private HardwareHealthMonitor hardwareHealth;
 
@@ -26,18 +26,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasHopperRunning = false;
     private boolean wasGp2DpadUp = false;
     private boolean wasGp2DpadDown = false;
-    private boolean wasGp2DpadLeft = false;
-    private boolean wasGp2DpadRight = false;
 
     @Override
     public void runOpMode() {
         RobotLog.i("OpMode Initializing: IronEaglesTeleOp2026");
 
         robot.init(hardwareMap);
-        imu = new OctoQuadOdometry(hardwareMap);
+        odometry = new DeadWheelOdometry(robot.leftPod, robot.rightPod, robot.backPod);
         vision = new AprilTagVision(hardwareMap, robot.camera);
         vision.sample();
-        hardwareHealth = new HardwareHealthMonitor(hardwareMap, robot, imu, vision);
+        hardwareHealth = new HardwareHealthMonitor(hardwareMap, robot, odometry, vision);
         hardwareHealth.update();
         telemetry.setMsTransmissionInterval(100);
 
@@ -54,16 +52,16 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
         RobotLog.i("[CONTROLS]\n%s", TunableValues.GAMEPAD_CONTROLS);
         waitForStart();
-        RobotLog.i("OpMode Started: Match timer running. heading=%.1f", imu.getHeadingDegrees());
+        RobotLog.i("OpMode Started: Match timer running. heading=%.1f", odometry.getHeadingDegrees());
 
         try {
             while (opModeIsActive()) {
-                imu.update();
+                odometry.update();
                 targetCell.update(vision.sample());
                 hardwareHealth.update();
 
                 if (gamepad1.backWasPressed()) {
-                    imu.resetYaw();
+                    odometry.resetHeading();
                 }
 
                 double rawY  = -gamepad1.left_stick_y;
@@ -81,7 +79,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
                 robot.getLed().update(targetCell.isTargetVisible());
                 robot.getDrivetrain().logWheelDiagnostics();
-                imu.logOdometryDiagnostics();
+                odometry.logOdometryDiagnostics();
                 writeTelemetry();
             }
         } finally {
@@ -94,16 +92,17 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         boolean isManualDriving = (x != 0 || y != 0 || rx != 0);
         if (isManualDriving && !wasManualDriving) {
             RobotLog.i("[MANUAL DRIVETRAIN] Joysticks engaged -> Y: %.2f | X: %.2f | Rot: %.2f heading: %.1f",
-                    y, x, rx, imu.getHeadingDegrees());
+                    y, x, rx, odometry.getHeadingDegrees());
             wasManualDriving = true;
         } else if (!isManualDriving && wasManualDriving) {
             RobotLog.i("[MANUAL DRIVETRAIN] Joysticks released -> Drivetrain stopped.");
             wasManualDriving = false;
         }
 
-        double heading = imu.isPresent() ? imu.getDriveHeadingDegrees() : 0.0;
-        if (imu.hasLocalizerVelocity()) {
-            driveAssist.apply(x, y, rx, imu.getVelXMmS(), imu.getVelYMmS(), imu.getVelHeadingRadS());
+        double heading = odometry.isPresent() ? odometry.getDriveHeadingDegrees() : 0.0;
+        if (odometry.hasLocalizerVelocity()) {
+            driveAssist.apply(x, y, rx,
+                    odometry.getVelXMmS(), odometry.getVelYMmS(), odometry.getVelHeadingRadS());
             x = driveAssist.getX();
             y = driveAssist.getY();
             rx = driveAssist.getRx();
@@ -131,8 +130,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private void logIntakeStart(String direction) {
         if (!wasIntakeRunning) {
-            RobotLog.i("[MANUAL INTAKE] %s at %.0f ticks/s.",
-                    direction, TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
+            RobotLog.i("[MANUAL INTAKE] %s at %.0f%% power.",
+                    direction, TunableValues.INTAKE_POWER * 100.0);
             wasIntakeRunning = true;
         }
     }
@@ -190,15 +189,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         } else if (gamepad2.dpad_down && !wasGp2DpadDown) {
             bumpShooterTarget(-TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
         }
-        if (gamepad2.dpad_right && !wasGp2DpadRight) {
-            bumpIntakeTarget(TunableValues.INTAKE_TICKS_PER_SEC_STEP);
-        } else if (gamepad2.dpad_left && !wasGp2DpadLeft) {
-            bumpIntakeTarget(-TunableValues.INTAKE_TICKS_PER_SEC_STEP);
-        }
         wasGp2DpadUp = gamepad2.dpad_up;
         wasGp2DpadDown = gamepad2.dpad_down;
-        wasGp2DpadLeft = gamepad2.dpad_left;
-        wasGp2DpadRight = gamepad2.dpad_right;
     }
 
     private static void bumpShooterTarget(double deltaTicksPerSec) {
@@ -207,50 +199,43 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         RobotLog.i("[SHOOTER TARGET] %.0f ticks/s", TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
     }
 
-    private static void bumpIntakeTarget(double deltaTicksPerSec) {
-        TunableValues.INTAKE_TARGET_TICKS_PER_SEC =
-                Math.max(0.0, TunableValues.INTAKE_TARGET_TICKS_PER_SEC + deltaTicksPerSec);
-        RobotLog.i("[INTAKE TARGET] %.0f ticks/s", TunableValues.INTAKE_TARGET_TICKS_PER_SEC);
-    }
-
     private void writeTelemetry() {
         telemetry.addData("X", poseInches(true));
         telemetry.addData("Y", poseInches(false));
-        telemetry.addData("X POD TICKS", podTicks(true));
-        telemetry.addData("Y POD TICKS", podTicks(false));
-        telemetry.addData("HEADING/YAW DEGREES", headingLine());
+        telemetry.addData("LEFT POD TICKS", podTicks(odometry.getLeftTicks()));
+        telemetry.addData("RIGHT POD TICKS", podTicks(odometry.getRightTicks()));
+        telemetry.addData("BACK POD TICKS", podTicks(odometry.getBackTicks()));
+        telemetry.addData("HEADING DEGREES", headingLine());
         telemetry.addData("SHOOTER TARGET TICKS/SEC", "%.0f",
                 TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
         telemetry.addData("SHOOTER TICKS/SEC", "%.0f",
                 robot.getShooter().getTicksPerSec());
-        telemetry.addData("SHOOTER TICKS/SEC (FOLLOWER)", "%.0f",
-                robot.getShooter().getFollowTicksPerSec());
-        telemetry.addData("INTAKE TICKS/SEC", "%.0f",
-                robot.getIntake().getTicksPerSec());
+        telemetry.addData("INTAKE POWER", "%.0f%%",
+                Math.abs(robot.getIntake().getAppliedPower()) * 100.0);
         telemetry.addData("ERRORS", errorLine());
         telemetry.update();
     }
 
     private String poseInches(boolean x) {
-        if (!imu.isPresent()) {
+        if (!odometry.isPresent()) {
             return "MISSING";
         }
-        double mm = x ? imu.getPosXMm() : imu.getPosYMm();
+        double mm = x ? odometry.getPosXMm() : odometry.getPosYMm();
         return String.format("%.1f", mm / 25.4);
     }
 
-    private String podTicks(boolean xPod) {
-        if (!imu.isPresent()) {
+    private String podTicks(int ticks) {
+        if (!odometry.isPresent()) {
             return "MISSING";
         }
-        return Integer.toString(xPod ? imu.getForwardTicks() : imu.getStrafeTicks());
+        return Integer.toString(ticks);
     }
 
     private String headingLine() {
-        if (!imu.isPresent()) {
+        if (!odometry.isPresent()) {
             return "MISSING";
         }
-        return String.format("%.1f", imu.getHeadingDegrees());
+        return String.format("%.1f", odometry.getHeadingDegrees());
     }
 
     private String errorLine() {

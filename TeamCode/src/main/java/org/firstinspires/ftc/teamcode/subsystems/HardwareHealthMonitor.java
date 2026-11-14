@@ -12,30 +12,30 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Polls hubs, motors, OctoQuad, and camera. Errors are shown only on the
- * TeleOp ERROR telemetry line, never as a Driver Station global warning.
+ * Polls hubs, motors, dead-wheel encoders, and camera. Errors are shown
+ * only on the TeleOp ERROR telemetry line, never as a Driver Station global warning.
  * Once an error is seen it stays on the line and in the log even if it clears.
  */
 public class HardwareHealthMonitor {
     private static final String[] MOTOR_NAMES = {
             "frontLeft", "frontRight", "backLeft", "backRight",
-            "intake", "hopper", "shooter", "shooterFollow"
+            "intake", "hopper", "rightPod", "shooter"
     };
 
     private final HardwareMap hardwareMap;
     private final IronEaglesHardware robot;
-    private final OctoQuadOdometry octoquad;
+    private final DeadWheelOdometry odometry;
     private final AprilTagVision vision;
     private final HubPowerMonitor power;
     private final Set<String> stickyErrors = new LinkedHashSet<>();
 
     public HardwareHealthMonitor(HardwareMap hardwareMap, IronEaglesHardware robot,
-                                 OctoQuadOdometry octoquad, AprilTagVision vision) {
+                                 DeadWheelOdometry odometry, AprilTagVision vision) {
         this.hardwareMap = hardwareMap;
         this.robot = robot;
-        this.octoquad = octoquad;
+        this.odometry = odometry;
         this.vision = vision;
-        this.power = new HubPowerMonitor(hardwareMap, octoquad);
+        this.power = new HubPowerMonitor(hardwareMap);
     }
 
     public void update() {
@@ -47,7 +47,7 @@ public class HardwareHealthMonitor {
         checkMotors(current);
         power.update();
         current.addAll(power.getCurrentErrors());
-        current.addAll(octoquad.getCurrentHardwareErrors());
+        current.addAll(odometry.getCurrentHardwareErrors());
         addIfPresent(current, vision.getDisconnectError());
         for (String error : current) {
             if (stickyErrors.add(error)) {
@@ -109,10 +109,10 @@ public class HardwareHealthMonitor {
                 return robot.intake;
             case "hopper":
                 return robot.hopper;
+            case "rightPod":
+                return robot.rightPod;
             case "shooter":
                 return robot.shooter;
-            case "shooterFollow":
-                return robot.shooterFollow;
             default:
                 return null;
         }

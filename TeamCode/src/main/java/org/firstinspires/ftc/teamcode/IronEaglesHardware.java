@@ -1,11 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.hardware.digitalchickenlabs.OctoQuad;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevBlinkinLedDriver;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.RobotLog;
@@ -42,7 +40,13 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     public DcMotor intake;
     public DcMotor hopper;
     public DcMotor shooter;
-    public DcMotor shooterFollow;
+    // Dead-wheel encoders. A pod on a motor port shares that port's one encoder jack.
+    // leftPod  = EH port 0 encoder (front-to-back, left side). Same device object as intake.
+    // rightPod = EH port 2 encoder (front-to-back, right side). No motor on this port.
+    // backPod  = CH port 1 encoder (side-to-side, rear). Same device object as backRight.
+    public DcMotor leftPod;
+    public DcMotor rightPod;
+    public DcMotor backPod;
 
     public final List<String> missingDevices = new ArrayList<>();
 
@@ -126,11 +130,12 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         intake  = getHardwareSafely(hardwareMap, DcMotor.class, "intake");
         hopper  = getHardwareSafely(hardwareMap, DcMotor.class, "hopper");
         shooter = getHardwareSafely(hardwareMap, DcMotor.class, "shooter");
-        shooterFollow = getHardwareSafely(hardwareMap, DcMotor.class, "shooterFollow");
+        rightPod = getHardwareSafely(hardwareMap, DcMotor.class, "rightPod");
+        leftPod = intake;
+        backPod = backRight;
 
         // Webcam
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
-        getHardwareSafely(hardwareMap, OctoQuad.class, "octoquad");
         blinkin = getHardwareSafely(hardwareMap, RevBlinkinLedDriver.class, "blinkin");
 
         // Configure brake behavior and direction on drivetrain motors if present
@@ -143,9 +148,16 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         if (backRight != null)  backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Configure intake and shooter motor directions (Reversed by default)
-        if (intake != null)  intake.setDirection(DcMotor.Direction.REVERSE);
-        if (shooter != null) shooter.setDirection(DcMotor.Direction.REVERSE);
-        // Follower is FORWARD by default so a mirrored dual-motor mount spins the same way as shooter.
+        if (intake != null) {
+            intake.setDirection(DcMotor.Direction.REVERSE);
+            // Power only. Port 0 encoder jack is the left odometry pod, not an intake encoder.
+            intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+        if (shooter != null) {
+            shooter.setDirection(DcMotor.Direction.REVERSE);
+            shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        }
 
         // Configure hopper motor (REV Core Hex Motor) encoder reset and brake behavior
         if (hopper != null) {
@@ -158,7 +170,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
         intakeSubsystem     = new IntakeSubsystem(intake);
         hopperSubsystem     = new HopperSubsystem(hopper);
-        shooterSubsystem    = new ShooterSubsystem(shooter, shooterFollow);
+        shooterSubsystem    = new ShooterSubsystem(shooter);
         ledSubsystem        = new BlinkinLedSubsystem(blinkin);
     }
 

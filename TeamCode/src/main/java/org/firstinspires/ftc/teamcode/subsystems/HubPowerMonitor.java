@@ -15,9 +15,9 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Samples Control Hub / Expansion Hub battery, 5V rail, and current, plus
- * OctoQuad uptime. Logs when voltage steps past a threshold or the OctoQuad
- * reboots, so a power brownout can be confirmed or ruled out.
+ * Samples Control Hub / Expansion Hub battery, 5V rail, and current.
+ * Logs when voltage steps past a threshold so a power brownout can be
+ * confirmed or ruled out.
  */
 public class HubPowerMonitor {
     private static final double SAMPLE_PERIOD_SEC = 0.05;
@@ -25,7 +25,6 @@ public class HubPowerMonitor {
     private static final double INVALID_VIN_V = 1.0;
 
     private final HardwareMap hardwareMap;
-    private final OctoQuadOdometry octoquad;
     private final ElapsedTime sampleTimer = new ElapsedTime();
     private final ElapsedTime baselineLogTimer = new ElapsedTime();
     private final List<HubReading> hubs = new ArrayList<>();
@@ -34,7 +33,6 @@ public class HubPowerMonitor {
 
     private boolean haveLastSample;
     private boolean haveLastPack;
-    private boolean octoWasUnhealthy;
     private double packAmps;
     private double lastPackAmps;
     private double packAmpsMax = Double.NEGATIVE_INFINITY;
@@ -43,25 +41,19 @@ public class HubPowerMonitor {
     private double ehVinMin = Double.POSITIVE_INFINITY;
     private double ehVinMax = Double.NEGATIVE_INFINITY;
 
-    public HubPowerMonitor(HardwareMap hardwareMap, OctoQuadOdometry octoquad) {
+    public HubPowerMonitor(HardwareMap hardwareMap) {
         this.hardwareMap = hardwareMap;
-        this.octoquad = octoquad;
     }
 
     public void update() {
         currentErrors.clear();
-        boolean octoUnhealthy = octoquadHasErrors();
-        boolean octoJustFailed = octoUnhealthy && !octoWasUnhealthy;
-        boolean force = octoJustFailed || octoquad.hasUptimeReset();
-        if (!force && haveLastSample && sampleTimer.seconds() < SAMPLE_PERIOD_SEC) {
-            octoWasUnhealthy = octoUnhealthy;
+        if (haveLastSample && sampleTimer.seconds() < SAMPLE_PERIOD_SEC) {
             return;
         }
         boolean firstSample = !haveLastSample;
         sampleHubs();
         sampleTimer.reset();
-        checkOctoReboot();
-        checkVoltageEvents(octoJustFailed);
+        checkVoltageEvents();
         if (firstSample) {
             RobotLog.i("[POWER] %s", snapshotLine("start"));
             baselineLogTimer.reset();
@@ -69,7 +61,6 @@ public class HubPowerMonitor {
             RobotLog.i("[POWER] %s", snapshotLine("ok"));
             baselineLogTimer.reset();
         }
-        octoWasUnhealthy = octoUnhealthy;
     }
 
     public String getTelemetryLine() {
@@ -81,7 +72,6 @@ public class HubPowerMonitor {
         for (HubReading hub : hubs) {
             line.append(" | ").append(hub.shortLine());
         }
-        line.append(" | OCTO ").append(octoquad.getUptimeStatus());
         return line.toString();
     }
 
@@ -141,14 +131,7 @@ public class HubPowerMonitor {
         return reading;
     }
 
-    private void checkOctoReboot() {
-        if (octoquad.consumeUptimeReset()) {
-            currentErrors.add("octoquad rebooted");
-            RobotLog.w("[POWER] REBOOT %s", snapshotLine("uptime reset"));
-        }
-    }
-
-    private void checkVoltageEvents(boolean octoJustFailed) {
+    private void checkVoltageEvents() {
         for (HubReading hub : hubs) {
             if (!hub.ok) {
                 continue;
@@ -175,9 +158,6 @@ public class HubPowerMonitor {
         }
         lastPackAmps = packAmps;
         haveLastPack = true;
-        if (octoJustFailed) {
-            RobotLog.w("[POWER] OCTO %s", snapshotLine("octoquad error"));
-        }
     }
 
     private void logStep(String field, double previous, double current, double step) {
@@ -190,26 +170,11 @@ public class HubPowerMonitor {
                 kind, field, previous, current, delta, snapshotLine(kind));
     }
 
-    private boolean octoquadHasErrors() {
-        List<String> errors = octoquad.getCurrentHardwareErrors();
-        for (String error : errors) {
-            if (error.toLowerCase(Locale.US).contains("octoquad")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private String snapshotLine(String reason) {
         StringBuilder line = new StringBuilder(reason);
         line.append(String.format(Locale.US, " | pack=%.2fA", packAmps));
         for (HubReading hub : hubs) {
             line.append(" | ").append(hub.detailLine());
-        }
-        line.append(" | octo ").append(octoquad.getUptimeStatus());
-        List<String> octoErrors = octoquad.getCurrentHardwareErrors();
-        if (!octoErrors.isEmpty()) {
-            line.append(" errors=").append(String.join(",", octoErrors));
         }
         return line.toString();
     }

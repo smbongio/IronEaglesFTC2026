@@ -1,15 +1,13 @@
 package org.firstinspires.ftc.teamcode.config;
 
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-
 /**
- * Field-tunable values for mechanical-debugging. Flip a motor direction here
- * instead of hunting through OpMode and subsystem classes.
+ * Field-tunable values. Flip a motor direction here instead of hunting through
+ * OpMode and subsystem classes.
  *
  * Each *_DIR is +1 or -1. It is multiplied into setPower() (and hopper step ticks).
  *
- * Intake/shooter speed is encoder ticks per second (what setVelocity() takes).
- * No RPM conversion.
+ * Intake is open-loop motor power. Shooter speed is encoder ticks per second
+ * (what setVelocity() takes). No RPM conversion.
  *
  * Gamepad map is {@link #GAMEPAD_CONTROLS}.
  */
@@ -27,20 +25,11 @@ public final class TunableValues {
                     + "  RB               hold: shooter reverse\n"
                     + "  D-pad up         tap: shooter target += 25 ticks/s\n"
                     + "  D-pad down       tap: shooter target -= 25 ticks/s\n"
-                    + "  D-pad right      tap: intake target += 25 ticks/s\n"
-                    + "  D-pad left       tap: intake target -= 25 ticks/s\n"
                     + "  A                hold: auto-fire placeholder\n"
                     + "  LT               hold: intake forward\n"
                     + "  LB               hold: intake reverse\n"
                     + "  X                hold: hopper forward\n"
                     + "  Y                hold: hopper reverse";
-
-    // Hub on the robot's right side, upright: logo face toward the right wall,
-    // USB-C ports toward the floor.
-    public static RevHubOrientationOnRobot.LogoFacingDirection IMU_LOGO_DIRECTION =
-            RevHubOrientationOnRobot.LogoFacingDirection.RIGHT;
-    public static RevHubOrientationOnRobot.UsbFacingDirection IMU_USB_DIRECTION =
-            RevHubOrientationOnRobot.UsbFacingDirection.DOWN;
 
     public static int FRONT_LEFT_DIR = 1;
     public static int FRONT_RIGHT_DIR = -1;
@@ -52,59 +41,42 @@ public final class TunableValues {
     public static int SHOOTER_DIR = 1;
     public static int SHOOTER_FOLLOW_DIR = -1;
 
+    // Intake has no encoder. Fraction of full motor power while LT/LB is held.
+    public static double INTAKE_POWER = 0.25;
+
     // Hub velocity command (encoder ticks per second).
-    public static double INTAKE_TARGET_TICKS_PER_SEC = 500.0;
-    public static double INTAKE_TICKS_PER_SEC_STEP = 25.0;
     public static double SHOOTER_TARGET_TICKS_PER_SEC = 1000.0;
     public static double SHOOTER_TICKS_PER_SEC_STEP = 25.0;
     public static double SHOOTER_AT_SPEED_TOLERANCE = 0.05;
     public static double HOPPER_MANUAL_POWER = 0.6;
 
-    // Shared velocity PIDF for shooter and shooterFollow. Hub firmware defaults.
+    // Velocity PIDF for the shooter. Hub firmware defaults.
     public static double SHOOTER_P = 10.0;
     public static double SHOOTER_I = 2.0;
     public static double SHOOTER_D = 1.0;
     public static double SHOOTER_F = 0.0;
 
-    // Control Hub I2C bus the OctoQuad is plugged into (first external jack is I2C 1).
-    // Must match IronEaglesConfig.xml <OctoQuadFTC bus="..."> on Control Hub.
-    public static int OCTOQUAD_I2C_BUS = 1;
-
-    // true: heading and X/Y come from the OctoQuad IMU/localizer.
-    // false: heading and X/Y come from Control Hub IMU + dead-wheel ticks.
-    public static boolean USE_OCTOQUAD_IMU = true;
-
-    // OctoQuad MK2 dead wheels (encoder jacks on the OctoQuad, not hub motor ports).
-    // X wheel = robot forward/back, port 6. At heading 0 this is field +X.
-    // Y wheel = robot left/right strafe, port 7. At heading 0 this is field +Y.
-    // *_DIR is +1 or -1. They do not change field-centric heading.
-    public static int OCTOQUAD_FORWARD_PORT = 6;
-    public static int OCTOQUAD_STRAFE_PORT = 7;
-    public static int OCTOQUAD_FORWARD_DIR = 1;
-    public static int OCTOQUAD_STRAFE_DIR = 1;
+    // Three dead wheels, no IMU (FTCLib HolonomicOdometry).
+    // leftPod = EH encoder 0, rightPod = EH encoder 2 (both front-to-back).
+    // backPod = CH encoder 1 (side-to-side, rear).
+    // Set each *_DIR so pushing the robot forward makes left and right ticks go up,
+    // and pushing it left makes back ticks go up.
+    // EH0 reads through the intake motor, which is REVERSE, and needed -1 on the 11/12 lap.
+    public static int ODO_LEFT_DIR = -1;
+    public static int ODO_RIGHT_DIR = 1;
+    public static int ODO_BACK_DIR = 1;
 
     // REV Through Bore (quadrature 8192 ticks/rev) on 4.0 in diameter pods.
     // Theoretical: 8192 / (pi * 4 * 25.4) mm. Push a known distance on carpet to refine.
-    public static float OCTOQUAD_FORWARD_TICKS_PER_MM = 25.665f;
-    public static float OCTOQUAD_STRAFE_TICKS_PER_MM = 25.665f;
+    public static double ODO_TICKS_PER_MM = 25.665;
 
-    // Chassis inches, origin at center, +X right, +Y forward, bumpers at ±9:
-    // OctoQuad board (−3, 1, 11), X/forward pod (4, 1), Y/strafe pod (0, −7.5).
-    // TCP is pod-axis intersection (4, −7.5). Offset is TCP → center in the
-    // OctoQuad localizer frame (+X forward, +Y left): 7.5 in forward, 4 in left.
-    // If an in-place spin makes pose orbit, negate OCTOQUAD_TCP_OFFSET_Y_MM.
-    public static float OCTOQUAD_TCP_OFFSET_X_MM = 7.5f * 25.4f;
-    public static float OCTOQUAD_TCP_OFFSET_Y_MM = 4.0f * 25.4f;
-    // Board height above the field. MK2 localizer has no Z TCP; this is docs only.
-    public static float OCTOQUAD_HEIGHT_Z_IN = 11.0f;
-    public static float OCTOQUAD_IMU_SCALAR = 1.0f;
-    // Board remounted flat (logs: IMU axis=Z). OctoQuad onboard XY is 90° CW from
-    // the FTC field. Rotate readings CCW so Driver Hub X/Y are +X audience, +Y blue.
-    public static double OCTOQUAD_POSE_ROTATION_DEG = 90.0;
-    // -1 if driving toward the +X wall makes X decrease.
-    public static int OCTOQUAD_POSE_X_DIR = -1;
-    // -1 if driving toward +Y (blue) makes Y decrease.
-    public static int OCTOQUAD_POSE_Y_DIR = -1;
+    // Left-to-right distance between the two front-to-back wheels' contact points.
+    // Placeholder until measured. Tune: spin in place 10 turns, then scale this by
+    // (logged degrees / 3600).
+    public static double ODO_TRACK_WIDTH_MM = 14.0 * 25.4;
+    // Back pod distance in front of robot center (negative = behind center).
+    // If an in-place spin makes X/Y drift, this sign or size is wrong.
+    public static double ODO_BACK_POD_X_MM = -7.5 * 25.4;
 
     // Official FTC field frame (BIOBUZZ square, red alliance audience-left):
     // origin at field center, walls at ±72 in. Stand at the Red Wall looking in:
@@ -120,14 +92,14 @@ public final class TunableValues {
     public static double START_POSE_Y_IN =
             START_NEAR_BUMPER_FROM_RED_IN + ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
     public static double START_HEADING_DEG = 0.0;
-    // Stick-up is field +Y (toward blue, away from a red-side driver). IMU heading
+    // Stick-up is field +Y (toward blue, away from a red-side driver). Odometry heading
     // 0 is field +X (audience), so field-centric drive uses heading minus this.
     public static double DRIVE_STICK_ZERO_DEG = 90.0;
 
     // Sign-preserving square on analog sticks after deadzone. Full stick is still full power.
     public static boolean DRIVE_STICK_SQUARED = true;
 
-    // Cancels OctoQuad motion on axes the driver is not holding. Held axes pass through.
+    // Cancels dead-wheel motion on axes the driver is not holding. Held axes pass through.
     public static boolean DRIVE_ASSIST_ENABLED = true;
     public static double DRIVE_ASSIST_MAX_VEL_MM_S = 2000.0;
     public static double DRIVE_ASSIST_MAX_OMEGA_RAD_S = 3.0;

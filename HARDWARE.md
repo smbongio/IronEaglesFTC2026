@@ -1,8 +1,8 @@
 # Hardware map
 
-Source of truth: `IronEaglesConfig.xml`, `IronEaglesHardware.java`, `TunableValues.java`, and Robot Controller logs (latest pull that printed the map: `logs/20261031-123210`).
+Source of truth: `IronEaglesConfig.xml`, `IronEaglesHardware.java`, `TunableValues.java`, and Robot Controller logs.
 
-Config and logs agree on every mapped device. Motor SKUs for drive / intake / shooter are `UnspecifiedMotor` in the config, so they are not listed as a specific REV part.
+Motor SKUs for drive / intake / shooter are `UnspecifiedMotor` in the config, so they are not listed as a specific REV part.
 
 ## Hubs
 
@@ -16,7 +16,7 @@ Config and logs agree on every mapped device. Motor SKUs for drive / intake / sh
 | Config name | Port | Use |
 |---|---|---|
 | `frontRight` | 0 | Mecanum. Software reverses this motor (mounted opposite the others). |
-| `backRight` | 1 | Mecanum |
+| `backRight` | 1 | Mecanum. Encoder jack is the **back (side-to-side)** odometry pod. Drive code never reads this motor's encoder. |
 | `backLeft` | 2 | Mecanum |
 | `frontLeft` | 3 | Mecanum |
 
@@ -24,35 +24,33 @@ Config and logs agree on every mapped device. Motor SKUs for drive / intake / sh
 
 | Config name | Port | Use |
 |---|---|---|
-| `intake` | 0 | Intake |
-| `hopper` | 1 | Hopper. Code comments: REV Core Hex. |
-| `shooter` | 2 | Shooter leader |
-| `shooterFollow` | 3 | Shooter follow (same command as `shooter`) |
+| `intake` | 0 | Intake motor. **No intake encoder** — open-loop power (`INTAKE_POWER`, default 25%). Encoder jack is the **left (front-to-back)** odometry pod. |
+| `hopper` | 1 | Hopper motor (REV Core Hex). Uses its own encoder for hopper steps. |
+| `rightPod` | 2 | **No motor.** Encoder jack is the **right (front-to-back)** odometry pod. |
+| `shooter` | 3 | Shooter. **Uses its own encoder** for velocity (`RUN_USING_ENCODER`). |
 
 Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
+
+Heading and field X/Y come from **three dead wheels only** (FTCLib `HolonomicOdometry`). No IMU, no OctoQuad.
 
 ## Sensors and other Control Hub devices
 
 | Config name | Plug | Hardware |
 |---|---|---|
-| `imu` | Built-in I2C **bus 0** (no external jack) | `ControlHubImuBHI260AP`. Mount in code: hub on the **right** side, logo **RIGHT**, USB **DOWN**. |
-| `octoquad` | Control Hub I2C **bus 1** (first external jack), port 0, addr `0x30` | Digital Chicken OctoQuad FTC MK2, firmware **3.1.0**. Chassis inches, origin center, +X right, +Y forward, +Z up: board at **(−3, 1, 11)**. Logs: IMU axis **Z**. |
 | `blinkin` | Servo / PWM **port 0** | REV Blinkin LED Driver. The LED strip plugs into the Blinkin, not a hub port. |
 | `camera` | Control Hub USB | Webcam serial **`4B75BEAF`**. Logs have shown USB permission declined / not streaming. |
 
-## OctoQuad encoder jacks
+## Dead-wheel encoders
 
-These are OctoQuad ports, not Control Hub motor ports.
+Hub motor-port encoder jacks. One encoder jack per motor port, so a pod on a motor's port shares that port's config name.
 
-| OctoQuad port | Software name | Encoder | Mount |
+| Hub port | Java name | Config port name | Wheel |
 |---|---|---|---|
-| 6 (`X6`) | Forward / X wheel (`OCTOQUAD_FORWARD_PORT`) | REV Through Bore, 8192 ticks/rev, 4 in wheel | **(4, 1)** in, 4 in right and 1 in forward of center |
-| 7 (`Y7`) | Strafe / Y wheel (`OCTOQUAD_STRAFE_PORT`) | Same | **(0, −7.5)** in, rear centerline |
-| 0–5 | Unused | — | Logs stay at 0 |
+| EH 0 | `leftPod` | `intake` | Front-to-back, left side |
+| EH 2 | `rightPod` | `rightPod` | Front-to-back, right side |
+| CH 1 | `backPod` | `backRight` | Side-to-side, rear |
 
-Theoretical scale is `25.665` ticks/mm (`OCTOQUAD_*_TICKS_PER_MM`). TCP is the pod-axis intersection at **(4, −7.5)** in. Code offsets that point to chassis center: 7.5 in forward, 4 in left in the OctoQuad frame.
-
-Heading and field X/Y currently use the **OctoQuad IMU / localizer** (`USE_OCTOQUAD_IMU = true`). Control Hub IMU gyro is still sampled for the `HUB GYRO` diagnostic line.
+Heading = (right − left) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Scale is `25.665` ticks/mm (`ODO_TICKS_PER_MM`). `ODO_BACK_POD_X_MM` is the back pod's distance in front of center (negative = behind). Track width is a placeholder until measured.
 
 ## Not in the robot config
 
@@ -62,7 +60,9 @@ These exist on the robot or at the field, but there is no hub port to list:
 - Blinkin LED strip (12 V from the Blinkin)
 - Exact drive / intake / shooter motor part numbers
 - Which Control Hub USB jack the webcam uses
+- OctoQuad (removed)
+- IMU (not used; the Control Hub's built-in IMU is no longer in the config)
 
 ## Runtime check
 
-`logs/20261031-123210` hardware-map dump: **8 motors, 0 servos, 1 webcam, 1 Blinkin**. OctoQuad is now on Control Hub I2C bus 1.
+Hardware-map dump should show **8 motors, 0 servos, 1 webcam, 1 Blinkin**. Expansion Hub motors are intake, hopper, rightPod, shooter.

@@ -5,12 +5,12 @@
 In the initialization phase, the robot must identify all hardware. The hardware is as follows:
 
 * **4 wheel motors** (REV DC motor)
-* **1 intake motor** (REV DC motor, spins rapidly to intake balls into the robot)
-* **2 shooter motors** (REV DC motors, geared to the shooter wheel): `shooter` (leader) and `shooterFollow` (copies the leader's power each command). There is no hub follow-mode; the code sends the same command to both.
-* **1 hopper motor** (REV Hex Core motor, spins at a pre-defined speed to feed the balls into the shooter)
+* **1 intake motor** (REV DC motor, open-loop power, no encoder)
+* **1 shooter motor** (REV DC motor on Expansion Hub port 3, uses the encoder for velocity)
+* **1 hopper motor** (REV Hex Core motor on Expansion Hub port 1, open-loop power)
 * **An LED strip** (used for aim assist)
 
-An expansion hub will be used to connect the intake motor, shooter motors, and hopper motor. Add `shooterFollow` on the Driver Station (Expansion Hub port 3 in `IronEaglesConfig.xml`). Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`. If the follow motor spins the wrong way, flip `SHOOTER_FOLLOW_DIR`.
+An expansion hub connects intake (port 0), hopper (port 1), and shooter (port 3). Port 0’s encoder jack is the vertical odometry pod (not an intake encoder). Port 3’s encoder jack is the horizontal odometry pod. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 
@@ -18,7 +18,7 @@ If any single piece of hardware cannot be found, it should not result in an erro
 
 ## Starting Position (this configuration)
 
-Field-centric drive and OctoQuad pose assume **one** start: red alliance, audience wall, robot upright facing +X.
+Field-centric drive and three-dead-wheel pose assume **one** start: red alliance, audience wall, robot upright facing +X.
 
 Live constants: `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG` in `TunableValues.java`. Gamepad 1 Back restores this heading.
 
@@ -81,7 +81,7 @@ When the operator hits the "aim assist" button, the following should occur:
 2. The robot should begin spinning the shooter so that it is ready to shoot after it is aligned to the target hive.
 3. The robot should determine the geometry of the target hive (distance, height, and yaw).
 4. The robot should calculate the angle it should rotate in order to align the shooter with the target hive.
-5. The robot should move so that it is at the calculated angle. The robot should use the IMU system in order to perform this movement.
+5. The robot should move so that it is at the calculated angle. The robot should use the dead-wheel odometry heading in order to perform this movement.
 6. The robot should verify it is aligned with the target hive. If it is not, it should go back to the geometry step.
 7. The robot should feed the shooter until manual input is received (move the hopper 180 degrees).
 
