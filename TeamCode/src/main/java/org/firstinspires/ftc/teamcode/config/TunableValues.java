@@ -45,33 +45,35 @@ public final class TunableValues {
     // Intake has no encoder. Fraction of full motor power while LT/LB is held.
     public static double INTAKE_POWER = 0.25;
 
-    // Shooter has no encoder (its jack is the right odometry pod). Fraction of full
+    // Shooter has no encoder (its jack is the rear odometry pod). Fraction of full
     // motor power while RT/RB is held. Starting point; tune on the field.
     public static double SHOOTER_POWER = 0.35;
     public static double SHOOTER_POWER_STEP = 0.05;
     public static double HOPPER_MANUAL_POWER = 0.6;
 
     // Three dead wheels, no IMU (FTCLib HolonomicOdometry).
-    // LEFT = EH encoder 0, RIGHT = EH encoder 3 (both front-to-back).
-    // REAR = EH encoder 1 (side-to-side).
+    // LEFT = EH encoder 1, RIGHT = EH encoder 0 (both front-to-back).
+    // REAR = EH encoder 3 (side-to-side).
     // Set each *_DIR so pushing the robot forward makes LEFT and RIGHT ticks go up,
     // and pushing it left makes REAR ticks go up.
     // EH0 and EH3 read through the intake and shooter motors, which are both REVERSE.
+    // Hand push 11/14: LEFT counted down going forward, so it is -1. RIGHT and REAR confirmed.
     public static int ODO_LEFT_DIR = -1;
-    public static int ODO_RIGHT_DIR = 1;
+    public static int ODO_RIGHT_DIR = -1;
     public static int ODO_REAR_DIR = 1;
 
-    // REV Through Bore (quadrature 8192 ticks/rev) on 4.0 in diameter pods.
-    // Theoretical: 8192 / (pi * 4 * 25.4) mm. Push a known distance on carpet to refine.
-    public static double ODO_TICKS_PER_MM = 25.665;
+    // REV Through Bore (quadrature 8192 ticks/rev) on 3.5 in diameter pod wheels (confirmed 11/14).
+    // 8192 / (pi * 3.5 * 25.4) = 29.33. Push a known distance on carpet to refine.
+    public static double ODO_TICKS_PER_MM = 8192.0 / (Math.PI * 3.5 * 25.4);
 
     // Left-to-right distance between the two front-to-back wheels' contact points (measured).
     // Fine-tune: spin in place 10 turns, then scale this by (logged degrees / 3600).
     public static double ODO_TRACK_WIDTH_MM = 8.25 * 25.4;
     // Rear pod distance in front of the midpoint between the left and right pods
-    // (negative = behind). Measured 8.75 in behind.
-    // If an in-place spin makes field X/Y drift, this sign or size is wrong.
-    public static double ODO_REAR_POD_X_MM = -8.75 * 25.4;
+    // (negative = behind). Re-measured 11/14 with the robot on the floor: 9.0 in behind.
+    // Measure this physically: a spin test can't, because the rear pod reads its distance from
+    // the drivetrain's rotation center, which need not be the pod midpoint.
+    public static double ODO_REAR_POD_X_MM = -9.0 * 25.4;
 
     // Official FTC field frame (BIOBUZZ square, red alliance audience-left):
     // origin at field center, walls at ±72 in. Stand at the Red Wall looking in:

@@ -19,7 +19,7 @@ import java.util.Set;
 public class HardwareHealthMonitor {
     private static final String[] MOTOR_NAMES = {
             "frontLeft", "frontRight", "backLeft", "backRight",
-            "intake", "rearPod", "shooter"
+            "intake", "leftPod", "shooter"
     };
 
     private final HardwareMap hardwareMap;
@@ -111,8 +111,8 @@ public class HardwareHealthMonitor {
                 return robot.backRight;
             case "intake":
                 return robot.intake;
-            case "rearPod":
-                return robot.rearPod;
+            case "leftPod":
+                return robot.leftPod;
             case "shooter":
                 return robot.shooter;
             default:

@@ -11,7 +11,7 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 * **3 dead-wheel odometry pods** (left and right front-to-back, one side-to-side at the rear)
 * **An LED strip** (used for aim assist)
 
-An expansion hub connects intake (port 0) and shooter (port 3). Odometry pods use Expansion Hub encoder jacks: LEFT on port 0, REAR on port 1, RIGHT on port 3. The intake and shooter share those ports and run on power only. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
+An expansion hub connects intake (port 0) and shooter (port 3). Odometry pods use Expansion Hub encoder jacks: RIGHT on port 0, LEFT on port 1, REAR on port 3. The intake and shooter share those ports and run on power only. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 

@@ -16,9 +16,9 @@ import java.util.List;
  * Three dead wheels, no IMU. FTCLib {@link HolonomicOdometry} turns the encoder
  * distances into field X, Y, and heading.
  *
- * {@code leftPod}  front-to-back wheel on the left side  (EH encoder 0, intake port).
- * {@code rightPod} front-to-back wheel on the right side (EH encoder 3, shooter port).
- * {@code rearPod}  side-to-side wheel at the rear        (EH encoder 1, no motor).
+ * {@code leftPod}  front-to-back wheel on the left side  (EH encoder 1, no motor).
+ * {@code rightPod} front-to-back wheel on the right side (EH encoder 0, intake port).
+ * {@code rearPod}  side-to-side wheel at the rear        (EH encoder 3, shooter port).
  *
  * Field frame: +X audience, +Y blue, heading 0 faces +X, counter-clockwise positive.
  */
@@ -88,9 +88,9 @@ public class DeadWheelOdometry {
                 TunableValues.START_HEADING_DEG,
                 TunableValues.ODO_TRACK_WIDTH_MM / 25.4,
                 TunableValues.ODO_REAR_POD_X_MM / 25.4,
-                leftPod != null ? "EH0" : "MISSING",
-                rightPod != null ? "EH3" : "MISSING",
-                rearPod != null ? "EH1" : "MISSING");
+                leftPod != null ? "EH1" : "MISSING",
+                rightPod != null ? "EH0" : "MISSING",
+                rearPod != null ? "EH3" : "MISSING");
     }
 
     public void update() {

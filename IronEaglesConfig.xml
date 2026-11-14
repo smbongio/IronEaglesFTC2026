@@ -12,11 +12,11 @@
             <ContinuousRotationServo name="hopper" port="2" />
         </LynxModule>
         <LynxModule name="Expansion Hub 2" port="2">
-            <!-- Intake motor, open-loop power only. Encoder jack is the LEFT (front-to-back) odometry pod. -->
+            <!-- Intake motor, open-loop power only. Encoder jack is the RIGHT (front-to-back) odometry pod. -->
             <Motor type="UnspecifiedMotor" name="intake" port="0" />
-            <!-- No motor. Encoder jack is the REAR (side-to-side) odometry pod. -->
-            <Motor type="UnspecifiedMotor" name="rearPod" port="1" />
-            <!-- Shooter motor, open-loop power only. Encoder jack is the RIGHT (front-to-back) odometry pod. -->
+            <!-- No motor. Encoder jack is the LEFT (front-to-back) odometry pod. -->
+            <Motor type="UnspecifiedMotor" name="leftPod" port="1" />
+            <!-- Shooter motor, open-loop power only. Encoder jack is the REAR (side-to-side) odometry pod. -->
             <Motor type="UnspecifiedMotor" name="shooter" port="3" />
         </LynxModule>
     </LynxUsbDevice>

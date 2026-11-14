@@ -24,10 +24,10 @@ Motor SKUs for drive / intake / shooter are `UnspecifiedMotor` in the config, so
 
 | Config name | Port | Use |
 |---|---|---|
-| `intake` | 0 | Intake motor. Open-loop power (`INTAKE_POWER`, default 25%). Encoder jack is the **LEFT** odometry pod. |
-| `rearPod` | 1 | **No motor.** Encoder jack is the **REAR** odometry pod. |
+| `intake` | 0 | Intake motor. Open-loop power (`INTAKE_POWER`, default 25%). Encoder jack is the **RIGHT** odometry pod. |
+| `leftPod` | 1 | **No motor.** Encoder jack is the **LEFT** odometry pod. |
 | — | 2 | **Free.** Motor jack and encoder jack both unused. |
-| `shooter` | 3 | Shooter motor. **Open-loop power** (`SHOOTER_POWER`, default 35%, d-pad ±5%). Encoder jack is the **RIGHT** odometry pod, so the shooter has no speed feedback. |
+| `shooter` | 3 | Shooter motor. **Open-loop power** (`SHOOTER_POWER`, default 35%, d-pad ±5%). Encoder jack is the **REAR** odometry pod, so the shooter has no speed feedback. |
 
 Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
@@ -47,11 +47,11 @@ Hub motor-port encoder jacks. One encoder jack per motor port, so a pod on a mot
 
 | Pod | Hub port | Java name | Config port name | Wheel |
 |---|---|---|---|---|
-| **LEFT** | EH 0 | `leftPod` | `intake` | Front-to-back, left side |
-| **RIGHT** | EH 3 | `rightPod` | `shooter` | Front-to-back, right side |
-| **REAR** | EH 1 | `rearPod` | `rearPod` | Side-to-side, rear |
+| **LEFT** | EH 1 | `leftPod` | `leftPod` | Front-to-back, left side |
+| **RIGHT** | EH 0 | `rightPod` | `intake` | Front-to-back, right side |
+| **REAR** | EH 3 | `rearPod` | `shooter` | Side-to-side, rear |
 
-Heading = (RIGHT − LEFT) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Scale is `25.665` ticks/mm (`ODO_TICKS_PER_MM`). Measured: LEFT and RIGHT are **8.25 in** apart (`ODO_TRACK_WIDTH_MM`). REAR is **8.75 in** behind the midpoint between them (`ODO_REAR_POD_X_MM` = −8.75 in).
+Heading = (RIGHT − LEFT) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Pod wheels are **3.5 in** diameter with 8192 ticks/rev, so scale is **29.33** ticks/mm (`ODO_TICKS_PER_MM`). Measured: LEFT and RIGHT are **8.25 in** apart (`ODO_TRACK_WIDTH_MM`). REAR is **9.0 in** behind the midpoint between them (`ODO_REAR_POD_X_MM` = −9.0 in, re-measured on the floor 11/14).
 
 X and Y always mean **field** coordinates (+X audience, +Y blue), never a wheel. Driver Hub shows `FIELD X IN`, `FIELD Y IN`, and `LEFT` / `RIGHT` / `REAR POD TICKS`. The log line is `[ODO] PODS LEFT= RIGHT= REAR= FIELD X= Y=`.
 
@@ -68,4 +68,4 @@ These exist on the robot or at the field, but there is no hub port to list:
 
 ## Runtime check
 
-Hardware-map dump should show **7 motors, 0 servos, 1 CRServo (hopper), 1 webcam, 1 Blinkin**. Expansion Hub motors are intake, rearPod, shooter.
+Hardware-map dump should show **7 motors, 0 servos, 1 CRServo (hopper), 1 webcam, 1 Blinkin**. Expansion Hub motors are intake, leftPod, shooter.

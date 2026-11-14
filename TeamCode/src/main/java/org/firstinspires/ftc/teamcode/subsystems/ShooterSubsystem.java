@@ -5,7 +5,7 @@ import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.ShooterInterface;
 
 /**
- * Shooter is open-loop power only. Its encoder jack (EH port 3) is the right
+ * Shooter is open-loop power only. Its encoder jack (EH port 3) is the rear
  * odometry pod, so the hub must never run velocity control on this motor.
  */
 public class ShooterSubsystem implements ShooterInterface {
