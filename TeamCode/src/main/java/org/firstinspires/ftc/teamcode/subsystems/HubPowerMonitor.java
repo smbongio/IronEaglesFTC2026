@@ -79,6 +79,16 @@ public class HubPowerMonitor {
         return currentErrors;
     }
 
+    /** Control Hub input (battery) voltage from the last sample, or NaN if not read. */
+    public double getControlHubVin() {
+        for (HubReading hub : hubs) {
+            if ("CH".equals(hub.label) && hub.ok && hub.vin >= INVALID_VIN_V) {
+                return hub.vin;
+            }
+        }
+        return Double.NaN;
+    }
+
     public void logSummary() {
         RobotLog.i("[POWER] SUMMARY CH vin min=%.2f max=%.2f | EH vin min=%.2f max=%.2f | pack max=%.2fA | %s",
                 finiteOrZero(chVinMin), finiteOrZero(chVinMax),

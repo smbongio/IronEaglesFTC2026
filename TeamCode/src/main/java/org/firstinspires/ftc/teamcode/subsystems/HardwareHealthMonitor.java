@@ -68,6 +68,10 @@ public class HardwareHealthMonitor {
         return power.getTelemetryLine();
     }
 
+    public double getBatteryVolts() {
+        return power.getControlHubVin();
+    }
+
     public void close() {
         power.logSummary();
         vision.close();

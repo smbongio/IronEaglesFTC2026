@@ -49,6 +49,7 @@ public class DeadWheelOdometry {
     private double xMm;
     private double yMm;
     private double headingRad;
+    private double totalTurnRad;
     private double velXMmS;
     private double velYMmS;
     private double velHeadingRadS;
@@ -126,12 +127,14 @@ public class DeadWheelOdometry {
         double newX = pose.getX();
         double newY = pose.getY();
         double newHeading = pose.getHeading();
+        double dHeading = wrapRadians(newHeading - headingRad);
+        totalTurnRad += dHeading;
         double dt = velocityTimer.seconds();
         velocityTimer.reset();
         if (dt > 0.001) {
             velXMmS = (newX - xMm) / dt;
             velYMmS = (newY - yMm) / dt;
-            velHeadingRadS = wrapRadians(newHeading - headingRad) / dt;
+            velHeadingRadS = dHeading / dt;
         }
         xMm = newX;
         yMm = newY;
@@ -169,6 +172,11 @@ public class DeadWheelOdometry {
 
     public double getHeadingDegrees() {
         return Math.toDegrees(headingRad);
+    }
+
+    /** Signed degrees turned since init, not wrapped (10 CCW spins = +3600). Back button does not add to it. */
+    public double getTotalTurnDegrees() {
+        return Math.toDegrees(totalTurnRad);
     }
 
     /**
@@ -229,9 +237,9 @@ public class DeadWheelOdometry {
         if (active == wasActive && logTimer.seconds() < LOG_PERIOD_SEC) {
             return;
         }
-        RobotLog.i("[ODO] PODS L=%d R=%d B=%d  POSE x=%.1f y=%.1f in heading=%.1f  vx=%.0f vy=%.0f mm/s  w=%.2f rad/s",
+        RobotLog.i("[ODO] PODS L=%d R=%d B=%d  POSE x=%.1f y=%.1f in heading=%.1f totalTurn=%.1f  vx=%.0f vy=%.0f mm/s  w=%.2f rad/s",
                 leftTicks, rightTicks, backTicks, xMm / 25.4, yMm / 25.4, getHeadingDegrees(),
-                velXMmS, velYMmS, velHeadingRadS);
+                getTotalTurnDegrees(), velXMmS, velYMmS, velHeadingRadS);
         logTimer.reset();
         wasActive = active;
         lastLoggedXMm = xMm;

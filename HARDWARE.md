@@ -50,7 +50,7 @@ Hub motor-port encoder jacks. One encoder jack per motor port, so a pod on a mot
 | EH 2 | `rightPod` | `rightPod` | Front-to-back, right side |
 | CH 1 | `backPod` | `backRight` | Side-to-side, rear |
 
-Heading = (right − left) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Scale is `25.665` ticks/mm (`ODO_TICKS_PER_MM`). `ODO_BACK_POD_X_MM` is the back pod's distance in front of center (negative = behind). Track width is a placeholder until measured.
+Heading = (right − left) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Scale is `25.665` ticks/mm (`ODO_TICKS_PER_MM`). Measured: left and right pods are **8.25 in** apart (`ODO_TRACK_WIDTH_MM`). The back pod is **8.75 in** behind the midpoint between them (`ODO_BACK_POD_X_MM` = −8.75 in).
 
 ## Not in the robot config
 

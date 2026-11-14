@@ -70,13 +70,13 @@ public final class TunableValues {
     // Theoretical: 8192 / (pi * 4 * 25.4) mm. Push a known distance on carpet to refine.
     public static double ODO_TICKS_PER_MM = 25.665;
 
-    // Left-to-right distance between the two front-to-back wheels' contact points.
-    // Placeholder until measured. Tune: spin in place 10 turns, then scale this by
-    // (logged degrees / 3600).
-    public static double ODO_TRACK_WIDTH_MM = 14.0 * 25.4;
-    // Back pod distance in front of robot center (negative = behind center).
+    // Left-to-right distance between the two front-to-back wheels' contact points (measured).
+    // Fine-tune: spin in place 10 turns, then scale this by (logged degrees / 3600).
+    public static double ODO_TRACK_WIDTH_MM = 8.25 * 25.4;
+    // Back pod distance in front of the midpoint between the left and right pods
+    // (negative = behind). Measured 8.75 in behind.
     // If an in-place spin makes X/Y drift, this sign or size is wrong.
-    public static double ODO_BACK_POD_X_MM = -7.5 * 25.4;
+    public static double ODO_BACK_POD_X_MM = -8.75 * 25.4;
 
     // Official FTC field frame (BIOBUZZ square, red alliance audience-left):
     // origin at field center, walls at ±72 in. Stand at the Red Wall looking in:

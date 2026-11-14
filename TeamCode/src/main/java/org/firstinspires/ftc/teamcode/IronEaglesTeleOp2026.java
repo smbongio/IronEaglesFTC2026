@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
@@ -26,6 +27,13 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private boolean wasHopperRunning = false;
     private boolean wasGp2DpadUp = false;
     private boolean wasGp2DpadDown = false;
+
+    private final ElapsedTime loopTimer = new ElapsedTime();
+    private final ElapsedTime loopWindowTimer = new ElapsedTime();
+    private double loopWindowSumMs = 0.0;
+    private double loopWindowMaxMs = 0.0;
+    private int loopWindowCount = 0;
+    private String loopLine = "-";
 
     @Override
     public void runOpMode() {
@@ -54,8 +62,11 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         waitForStart();
         RobotLog.i("OpMode Started: Match timer running. heading=%.1f", odometry.getHeadingDegrees());
 
+        loopTimer.reset();
+        loopWindowTimer.reset();
         try {
             while (opModeIsActive()) {
+                updateLoopTime();
                 odometry.update();
                 targetCell.update(vision.sample());
                 hardwareHealth.update();
@@ -206,12 +217,15 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         telemetry.addData("RIGHT POD TICKS", podTicks(odometry.getRightTicks()));
         telemetry.addData("BACK POD TICKS", podTicks(odometry.getBackTicks()));
         telemetry.addData("HEADING DEGREES", headingLine());
+        telemetry.addData("TOTAL TURN DEGREES", totalTurnLine());
         telemetry.addData("SHOOTER TARGET TICKS/SEC", "%.0f",
                 TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
         telemetry.addData("SHOOTER TICKS/SEC", "%.0f",
                 robot.getShooter().getTicksPerSec());
         telemetry.addData("INTAKE POWER", "%.0f%%",
                 Math.abs(robot.getIntake().getAppliedPower()) * 100.0);
+        telemetry.addData("BATTERY V", batteryLine());
+        telemetry.addData("LOOP MS", loopLine);
         telemetry.addData("ERRORS", errorLine());
         telemetry.update();
     }
@@ -236,6 +250,34 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             return "MISSING";
         }
         return String.format("%.1f", odometry.getHeadingDegrees());
+    }
+
+    private String totalTurnLine() {
+        if (!odometry.isPresent()) {
+            return "MISSING";
+        }
+        return String.format("%.1f", odometry.getTotalTurnDegrees());
+    }
+
+    private String batteryLine() {
+        double volts = hardwareHealth.getBatteryVolts();
+        return Double.isNaN(volts) ? "-" : String.format("%.2f", volts);
+    }
+
+    private void updateLoopTime() {
+        double ms = loopTimer.milliseconds();
+        loopTimer.reset();
+        loopWindowSumMs += ms;
+        loopWindowMaxMs = Math.max(loopWindowMaxMs, ms);
+        loopWindowCount++;
+        if (loopWindowTimer.seconds() >= 1.0) {
+            loopLine = String.format("%.0f avg / %.0f max",
+                    loopWindowSumMs / loopWindowCount, loopWindowMaxMs);
+            loopWindowSumMs = 0.0;
+            loopWindowMaxMs = 0.0;
+            loopWindowCount = 0;
+            loopWindowTimer.reset();
+        }
     }
 
     private String errorLine() {
