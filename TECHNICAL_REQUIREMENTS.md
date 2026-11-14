@@ -6,11 +6,12 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 
 * **4 wheel motors** (REV DC motor)
 * **1 intake motor** (REV DC motor, open-loop power, no encoder)
-* **1 shooter motor** (REV DC motor on Expansion Hub port 3, uses the encoder for velocity)
-* **1 hopper motor** (REV Hex Core motor on Expansion Hub port 1, open-loop power)
+* **1 shooter motor** (REV DC motor on Expansion Hub port 3, open-loop power, no encoder)
+* **1 hopper servo** (REV Smart Servo in continuous mode on Control Hub servo port 2, open-loop speed, no position feedback)
+* **3 dead-wheel odometry pods** (left and right front-to-back, one side-to-side at the rear)
 * **An LED strip** (used for aim assist)
 
-An expansion hub connects intake (port 0), hopper (port 1), and shooter (port 3). Port 0’s encoder jack is the vertical odometry pod (not an intake encoder). Port 3’s encoder jack is the horizontal odometry pod. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
+An expansion hub connects intake (port 0) and shooter (port 3). Odometry pods use Expansion Hub encoder jacks: LEFT on port 0, REAR on port 1, RIGHT on port 3. The intake and shooter share those ports and run on power only. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 

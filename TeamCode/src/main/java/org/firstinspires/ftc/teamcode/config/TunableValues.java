@@ -4,7 +4,7 @@ package org.firstinspires.ftc.teamcode.config;
  * Field-tunable values. Flip a motor direction here instead of hunting through
  * OpMode and subsystem classes.
  *
- * Each *_DIR is +1 or -1. It is multiplied into setPower() (and hopper step ticks).
+ * Each *_DIR is +1 or -1. It is multiplied into setPower().
  *
  * Intake is open-loop motor power. Shooter speed is encoder ticks per second
  * (what setVelocity() takes). No RPM conversion.
@@ -23,8 +23,8 @@ public final class TunableValues {
                     + "Gamepad 2 (Operator):\n"
                     + "  RT               hold: shooter forward\n"
                     + "  RB               hold: shooter reverse\n"
-                    + "  D-pad up         tap: shooter target += 25 ticks/s\n"
-                    + "  D-pad down       tap: shooter target -= 25 ticks/s\n"
+                    + "  D-pad up         tap: shooter power += 5%\n"
+                    + "  D-pad down       tap: shooter power -= 5%\n"
                     + "  A                hold: auto-fire placeholder\n"
                     + "  LT               hold: intake forward\n"
                     + "  LB               hold: intake reverse\n"
@@ -37,34 +37,29 @@ public final class TunableValues {
     public static int BACK_RIGHT_DIR = -1;
 
     public static int INTAKE_DIR = 1;
+    // Hopper is now a continuous-mode Smart Servo. -1 was set for the old Core Hex motor;
+    // flip it if X runs the hopper backwards.
     public static int HOPPER_DIR = -1;
     public static int SHOOTER_DIR = 1;
-    public static int SHOOTER_FOLLOW_DIR = -1;
 
     // Intake has no encoder. Fraction of full motor power while LT/LB is held.
     public static double INTAKE_POWER = 0.25;
 
-    // Hub velocity command (encoder ticks per second).
-    public static double SHOOTER_TARGET_TICKS_PER_SEC = 1000.0;
-    public static double SHOOTER_TICKS_PER_SEC_STEP = 25.0;
-    public static double SHOOTER_AT_SPEED_TOLERANCE = 0.05;
+    // Shooter has no encoder (its jack is the right odometry pod). Fraction of full
+    // motor power while RT/RB is held. Starting point; tune on the field.
+    public static double SHOOTER_POWER = 0.35;
+    public static double SHOOTER_POWER_STEP = 0.05;
     public static double HOPPER_MANUAL_POWER = 0.6;
 
-    // Velocity PIDF for the shooter. Hub firmware defaults.
-    public static double SHOOTER_P = 10.0;
-    public static double SHOOTER_I = 2.0;
-    public static double SHOOTER_D = 1.0;
-    public static double SHOOTER_F = 0.0;
-
     // Three dead wheels, no IMU (FTCLib HolonomicOdometry).
-    // leftPod = EH encoder 0, rightPod = EH encoder 2 (both front-to-back).
-    // backPod = CH encoder 1 (side-to-side, rear).
-    // Set each *_DIR so pushing the robot forward makes left and right ticks go up,
-    // and pushing it left makes back ticks go up.
-    // EH0 reads through the intake motor, which is REVERSE, and needed -1 on the 11/12 lap.
+    // LEFT = EH encoder 0, RIGHT = EH encoder 3 (both front-to-back).
+    // REAR = EH encoder 1 (side-to-side).
+    // Set each *_DIR so pushing the robot forward makes LEFT and RIGHT ticks go up,
+    // and pushing it left makes REAR ticks go up.
+    // EH0 and EH3 read through the intake and shooter motors, which are both REVERSE.
     public static int ODO_LEFT_DIR = -1;
     public static int ODO_RIGHT_DIR = 1;
-    public static int ODO_BACK_DIR = 1;
+    public static int ODO_REAR_DIR = 1;
 
     // REV Through Bore (quadrature 8192 ticks/rev) on 4.0 in diameter pods.
     // Theoretical: 8192 / (pi * 4 * 25.4) mm. Push a known distance on carpet to refine.
@@ -73,10 +68,10 @@ public final class TunableValues {
     // Left-to-right distance between the two front-to-back wheels' contact points (measured).
     // Fine-tune: spin in place 10 turns, then scale this by (logged degrees / 3600).
     public static double ODO_TRACK_WIDTH_MM = 8.25 * 25.4;
-    // Back pod distance in front of the midpoint between the left and right pods
+    // Rear pod distance in front of the midpoint between the left and right pods
     // (negative = behind). Measured 8.75 in behind.
-    // If an in-place spin makes X/Y drift, this sign or size is wrong.
-    public static double ODO_BACK_POD_X_MM = -8.75 * 25.4;
+    // If an in-place spin makes field X/Y drift, this sign or size is wrong.
+    public static double ODO_REAR_POD_X_MM = -8.75 * 25.4;
 
     // Official FTC field frame (BIOBUZZ square, red alliance audience-left):
     // origin at field center, walls at ±72 in. Stand at the Red Wall looking in:

@@ -1,6 +1,7 @@
 # Built artifacts
 *.apk
 *.aar
+!libs/*.aar
 *.ap_
 *.aab
 *.dex

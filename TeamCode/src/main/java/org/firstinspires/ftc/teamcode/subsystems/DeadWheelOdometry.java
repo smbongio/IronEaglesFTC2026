@@ -17,8 +17,8 @@ import java.util.List;
  * distances into field X, Y, and heading.
  *
  * {@code leftPod}  front-to-back wheel on the left side  (EH encoder 0, intake port).
- * {@code rightPod} front-to-back wheel on the right side (EH encoder 2).
- * {@code backPod}  side-to-side wheel at the back        (CH encoder 1, backRight port).
+ * {@code rightPod} front-to-back wheel on the right side (EH encoder 3, shooter port).
+ * {@code rearPod}  side-to-side wheel at the rear        (EH encoder 1, no motor).
  *
  * Field frame: +X audience, +Y blue, heading 0 faces +X, counter-clockwise positive.
  */
@@ -28,23 +28,23 @@ public class DeadWheelOdometry {
 
     private final DcMotorEx leftPod;
     private final DcMotorEx rightPod;
-    private final DcMotorEx backPod;
+    private final DcMotorEx rearPod;
     private final HolonomicOdometry odometry;
     private final ElapsedTime logTimer = new ElapsedTime();
     private final ElapsedTime velocityTimer = new ElapsedTime();
 
     private int leftTicks;
     private int rightTicks;
-    private int backTicks;
+    private int rearTicks;
     private int lastLeftTicks;
     private int lastRightTicks;
-    private int lastBackTicks;
+    private int lastRearTicks;
     private int leftBaseTicks;
     private int rightBaseTicks;
-    private int backBaseTicks;
+    private int rearBaseTicks;
     private String leftError;
     private String rightError;
-    private String backError;
+    private String rearError;
 
     private double xMm;
     private double yMm;
@@ -60,18 +60,18 @@ public class DeadWheelOdometry {
     private double lastLoggedYMm;
     private double lastLoggedHeadingRad;
 
-    public DeadWheelOdometry(DcMotor leftPodMotor, DcMotor rightPodMotor, DcMotor backPodMotor) {
+    public DeadWheelOdometry(DcMotor leftPodMotor, DcMotor rightPodMotor, DcMotor rearPodMotor) {
         leftPod = asEncoder(leftPodMotor, "left pod");
         rightPod = asEncoder(rightPodMotor, "right pod");
-        backPod = asEncoder(backPodMotor, "back pod");
+        rearPod = asEncoder(rearPodMotor, "rear pod");
         if (leftPod == null) {
             leftError = "left pod missing";
         }
         if (rightPod == null) {
             rightError = "right pod missing";
         }
-        if (backPod == null) {
-            backError = "back pod missing";
+        if (rearPod == null) {
+            rearError = "rear pod missing";
         }
 
         Pose2d start = new Pose2d(
@@ -79,18 +79,18 @@ public class DeadWheelOdometry {
                 TunableValues.START_POSE_Y_IN * 25.4,
                 new Rotation2d(Math.toRadians(TunableValues.START_HEADING_DEG)));
         odometry = new HolonomicOdometry(start,
-                TunableValues.ODO_TRACK_WIDTH_MM, TunableValues.ODO_BACK_POD_X_MM);
+                TunableValues.ODO_TRACK_WIDTH_MM, TunableValues.ODO_REAR_POD_X_MM);
         readEncoders();
         setPose(start);
-        RobotLog.i("[ODO] initialized. startPose x=%.1f y=%.1f in heading=%.1f  trackWidth=%.1f in backPodX=%.1f in  left=%s right=%s back=%s",
+        RobotLog.i("[ODO] initialized. start FIELD X=%.1f Y=%.1f in heading=%.1f  trackWidth=%.1f in rearPodX=%.1f in  LEFT=%s RIGHT=%s REAR=%s",
                 TunableValues.START_POSE_X_IN,
                 TunableValues.START_POSE_Y_IN,
                 TunableValues.START_HEADING_DEG,
                 TunableValues.ODO_TRACK_WIDTH_MM / 25.4,
-                TunableValues.ODO_BACK_POD_X_MM / 25.4,
+                TunableValues.ODO_REAR_POD_X_MM / 25.4,
                 leftPod != null ? "EH0" : "MISSING",
-                rightPod != null ? "EH2" : "MISSING",
-                backPod != null ? "CH1" : "MISSING");
+                rightPod != null ? "EH3" : "MISSING",
+                rearPod != null ? "EH1" : "MISSING");
     }
 
     public void update() {
@@ -101,16 +101,16 @@ public class DeadWheelOdometry {
         }
         int dLeft = leftTicks - lastLeftTicks;
         int dRight = rightTicks - lastRightTicks;
-        int dBack = backTicks - lastBackTicks;
+        int dRear = rearTicks - lastRearTicks;
         lastLeftTicks = leftTicks;
         lastRightTicks = rightTicks;
-        lastBackTicks = backTicks;
+        lastRearTicks = rearTicks;
         if (Math.abs(dLeft) > MAX_TICK_STEP || Math.abs(dRight) > MAX_TICK_STEP
-                || Math.abs(dBack) > MAX_TICK_STEP) {
-            RobotLog.w("[ODO] skipped encoder step left=%d right=%d back=%d ticks", dLeft, dRight, dBack);
+                || Math.abs(dRear) > MAX_TICK_STEP) {
+            RobotLog.w("[ODO] skipped encoder step LEFT=%d RIGHT=%d REAR=%d ticks", dLeft, dRight, dRear);
             leftBaseTicks += dLeft;
             rightBaseTicks += dRight;
-            backBaseTicks += dBack;
+            rearBaseTicks += dRear;
             zeroVelocity();
             return;
         }
@@ -118,10 +118,10 @@ public class DeadWheelOdometry {
         double perMm = TunableValues.ODO_TICKS_PER_MM;
         double leftMm = (leftTicks - leftBaseTicks) / perMm;
         double rightMm = (rightTicks - rightBaseTicks) / perMm;
-        double backMm = (backTicks - backBaseTicks) / perMm;
+        double rearMm = (rearTicks - rearBaseTicks) / perMm;
         // FTCLib computes heading as (left - right) / trackWidth, which is clockwise-positive.
         // Passing right first makes it counter-clockwise-positive like the field frame.
-        odometry.update(rightMm, leftMm, backMm);
+        odometry.update(rightMm, leftMm, rearMm);
 
         Pose2d pose = odometry.getPose();
         double newX = pose.getX();
@@ -150,17 +150,17 @@ public class DeadWheelOdometry {
         if (rightError != null) {
             errors.add(rightError);
         }
-        if (backError != null) {
-            errors.add(backError);
+        if (rearError != null) {
+            errors.add(rearError);
         }
         return errors;
     }
 
     public boolean isPresent() {
-        return leftPod != null && rightPod != null && backPod != null;
+        return leftPod != null && rightPod != null && rearPod != null;
     }
 
-    /** Keeps X/Y and puts heading back to {@link TunableValues#START_HEADING_DEG} (Back button). */
+    /** Keeps field X/Y and puts heading back to {@link TunableValues#START_HEADING_DEG} (Back button). */
     public void resetHeading() {
         if (!isPresent()) {
             return;
@@ -204,8 +204,8 @@ public class DeadWheelOdometry {
         return rightTicks;
     }
 
-    public int getBackTicks() {
-        return backTicks;
+    public int getRearTicks() {
+        return rearTicks;
     }
 
     public boolean hasLocalizerVelocity() {
@@ -237,8 +237,8 @@ public class DeadWheelOdometry {
         if (active == wasActive && logTimer.seconds() < LOG_PERIOD_SEC) {
             return;
         }
-        RobotLog.i("[ODO] PODS L=%d R=%d B=%d  POSE x=%.1f y=%.1f in heading=%.1f totalTurn=%.1f  vx=%.0f vy=%.0f mm/s  w=%.2f rad/s",
-                leftTicks, rightTicks, backTicks, xMm / 25.4, yMm / 25.4, getHeadingDegrees(),
+        RobotLog.i("[ODO] PODS LEFT=%d RIGHT=%d REAR=%d  FIELD X=%.1f Y=%.1f in heading=%.1f totalTurn=%.1f  vX=%.0f vY=%.0f mm/s  w=%.2f rad/s",
+                leftTicks, rightTicks, rearTicks, xMm / 25.4, yMm / 25.4, getHeadingDegrees(),
                 getTotalTurnDegrees(), velXMmS, velYMmS, velHeadingRadS);
         logTimer.reset();
         wasActive = active;
@@ -250,10 +250,10 @@ public class DeadWheelOdometry {
     private void setPose(Pose2d pose) {
         leftBaseTicks = leftTicks;
         rightBaseTicks = rightTicks;
-        backBaseTicks = backTicks;
+        rearBaseTicks = rearTicks;
         lastLeftTicks = leftTicks;
         lastRightTicks = rightTicks;
-        lastBackTicks = backTicks;
+        lastRearTicks = rearTicks;
         odometry.updatePose(pose);
         xMm = pose.getX();
         yMm = pose.getY();
@@ -285,12 +285,12 @@ public class DeadWheelOdometry {
                 rightError = "right pod disconnected";
             }
         }
-        if (backPod != null) {
+        if (rearPod != null) {
             try {
-                backTicks = backPod.getCurrentPosition() * TunableValues.ODO_BACK_DIR;
-                backError = null;
+                rearTicks = rearPod.getCurrentPosition() * TunableValues.ODO_REAR_DIR;
+                rearError = null;
             } catch (RuntimeException e) {
-                backError = "back pod disconnected";
+                rearError = "rear pod disconnected";
             }
         }
     }

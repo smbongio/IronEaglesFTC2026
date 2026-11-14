@@ -16,7 +16,7 @@ Motor SKUs for drive / intake / shooter are `UnspecifiedMotor` in the config, so
 | Config name | Port | Use |
 |---|---|---|
 | `frontRight` | 0 | Mecanum. Software reverses this motor (mounted opposite the others). |
-| `backRight` | 1 | Mecanum. Encoder jack is the **back (side-to-side)** odometry pod. Drive code never reads this motor's encoder. |
+| `backRight` | 1 | Mecanum |
 | `backLeft` | 2 | Mecanum |
 | `frontLeft` | 3 | Mecanum |
 
@@ -24,10 +24,10 @@ Motor SKUs for drive / intake / shooter are `UnspecifiedMotor` in the config, so
 
 | Config name | Port | Use |
 |---|---|---|
-| `intake` | 0 | Intake motor. **No intake encoder** — open-loop power (`INTAKE_POWER`, default 25%). Encoder jack is the **left (front-to-back)** odometry pod. |
-| `hopper` | 1 | Hopper motor (REV Core Hex). Uses its own encoder for hopper steps. |
-| `rightPod` | 2 | **No motor.** Encoder jack is the **right (front-to-back)** odometry pod. |
-| `shooter` | 3 | Shooter. **Uses its own encoder** for velocity (`RUN_USING_ENCODER`). |
+| `intake` | 0 | Intake motor. Open-loop power (`INTAKE_POWER`, default 25%). Encoder jack is the **LEFT** odometry pod. |
+| `rearPod` | 1 | **No motor.** Encoder jack is the **REAR** odometry pod. |
+| — | 2 | **Free.** Motor jack and encoder jack both unused. |
+| `shooter` | 3 | Shooter motor. **Open-loop power** (`SHOOTER_POWER`, default 35%, d-pad ±5%). Encoder jack is the **RIGHT** odometry pod, so the shooter has no speed feedback. |
 
 Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
@@ -38,19 +38,22 @@ Heading and field X/Y come from **three dead wheels only** (FTCLib `HolonomicOdo
 | Config name | Plug | Hardware |
 |---|---|---|
 | `blinkin` | Servo / PWM **port 0** | REV Blinkin LED Driver. The LED strip plugs into the Blinkin, not a hub port. |
+| `hopper` | Servo / PWM **port 2** | REV Smart Servo, **continuous mode** (program with the REV SRS Programmer). Open-loop speed, no position feedback. |
 | `camera` | Control Hub USB | Webcam serial **`4B75BEAF`**. Logs have shown USB permission declined / not streaming. |
 
 ## Dead-wheel encoders
 
 Hub motor-port encoder jacks. One encoder jack per motor port, so a pod on a motor's port shares that port's config name.
 
-| Hub port | Java name | Config port name | Wheel |
-|---|---|---|---|
-| EH 0 | `leftPod` | `intake` | Front-to-back, left side |
-| EH 2 | `rightPod` | `rightPod` | Front-to-back, right side |
-| CH 1 | `backPod` | `backRight` | Side-to-side, rear |
+| Pod | Hub port | Java name | Config port name | Wheel |
+|---|---|---|---|---|
+| **LEFT** | EH 0 | `leftPod` | `intake` | Front-to-back, left side |
+| **RIGHT** | EH 3 | `rightPod` | `shooter` | Front-to-back, right side |
+| **REAR** | EH 1 | `rearPod` | `rearPod` | Side-to-side, rear |
 
-Heading = (right − left) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Scale is `25.665` ticks/mm (`ODO_TICKS_PER_MM`). Measured: left and right pods are **8.25 in** apart (`ODO_TRACK_WIDTH_MM`). The back pod is **8.75 in** behind the midpoint between them (`ODO_BACK_POD_X_MM` = −8.75 in).
+Heading = (RIGHT − LEFT) / `ODO_TRACK_WIDTH_MM`, counter-clockwise positive. Scale is `25.665` ticks/mm (`ODO_TICKS_PER_MM`). Measured: LEFT and RIGHT are **8.25 in** apart (`ODO_TRACK_WIDTH_MM`). REAR is **8.75 in** behind the midpoint between them (`ODO_REAR_POD_X_MM` = −8.75 in).
+
+X and Y always mean **field** coordinates (+X audience, +Y blue), never a wheel. Driver Hub shows `FIELD X IN`, `FIELD Y IN`, and `LEFT` / `RIGHT` / `REAR POD TICKS`. The log line is `[ODO] PODS LEFT= RIGHT= REAR= FIELD X= Y=`.
 
 ## Not in the robot config
 
@@ -65,4 +68,4 @@ These exist on the robot or at the field, but there is no hub port to list:
 
 ## Runtime check
 
-Hardware-map dump should show **8 motors, 0 servos, 1 webcam, 1 Blinkin**. Expansion Hub motors are intake, hopper, rightPod, shooter.
+Hardware-map dump should show **7 motors, 0 servos, 1 CRServo (hopper), 1 webcam, 1 Blinkin**. Expansion Hub motors are intake, rearPod, shooter.

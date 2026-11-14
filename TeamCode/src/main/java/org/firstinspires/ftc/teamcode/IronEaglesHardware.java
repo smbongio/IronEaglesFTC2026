@@ -35,18 +35,19 @@ public class IronEaglesHardware implements RobotHardwareInterface {
     public DcMotor frontLeft;
     public WebcamName camera;
     public RevBlinkinLedDriver blinkin;
+    // REV Smart Servo, continuous mode, Control Hub servo port 2.
+    public CRServo hopper;
 
     // Expansion Hub Motors
     public DcMotor intake;
-    public DcMotor hopper;
     public DcMotor shooter;
     // Dead-wheel encoders. A pod on a motor port shares that port's one encoder jack.
     // leftPod  = EH port 0 encoder (front-to-back, left side). Same device object as intake.
-    // rightPod = EH port 2 encoder (front-to-back, right side). No motor on this port.
-    // backPod  = CH port 1 encoder (side-to-side, rear). Same device object as backRight.
+    // rightPod = EH port 3 encoder (front-to-back, right side). Same device object as shooter.
+    // rearPod  = EH port 1 encoder (side-to-side, rear). No motor on this port.
     public DcMotor leftPod;
     public DcMotor rightPod;
-    public DcMotor backPod;
+    public DcMotor rearPod;
 
     public final List<String> missingDevices = new ArrayList<>();
 
@@ -128,11 +129,11 @@ public class IronEaglesHardware implements RobotHardwareInterface {
 
         // Expansion Hub Motors
         intake  = getHardwareSafely(hardwareMap, DcMotor.class, "intake");
-        hopper  = getHardwareSafely(hardwareMap, DcMotor.class, "hopper");
         shooter = getHardwareSafely(hardwareMap, DcMotor.class, "shooter");
-        rightPod = getHardwareSafely(hardwareMap, DcMotor.class, "rightPod");
+        hopper  = getHardwareSafely(hardwareMap, CRServo.class, "hopper");
+        rearPod = getHardwareSafely(hardwareMap, DcMotor.class, "rearPod");
         leftPod = intake;
-        backPod = backRight;
+        rightPod = shooter;
 
         // Webcam
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
@@ -155,17 +156,9 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         }
         if (shooter != null) {
             shooter.setDirection(DcMotor.Direction.REVERSE);
-            shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            // Power only. Port 3 encoder jack is the right odometry pod, not a shooter encoder.
+            shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
-
-        // Configure hopper motor (REV Core Hex Motor) encoder reset and brake behavior
-        if (hopper != null) {
-            hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            hopper.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            hopper.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        }
-
         // Instantiate Subsystems from dedicated subsystem classes
         drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
         intakeSubsystem     = new IntakeSubsystem(intake);

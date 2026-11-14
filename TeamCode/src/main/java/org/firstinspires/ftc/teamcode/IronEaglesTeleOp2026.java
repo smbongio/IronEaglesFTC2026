@@ -40,7 +40,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         RobotLog.i("OpMode Initializing: IronEaglesTeleOp2026");
 
         robot.init(hardwareMap);
-        odometry = new DeadWheelOdometry(robot.leftPod, robot.rightPod, robot.backPod);
+        odometry = new DeadWheelOdometry(robot.leftPod, robot.rightPod, robot.rearPod);
         vision = new AprilTagVision(hardwareMap, robot.camera);
         vision.sample();
         hardwareHealth = new HardwareHealthMonitor(hardwareMap, robot, odometry, vision);
@@ -165,8 +165,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private void logShooterStart(String direction) {
         if (!wasFlywheelRunning) {
-            RobotLog.i("[FLYWHEEL] Manual %s at %.0f ticks/s.",
-                    direction, TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+            RobotLog.i("[FLYWHEEL] Manual %s at %.0f%% power.",
+                    direction, TunableValues.SHOOTER_POWER * 100.0);
             wasFlywheelRunning = true;
         }
     }
@@ -196,32 +196,31 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private void updateSpeedTargets() {
         if (gamepad2.dpad_up && !wasGp2DpadUp) {
-            bumpShooterTarget(TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
+            bumpShooterPower(TunableValues.SHOOTER_POWER_STEP);
         } else if (gamepad2.dpad_down && !wasGp2DpadDown) {
-            bumpShooterTarget(-TunableValues.SHOOTER_TICKS_PER_SEC_STEP);
+            bumpShooterPower(-TunableValues.SHOOTER_POWER_STEP);
         }
         wasGp2DpadUp = gamepad2.dpad_up;
         wasGp2DpadDown = gamepad2.dpad_down;
     }
 
-    private static void bumpShooterTarget(double deltaTicksPerSec) {
-        TunableValues.SHOOTER_TARGET_TICKS_PER_SEC =
-                Math.max(0.0, TunableValues.SHOOTER_TARGET_TICKS_PER_SEC + deltaTicksPerSec);
-        RobotLog.i("[SHOOTER TARGET] %.0f ticks/s", TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
+    private static void bumpShooterPower(double delta) {
+        TunableValues.SHOOTER_POWER =
+                Math.max(0.0, Math.min(1.0, TunableValues.SHOOTER_POWER + delta));
+        RobotLog.i("[SHOOTER POWER] %.0f%%", TunableValues.SHOOTER_POWER * 100.0);
     }
 
     private void writeTelemetry() {
-        telemetry.addData("X", poseInches(true));
-        telemetry.addData("Y", poseInches(false));
+        telemetry.addData("FIELD X IN", poseInches(true));
+        telemetry.addData("FIELD Y IN", poseInches(false));
         telemetry.addData("LEFT POD TICKS", podTicks(odometry.getLeftTicks()));
         telemetry.addData("RIGHT POD TICKS", podTicks(odometry.getRightTicks()));
-        telemetry.addData("BACK POD TICKS", podTicks(odometry.getBackTicks()));
+        telemetry.addData("REAR POD TICKS", podTicks(odometry.getRearTicks()));
         telemetry.addData("HEADING DEGREES", headingLine());
         telemetry.addData("TOTAL TURN DEGREES", totalTurnLine());
-        telemetry.addData("SHOOTER TARGET TICKS/SEC", "%.0f",
-                TunableValues.SHOOTER_TARGET_TICKS_PER_SEC);
-        telemetry.addData("SHOOTER TICKS/SEC", "%.0f",
-                robot.getShooter().getTicksPerSec());
+        telemetry.addData("SHOOTER POWER", "%.0f%% set / %.0f%% now",
+                TunableValues.SHOOTER_POWER * 100.0,
+                Math.abs(robot.getShooter().getAppliedPower()) * 100.0);
         telemetry.addData("INTAKE POWER", "%.0f%%",
                 Math.abs(robot.getIntake().getAppliedPower()) * 100.0);
         telemetry.addData("BATTERY V", batteryLine());
