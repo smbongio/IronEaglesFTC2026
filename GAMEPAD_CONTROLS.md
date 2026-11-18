@@ -8,7 +8,7 @@ TeleOp: `IronEaglesTeleOp2026`.
 |---|---|
 | Left stick | Drive, field-centric (stick-up drives away from your alliance wall) |
 | Right stick left/right | Turn |
-| Back | Reset heading to the start heading (robot facing the audience, +X) |
+| Back | Reset heading to the TeleOp start heading. After Autonomous that is the park heading (intake facing your alliance wall); otherwise the alliance start heading (intake facing the start wall). Point the robot that way first. |
 
 During **INIT** (before pressing start):
 

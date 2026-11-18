@@ -22,7 +22,7 @@ public final class TunableValues {
                     + "Gamepad 1 (Driver):\n"
                     + "  Left stick       field-centric X/Y\n"
                     + "  Right stick X    yaw\n"
-                    + "  Back             restore start heading (faces +X)\n"
+                    + "  Back             restore TeleOp start heading (Auto's park heading)\n"
                     + "Gamepad 2 (Operator):\n"
                     + "  RT               hold: shooter forward at target ticks/s\n"
                     + "  RB               hold: shooter reverse at target ticks/s\n"
@@ -98,7 +98,8 @@ public final class TunableValues {
     // 18x18 robot, front bumper on the audience wall (the +X wall / cell),
     // near bumper 52 in from the red wall, front faces +X.
     // Start center: X = 72-9 = +63 in, Y = 52+9-72 = -11 in, heading 0°.
-    // These are the RED start. Blue mirrors them across the X axis (see Alliance): (63, +11, 0°).
+    // All field numbers here are for RED. The BIOBUZZ field is rotationally symmetric, so blue
+    // is red rotated 180° about field center (see Alliance): (-63, +11, 180°).
     public static double FIELD_SIZE_IN = 144.0;
     public static double ROBOT_SIZE_IN = 18.0;
     public static double START_NEAR_BUMPER_FROM_RED_IN = 52.0;
@@ -107,6 +108,9 @@ public final class TunableValues {
     public static double START_POSE_Y_IN =
             START_NEAR_BUMPER_FROM_RED_IN + ROBOT_SIZE_IN / 2.0 - FIELD_SIZE_IN / 2.0;
     public static double START_HEADING_DEG = 0.0;
+    // Cell-down start: same, but front bumper on the far wall (-X), front facing -X.
+    public static double START_FAR_POSE_X_IN = -START_POSE_X_IN;
+    public static double START_FAR_HEADING_DEG = 180.0;
     // Stick-up is field +Y (toward blue, away from a red-side driver). Odometry heading
     // 0 is field +X (audience), so field-centric drive uses heading minus this.
     // Red-side value; a blue driver at the blue wall uses -90 (see Alliance).
@@ -128,18 +132,68 @@ public final class TunableValues {
     public static double DRIVE_ASSIST_I_LIMIT = 0.25;
     public static double DRIVE_ASSIST_MAX_CORRECTION = 0.25;
 
-    // Our alliance's audience hive: red tags 34-37, blue tags 38-41 (SDK BIOBUZZ library).
-    // TRUE when SUCCESSES of the last SAMPLES frames saw it.
-    // Example: SAMPLE_RATE=10 and SUCCESS_RATE=3 means 3 of 10. Default is 5 of 10 (50%).
-    public static int VISION_RED_TAG_MIN = 34;
-    public static int VISION_RED_TAG_MAX = 37;
-    public static int VISION_BLUE_TAG_MIN = 38;
-    public static int VISION_BLUE_TAG_MAX = 41;
-    public static int VISION_SAMPLE_RATE = 10;
-    public static int VISION_SUCCESS_RATE = 5;
+    // ---------------- Autonomous (red numbers; blue is rotated, see Alliance) ----------------
+    // Cell up: start on the audience wall facing the up cell. Cell down: start on the far wall,
+    // wait for the partner to tip the hive. Both: back 12 in toward the cell, shoot, park.
+    public static double AUTO_LENGTH_S = 30.0;
+    public static double AUTO_MOVE_TO_CELL_IN = 12.0;
+    public static double AUTO_CELL_DOWN_WAIT_S = 10.0;
+    public static double AUTO_SPINUP_S = 2.0;
+    public static int AUTO_HOPPER_TURNS = 2;
+    public static double AUTO_HOPPER_POWER = 0.6;
+    // Time one 180° hopper turn at AUTO_HOPPER_POWER and put it here (no encoder on the servo).
+    public static long AUTO_HOPPER_HALF_TURN_MS = 700;
+    public static long AUTO_HOPPER_PAUSE_MS = 300;
 
-    // Blinkin green on/off cycles per second while the target cell gate is TRUE.
-    public static double LED_FLASH_HZ = 5.0;
+    // Red loading zone (park): tile A5 on the red wall, 23 in wide x 11 in deep.
+    // We park with the robot center on the zone edge nearest the wall we started on (half in),
+    // which leaves the other half of the zone to the partner.
+    public static double LOADING_ZONE_AUDIENCE_EDGE_X_IN = -24.5;
+    public static double LOADING_ZONE_FAR_EDGE_X_IN = -47.5;
+    // Y the robot drives along to the zone; keeps the robot clear of the hive frame.
+    public static double AUTO_PARK_LANE_Y_IN = -40.0;
+    // Drive to this far short of the red wall, then push into it to square up.
+    public static double AUTO_WALL_APPROACH_IN = 3.0;
+    public static double AUTO_WALL_SQUARE_POWER = 0.25;
+    public static long AUTO_WALL_SQUARE_MS = 600;
+    // Robot center X within this of the zone edge counts as parked (still >= 5 in inside).
+    public static double AUTO_PARK_TOL_IN = 4.0;
+
+    // Drive-to-pose: power per inch / per degree of error, clipped to the max.
+    public static double AUTO_DRIVE_P = 0.05;
+    public static double AUTO_DRIVE_MAX_POWER = 0.6;
+    public static double AUTO_DRIVE_MIN_POWER = 0.10;
+    public static double AUTO_TURN_P = 0.015;
+    public static double AUTO_TURN_MAX_POWER = 0.4;
+    public static double AUTO_POS_TOL_IN = 1.0;
+    public static double AUTO_WAYPOINT_TOL_IN = 3.0;
+    public static double AUTO_HEADING_TOL_DEG = 2.0;
+    public static double AUTO_MOVE_TIMEOUT_S = 5.0;
+    // Stop moving this long before Autonomous ends.
+    public static double AUTO_END_MARGIN_S = 1.0;
+
+    // Park check with the camera. Uses only our alliance's cells; only X is taken from the
+    // camera (the wall touch already fixed Y and heading).
+    public static long AUTO_VISION_WINDOW_MS = 1500;
+    public static int AUTO_VISION_MIN_FRAMES = 3;
+    public static double AUTO_VISION_MAX_CORRECTION_IN = 12.0;
+    public static int AUTO_VISION_MAX_TRIES = 3;
+
+    // Camera on the robot: inches in front of the robot center (negative = behind), inches
+    // left of center, which way it looks (180 = out the back over the shooter), and its
+    // upward tilt. Placeholders until measured.
+    public static double CAMERA_FORWARD_IN = -7.0;
+    public static double CAMERA_LEFT_IN = 0.0;
+    public static double CAMERA_YAW_DEG = 180.0;
+    public static double CAMERA_PITCH_DEG = 0.0;
+
+    // Field X/Y of each red cell's tag cluster origin. The SDK has no field positions for
+    // BIOBUZZ cells, so these are estimates (cells 18.8 in apart, lined up with our start).
+    // Calibrate: park, square on the wall, read CELL SEEN AT on the Driver Hub.
+    // Up cell = red audience cell (tags 34-37); down cell = red scoring cell (tags 30-33).
+    public static double VISION_UP_CELL_X_IN = 9.4;
+    public static double VISION_DOWN_CELL_X_IN = -9.4;
+    public static double VISION_CELL_Y_IN = -11.0;
 
     // Hub power logging. Events fire when voltage/current steps past these
     // amounts, or when the rail is below the low threshold.

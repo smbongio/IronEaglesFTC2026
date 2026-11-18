@@ -11,14 +11,12 @@ import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
 import org.firstinspires.ftc.teamcode.subsystems.HardwareHealthMonitor;
 import org.firstinspires.ftc.teamcode.subsystems.DeadWheelOdometry;
-import org.firstinspires.ftc.teamcode.subsystems.TargetCellGate;
 
 @TeleOp(name = "IronEaglesTeleOp2026", group = "TeleOp")
 public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private final IronEaglesHardware robot = new IronEaglesHardware();
     private final DriveVelocityAssist driveAssist = new DriveVelocityAssist();
-    private final TargetCellGate targetCell = new TargetCellGate();
     private DeadWheelOdometry odometry;
     private AprilTagVision vision;
     private HardwareHealthMonitor hardwareHealth;
@@ -94,7 +92,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             while (opModeIsActive()) {
                 updateLoopTime();
                 odometry.update();
-                targetCell.update(vision.sample());
+                vision.sample();
                 hardwareHealth.update();
 
                 if (gamepad1.backWasPressed()) {
@@ -114,7 +112,6 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
                 updateShooter();
                 updateHopper();
 
-                robot.getLed().update(targetCell.isTargetVisible());
                 robot.getDrivetrain().logWheelDiagnostics();
                 odometry.logOdometryDiagnostics();
                 writeTelemetry();
@@ -263,7 +260,6 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             odometry.setPoseInches(alliance.startXIn(), alliance.startYIn(), alliance.startHeadingDeg());
         }
         MatchState.clearAutoPose();
-        targetCell.setAlliance(alliance);
         robot.getLed().setAlliance(alliance);
     }
 

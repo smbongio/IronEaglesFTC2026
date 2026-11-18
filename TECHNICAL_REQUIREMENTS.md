@@ -9,7 +9,7 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 * **1 shooter motor** (REV DC motor on Expansion Hub port 2, speed control in ticks/second from its own encoder on the same port)
 * **1 hopper servo** (REV Smart Servo in continuous mode on Expansion Hub servo port 0, open-loop speed, no position feedback)
 * **3 dead-wheel odometry pods** (left and right front-to-back, one side-to-side at the rear)
-* **An LED strip** (used for aim assist)
+* **An LED strip** (solid alliance color)
 
 An expansion hub connects intake (port 0) and shooter (port 2). Odometry pods use Expansion Hub encoder jacks: RIGHT on port 0, LEFT on port 1, REAR (the X wheel) on port 3. The intake shares port 0 with the RIGHT pod and runs on power only; ports 1 and 3 have no motor. Config names are the hub ports (`chPort0`, `ehPort2`, `ehServo0`, ...); see `HARDWARE.md`. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
@@ -19,15 +19,25 @@ If any single piece of hardware cannot be found, it should not result in an erro
 
 ## Starting Position (this configuration)
 
-One start per alliance: audience wall, robot upright facing +X. Red is (63, −11); blue mirrors it across the X axis to (63, +11). The blue driver stands at the blue wall, so their stick-up is field −Y (red's is +Y).
+The BIOBUZZ field is rotationally symmetric: blue is red rotated 180° about field center (X and Y negated, heading + 180). All field numbers in `TunableValues.java` are red; `config/Alliance.java` converts them. The usual red start is (63, −11, 0°) on the audience wall, so blue's is (−63, +11, 180°) on the far wall. The blue driver stands at the blue wall, so their stick-up is field −Y (red's is +Y).
 
-Live constants (red side): `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG`, `DRIVE_STICK_ZERO_DEG` in `TunableValues.java`; `config/Alliance.java` derives blue. Gamepad 1 Back restores the start heading.
+Live constants (red side): `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG`, `START_FAR_POSE_X_IN`, `START_FAR_HEADING_DEG`, `DRIVE_STICK_ZERO_DEG`. Gamepad 1 Back restores the heading TeleOp started with.
+
+### Autonomous
+
+Four programs: **Red Cell Up**, **Red Cell Down**, **Blue Cell Up**, **Blue Cell Down**. At the start, red's audience-side cell and blue's far-side cell are tipped up. The shooter and camera are on the back; the intake bumper touches the start wall.
+
+* **Cell up:** start with the intake bumper on the wall facing the up cell (red: audience wall at (63, −11); blue: far wall at (−63, +11)). Back up 12 in toward the cell, spin the shooter 2 s, turn the hopper 180° twice, park.
+* **Cell down:** start on the opposite wall (red: (−63, −11); blue: (63, +11)), back up 12 in, wait 10 s for the partner to tip the hive, then shoot and park the same way.
+* **Park:** drive along the park lane (Y = −40 for red) to the loading zone (red tile A5, X −47.5 to −24.5 on the red wall; blue tile F2, mirrored by the rotation). The robot center goes on the zone edge nearest the wall it started on, so half the robot is in and the partner has the other half. Intake bumper toward the alliance wall; it pushes into the wall to reset Y and heading.
+* **Camera check:** the camera faces the hive. If it sees our alliance's cell tags in enough frames, it corrects X (only), and re-parks if X is more than 4 in off. If it sees nothing, the robot stays put.
+* The Driver Hub shows **CELL SEEN AT** in INIT and during the camera check: where the camera puts each of our cells if the odometry pose is right. Use it at a known pose to set `VISION_UP_CELL_X_IN`, `VISION_DOWN_CELL_X_IN`, `VISION_CELL_Y_IN`, and measure `CAMERA_*`.
 
 ### Alliance selection
 
-1. **Autonomous:** run `IronEagles Auto RED` or `IronEagles Auto BLUE`. It records the alliance and its final pose, and preselects the TeleOp.
+1. **Autonomous:** the program records the alliance and its final pose, and preselects the TeleOp.
 2. **TeleOp INIT:** picks up both from Autonomous (they last until the Robot Controller app restarts). Gamepad 1 **B** = RED, **X** = BLUE overrides the alliance; **Y** discards Auto's pose and uses the alliance start pose. Without Autonomous, it keeps the last TeleOp's alliance; if none was ever chosen, the Driver Hub shows NOT SET, and pressing start without choosing defaults to RED with a log warning.
-3. **Blinkin** shows solid red or blue (off while not set) and flashes green with that color when our alliance's audience cell is seen (red tags 34–37, blue 38–41).
+3. **Blinkin** shows solid red or blue for the whole match (off while not set).
 
 ### Field frame
 
@@ -77,7 +87,7 @@ Gamepad 2 should handle the operations of the robot.
 * **B Button:** Spin the shooter motor in the opposite shooting direction.
 
 ## Vision Control
-* The LED should flash quickly when the robot is in range.
+* The LED stays solid alliance color all match (team decision 11/17); in-range feedback, if added, goes on the Driver Hub instead.
 * The robot is in range if it is within a 45-degree cone of the hive.
 * When locating the hive that is in range, we need to identify the hive that is in our color and is in the upright position.
 
