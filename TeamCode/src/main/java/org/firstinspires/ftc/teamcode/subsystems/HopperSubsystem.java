@@ -6,7 +6,7 @@ import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.interfaces.HopperInterface;
 
 /**
- * Hopper on a REV Smart Servo in continuous mode (Control Hub servo port 2).
+ * Hopper on a REV Smart Servo in continuous mode (Expansion Hub servo port 0).
  * Open-loop speed only. A servo port has no encoder, so there are no exact 180-degree steps.
  */
 public class HopperSubsystem implements HopperInterface {
@@ -17,7 +17,7 @@ public class HopperSubsystem implements HopperInterface {
     public HopperSubsystem(CRServo servo) {
         this.servo = servo;
         if (servo == null) {
-            RobotLog.e("[HOPPER SUBSYSTEM ERROR] Hopper CRServo is NULL! Check hardware config name 'hopper'.");
+            RobotLog.e("[HOPPER SUBSYSTEM ERROR] Hopper CRServo is NULL! Check hardware config name 'ehServo0'.");
         }
     }
 

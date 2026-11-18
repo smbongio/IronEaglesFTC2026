@@ -8,8 +8,9 @@ import org.firstinspires.ftc.teamcode.config.TunableValues;
  * Cancels motion on axes the driver is not commanding. Does not lock heading
  * or change speed on an axis the stick is holding.
  *
- * Stick frame matches the field for a red-wall driver: +y is field +Y (blue),
- * +x is field +X (audience), +rx is clockwise.
+ * Works in the driver's stick frame (+y stick-up, +x stick-right, +rx clockwise).
+ * For a red-wall driver that is field +Y/+X; a blue-wall driver's is field -Y/-X,
+ * so the caller passes field velocities multiplied by {@code Alliance.driverFieldSign()}.
  */
 public class DriveVelocityAssist {
     private static final double MIN_DT_SEC = 0.005;

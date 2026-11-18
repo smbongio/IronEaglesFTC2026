@@ -28,26 +28,23 @@ import java.util.Map;
  */
 public class IronEaglesHardware implements RobotHardwareInterface {
 
-    // Control Hub Motors
-    public DcMotor frontRight;
-    public DcMotor backRight;
-    public DcMotor backLeft;
-    public DcMotor frontLeft;
-    public WebcamName camera;
-    public RevBlinkinLedDriver blinkin;
-    // REV Smart Servo, continuous mode, Control Hub servo port 2.
-    public CRServo hopper;
+    // Config names are the hub ports (see IronEaglesConfig.xml); fields name the use.
+    public DcMotor frontRight;  // chPort0
+    public DcMotor backRight;   // chPort1
+    public DcMotor backLeft;    // chPort2
+    public DcMotor frontLeft;   // chPort3
+    public RevBlinkinLedDriver blinkin;  // chServo0
+    public WebcamName camera;   // camera (USB)
 
-    // Expansion Hub Motors
-    public DcMotor intake;
-    public DcMotor shooter;
+    public DcMotor intake;      // ehPort0
+    public DcMotor shooter;     // ehPort2
+    // REV Smart Servo, continuous mode.
+    public CRServo hopper;      // ehServo0
+
     // Dead-wheel encoders. A pod on a motor port shares that port's one encoder jack.
-    // leftPod  = EH port 1 encoder (front-to-back, left side). No motor on this port.
-    // rightPod = EH port 0 encoder (front-to-back, right side). Same device object as intake.
-    // rearPod  = EH port 3 encoder (side-to-side, rear). Same device object as shooter.
-    public DcMotor leftPod;
-    public DcMotor rightPod;
-    public DcMotor rearPod;
+    public DcMotor rightPod;    // ehPort0 encoder (front-to-back). Same device object as intake.
+    public DcMotor leftPod;     // ehPort1 encoder (front-to-back). No motor on this port.
+    public DcMotor rearPod;     // ehPort3 encoder, the X wheel (side-to-side). No motor on this port.
 
     public final List<String> missingDevices = new ArrayList<>();
 
@@ -121,23 +118,23 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         } catch (Exception ignored) {
         }
 
-        // Control Hub Motors
-        frontRight = getHardwareSafely(hardwareMap, DcMotor.class, "frontRight");
-        backRight  = getHardwareSafely(hardwareMap, DcMotor.class, "backRight");
-        backLeft   = getHardwareSafely(hardwareMap, DcMotor.class, "backLeft");
-        frontLeft  = getHardwareSafely(hardwareMap, DcMotor.class, "frontLeft");
+        // Control Hub
+        frontRight = getHardwareSafely(hardwareMap, DcMotor.class, "chPort0");
+        backRight  = getHardwareSafely(hardwareMap, DcMotor.class, "chPort1");
+        backLeft   = getHardwareSafely(hardwareMap, DcMotor.class, "chPort2");
+        frontLeft  = getHardwareSafely(hardwareMap, DcMotor.class, "chPort3");
+        blinkin    = getHardwareSafely(hardwareMap, RevBlinkinLedDriver.class, "chServo0");
 
-        // Expansion Hub Motors
-        intake  = getHardwareSafely(hardwareMap, DcMotor.class, "intake");
-        shooter = getHardwareSafely(hardwareMap, DcMotor.class, "shooter");
-        hopper  = getHardwareSafely(hardwareMap, CRServo.class, "hopper");
-        leftPod = getHardwareSafely(hardwareMap, DcMotor.class, "leftPod");
+        // Expansion Hub
+        intake   = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort0");
+        leftPod  = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort1");
+        shooter  = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort2");
+        rearPod  = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort3");
+        hopper   = getHardwareSafely(hardwareMap, CRServo.class, "ehServo0");
         rightPod = intake;
-        rearPod = shooter;
 
-        // Webcam
+        // USB
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
-        blinkin = getHardwareSafely(hardwareMap, RevBlinkinLedDriver.class, "blinkin");
 
         // Configure brake behavior and direction on drivetrain motors if present
         if (frontLeft != null)  frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -151,12 +148,12 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         // Configure intake and shooter motor directions (Reversed by default)
         if (intake != null) {
             intake.setDirection(DcMotor.Direction.REVERSE);
-            // Power only. Port 0 encoder jack is the right odometry pod, not an intake encoder.
+            // Power only. ehPort0's encoder jack is the right odometry pod, not an intake encoder.
             intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
         if (shooter != null) {
             shooter.setDirection(DcMotor.Direction.REVERSE);
-            // Power only. Port 3 encoder jack is the rear odometry pod, not a shooter encoder.
+            // Power only. ehPort2's encoder jack is unused.
             shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
         // Instantiate Subsystems from dedicated subsystem classes

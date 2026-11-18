@@ -6,12 +6,12 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 
 * **4 wheel motors** (REV DC motor)
 * **1 intake motor** (REV DC motor, open-loop power, no encoder)
-* **1 shooter motor** (REV DC motor on Expansion Hub port 3, open-loop power, no encoder)
-* **1 hopper servo** (REV Smart Servo in continuous mode on Control Hub servo port 2, open-loop speed, no position feedback)
+* **1 shooter motor** (REV DC motor on Expansion Hub port 2, open-loop power, no encoder)
+* **1 hopper servo** (REV Smart Servo in continuous mode on Expansion Hub servo port 0, open-loop speed, no position feedback)
 * **3 dead-wheel odometry pods** (left and right front-to-back, one side-to-side at the rear)
 * **An LED strip** (used for aim assist)
 
-An expansion hub connects intake (port 0) and shooter (port 3). Odometry pods use Expansion Hub encoder jacks: RIGHT on port 0, LEFT on port 1, REAR on port 3. The intake and shooter share those ports and run on power only. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
+An expansion hub connects intake (port 0) and shooter (port 2). Odometry pods use Expansion Hub encoder jacks: RIGHT on port 0, LEFT on port 1, REAR (the X wheel) on port 3. The intake shares port 0 with the RIGHT pod and runs on power only; ports 1 and 3 have no motor. Config names are the hub ports (`chPort0`, `ehPort2`, `ehServo0`, ...); see `HARDWARE.md`. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 
@@ -19,9 +19,15 @@ If any single piece of hardware cannot be found, it should not result in an erro
 
 ## Starting Position (this configuration)
 
-Field-centric drive and three-dead-wheel pose assume **one** start: red alliance, audience wall, robot upright facing +X.
+One start per alliance: audience wall, robot upright facing +X. Red is (63, −11); blue mirrors it across the X axis to (63, +11). The blue driver stands at the blue wall, so their stick-up is field −Y (red's is +Y).
 
-Live constants: `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG` in `TunableValues.java`. Gamepad 1 Back restores this heading.
+Live constants (red side): `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`, `START_HEADING_DEG`, `DRIVE_STICK_ZERO_DEG` in `TunableValues.java`; `config/Alliance.java` derives blue. Gamepad 1 Back restores the start heading.
+
+### Alliance selection
+
+1. **Autonomous:** run `IronEagles Auto RED` or `IronEagles Auto BLUE`. It records the alliance and its final pose, and preselects the TeleOp.
+2. **TeleOp INIT:** picks up both from Autonomous (they last until the Robot Controller app restarts). Gamepad 1 **B** = RED, **X** = BLUE overrides the alliance; **Y** discards Auto's pose and uses the alliance start pose. Without Autonomous, it keeps the last TeleOp's alliance; if none was ever chosen, the Driver Hub shows NOT SET, and pressing start without choosing defaults to RED with a log warning.
+3. **Blinkin** shows solid red or blue (off while not set) and flashes green with that color when our alliance's audience cell is seen (red tags 34–37, blue 38–41).
 
 ### Field frame
 

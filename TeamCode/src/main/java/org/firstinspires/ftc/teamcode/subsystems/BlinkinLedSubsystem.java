@@ -4,10 +4,12 @@ import com.qualcomm.hardware.rev.RevBlinkinLedDriver;
 import com.qualcomm.hardware.rev.RevBlinkinLedDriver.BlinkinPattern;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
+import org.firstinspires.ftc.teamcode.config.Alliance;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 
 /**
- * REV Blinkin on Control Hub servo 0. Flashes green while the target cell is visible.
+ * REV Blinkin on Control Hub servo 0. Solid alliance color (off until one is chosen);
+ * flashes green and the alliance color while the target cell is visible.
  */
 public class BlinkinLedSubsystem {
     private final RevBlinkinLedDriver blinkin;
@@ -15,11 +17,12 @@ public class BlinkinLedSubsystem {
     private boolean flashOn;
     private boolean wasVisible;
     private BlinkinPattern lastPattern;
+    private BlinkinPattern idlePattern = BlinkinPattern.BLACK;
 
     public BlinkinLedSubsystem(RevBlinkinLedDriver blinkin) {
         this.blinkin = blinkin;
         if (blinkin == null) {
-            RobotLog.w("[LED] Blinkin is NULL. Check hardware config name 'blinkin'.");
+            RobotLog.w("[LED] Blinkin is NULL. Check hardware config name 'chServo0'.");
             return;
         }
         setPattern(BlinkinPattern.BLACK);
@@ -29,8 +32,21 @@ public class BlinkinLedSubsystem {
         return blinkin != null;
     }
 
+    /** Solid red or blue from now on; {@code null} turns it off. */
+    public void setAlliance(Alliance alliance) {
+        if (alliance == null) {
+            idlePattern = BlinkinPattern.BLACK;
+        } else {
+            idlePattern = alliance == Alliance.RED ? BlinkinPattern.RED : BlinkinPattern.BLUE;
+        }
+        if (!wasVisible) {
+            setPattern(idlePattern);
+        }
+    }
+
     /**
-     * 5 Hz green flash while {@code targetVisible}; off otherwise.
+     * Green flash at {@link TunableValues#LED_FLASH_HZ} while {@code targetVisible};
+     * solid alliance color otherwise.
      */
     public void update(boolean targetVisible) {
         if (blinkin == null) {
@@ -40,7 +56,7 @@ public class BlinkinLedSubsystem {
             wasVisible = false;
             flashOn = false;
             flashTimer.reset();
-            setPattern(BlinkinPattern.BLACK);
+            setPattern(idlePattern);
             return;
         }
         if (!wasVisible) {
@@ -53,17 +69,17 @@ public class BlinkinLedSubsystem {
             flashOn = !flashOn;
             flashTimer.reset();
         }
-        setPattern(flashOn ? BlinkinPattern.GREEN : BlinkinPattern.BLACK);
+        setPattern(flashOn ? BlinkinPattern.GREEN : idlePattern);
     }
 
     public String getStatus() {
         if (blinkin == null) {
             return "MISSING";
         }
-        if (lastPattern == BlinkinPattern.GREEN) {
-            return "GREEN";
+        if (lastPattern == null || lastPattern == BlinkinPattern.BLACK) {
+            return "OFF";
         }
-        return "OFF";
+        return lastPattern.name();
     }
 
     public void close() {

@@ -15,11 +15,15 @@ public final class TunableValues {
     private TunableValues() {}
 
     public static final String GAMEPAD_CONTROLS =
-            "Gamepad 1 (Driver):\n"
+            "Gamepad 1 during INIT:\n"
+                    + "  B                alliance RED\n"
+                    + "  X                alliance BLUE\n"
+                    + "  Y                use start pose instead of Auto's final pose\n"
+                    + "Gamepad 1 (Driver):\n"
                     + "  Left stick       field-centric X/Y\n"
                     + "  Right stick X    yaw\n"
                     + "  A                hold: auto-align placeholder\n"
-                    + "  Back             restore start heading (+X)\n"
+                    + "  Back             restore start heading (faces +X)\n"
                     + "Gamepad 2 (Operator):\n"
                     + "  RT               hold: shooter forward\n"
                     + "  RB               hold: shooter reverse\n"
@@ -43,37 +47,51 @@ public final class TunableValues {
     public static int SHOOTER_DIR = 1;
 
     // Intake has no encoder. Fraction of full motor power while LT/LB is held.
-    public static double INTAKE_POWER = 0.25;
+    public static double INTAKE_POWER = 0.50;
 
-    // Shooter has no encoder (its jack is the rear odometry pod). Fraction of full
+    // Shooter runs open-loop (no encoder plugged into ehPort2). Fraction of full
     // motor power while RT/RB is held. Starting point; tune on the field.
     public static double SHOOTER_POWER = 0.35;
     public static double SHOOTER_POWER_STEP = 0.05;
     public static double HOPPER_MANUAL_POWER = 0.6;
 
     // Three dead wheels, no IMU (FTCLib HolonomicOdometry).
-    // LEFT = EH encoder 1, RIGHT = EH encoder 0 (both front-to-back).
-    // REAR = EH encoder 3 (side-to-side).
+    // LEFT = ehPort1 encoder, RIGHT = ehPort0 encoder (both front-to-back).
+    // REAR = ehPort3 encoder, the X wheel (side-to-side).
     // Set each *_DIR so pushing the robot forward makes LEFT and RIGHT ticks go up,
     // and pushing it left makes REAR ticks go up.
-    // EH0 and EH3 read through the intake and shooter motors, which are both REVERSE.
+    // ehPort0 reads through the intake motor, which is REVERSE (that flips its sign).
     // Hand push 11/14: LEFT counted down going forward, so it is -1. RIGHT and REAR confirmed.
+    // REAR was +1 while it read through the REVERSE shooter on port 3. The shooter moved to
+    // ehPort2 on 11/16, so ehPort3 is no longer reversed: -1 keeps the same sign. Re-check by hand.
     public static int ODO_LEFT_DIR = -1;
     public static int ODO_RIGHT_DIR = -1;
-    public static int ODO_REAR_DIR = 1;
+    public static int ODO_REAR_DIR = -1;
 
     // REV Through Bore (quadrature 8192 ticks/rev) on 3.5 in diameter pod wheels (confirmed 11/14).
     // 8192 / (pi * 3.5 * 25.4) = 29.33. Push a known distance on carpet to refine.
     public static double ODO_TICKS_PER_MM = 8192.0 / (Math.PI * 3.5 * 25.4);
 
-    // Left-to-right distance between the two front-to-back wheels' contact points (measured).
-    // Fine-tune: spin in place 10 turns, then scale this by (logged degrees / 3600).
-    public static double ODO_TRACK_WIDTH_MM = 8.25 * 25.4;
+    // Left-to-right distance between the two front-to-back wheels' contact points.
+    // Measured 8.25 in; 8.205 makes the 11/14 10-turn spin read 3600 with the alignment
+    // correction below. Re-tune after changing the alignment values:
+    // spin in place 10 turns, then scale this by (logged degrees / 3600).
+    public static double ODO_TRACK_WIDTH_MM = 8.205 * 25.4;
     // Rear pod distance in front of the midpoint between the left and right pods
     // (negative = behind). Re-measured 11/14 with the robot on the floor: 9.0 in behind.
     // Measure this physically: a spin test can't, because the rear pod reads its distance from
     // the drivetrain's rotation center, which need not be the pod midpoint.
     public static double ODO_REAR_POD_X_MM = -9.0 * 25.4;
+
+    // Pod misalignment: how much each pod falsely reads per unit of travel it should ignore.
+    // LEFT/RIGHT: drag the robot sideways along a tape line without turning it, then
+    //   set = (change in LEFT or RIGHT POD TICKS) / (change in REAR POD TICKS).
+    // REAR: drag it straight forward the same way, then
+    //   set = (change in REAR POD TICKS) / (average change in LEFT and RIGHT POD TICKS).
+    // 11/14 10 ft sideways drag: LEFT +2136, RIGHT -531, REAR -88599 ticks.
+    public static double ODO_LEFT_PER_SIDEWAYS = -0.0241;
+    public static double ODO_RIGHT_PER_SIDEWAYS = 0.0060;
+    public static double ODO_REAR_PER_FORWARD = 0.0;
 
     // Official FTC field frame (BIOBUZZ square, red alliance audience-left):
     // origin at field center, walls at ±72 in. Stand at the Red Wall looking in:
@@ -81,6 +99,7 @@ public final class TunableValues {
     // 18x18 robot, front bumper on the audience wall (the +X wall / cell),
     // near bumper 52 in from the red wall, front faces +X.
     // Start center: X = 72-9 = +63 in, Y = 52+9-72 = -11 in, heading 0°.
+    // These are the RED start. Blue mirrors them across the X axis (see Alliance): (63, +11, 0°).
     public static double FIELD_SIZE_IN = 144.0;
     public static double ROBOT_SIZE_IN = 18.0;
     public static double START_NEAR_BUMPER_FROM_RED_IN = 52.0;
@@ -91,6 +110,7 @@ public final class TunableValues {
     public static double START_HEADING_DEG = 0.0;
     // Stick-up is field +Y (toward blue, away from a red-side driver). Odometry heading
     // 0 is field +X (audience), so field-centric drive uses heading minus this.
+    // Red-side value; a blue driver at the blue wall uses -90 (see Alliance).
     public static double DRIVE_STICK_ZERO_DEG = 90.0;
 
     // Sign-preserving square on analog sticks after deadzone. Full stick is still full power.
@@ -109,10 +129,13 @@ public final class TunableValues {
     public static double DRIVE_ASSIST_I_LIMIT = 0.25;
     public static double DRIVE_ASSIST_MAX_CORRECTION = 0.25;
 
-    // Red audience hive (tags 34-37). TRUE when SUCCESSES of the last SAMPLES frames saw it.
+    // Our alliance's audience hive: red tags 34-37, blue tags 38-41 (SDK BIOBUZZ library).
+    // TRUE when SUCCESSES of the last SAMPLES frames saw it.
     // Example: SAMPLE_RATE=10 and SUCCESS_RATE=3 means 3 of 10. Default is 5 of 10 (50%).
-    public static int VISION_TARGET_TAG_MIN = 34;
-    public static int VISION_TARGET_TAG_MAX = 37;
+    public static int VISION_RED_TAG_MIN = 34;
+    public static int VISION_RED_TAG_MAX = 37;
+    public static int VISION_BLUE_TAG_MIN = 38;
+    public static int VISION_BLUE_TAG_MAX = 41;
     public static int VISION_SAMPLE_RATE = 10;
     public static int VISION_SUCCESS_RATE = 5;
 

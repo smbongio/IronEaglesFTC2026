@@ -2,22 +2,28 @@
 <Robot type="FirstInspires-FTC">
     <LynxUsbDevice name="Control Hub Portal" serialNumber="(embedded)" parentModuleAddress="173">
         <LynxModule name="Control Hub" port="173">
-            <Motor type="UnspecifiedMotor" name="frontRight" port="0" />
-            <Motor type="UnspecifiedMotor" name="backRight" port="1" />
-            <Motor type="UnspecifiedMotor" name="backLeft" port="2" />
-            <Motor type="UnspecifiedMotor" name="frontLeft" port="3" />
-            <!-- REV Blinkin LED Driver on servo/PWM port 0. Hardware map name is "blinkin". -->
-            <RevBlinkinLedDriver name="blinkin" port="0" />
-            <!-- Hopper: REV Smart Servo programmed to continuous mode, servo port 2. -->
-            <ContinuousRotationServo name="hopper" port="2" />
+            <!-- Motor port 0: front right drive motor. -->
+            <Motor type="UnspecifiedMotor" name="chPort0" port="0" />
+            <!-- Motor port 1: back right drive motor. -->
+            <Motor type="UnspecifiedMotor" name="chPort1" port="1" />
+            <!-- Motor port 2: back left drive motor. -->
+            <Motor type="UnspecifiedMotor" name="chPort2" port="2" />
+            <!-- Motor port 3: front left drive motor. -->
+            <Motor type="UnspecifiedMotor" name="chPort3" port="3" />
+            <!-- Servo port 0: REV Blinkin LED Driver. -->
+            <RevBlinkinLedDriver name="chServo0" port="0" />
         </LynxModule>
         <LynxModule name="Expansion Hub 2" port="2">
-            <!-- Intake motor, open-loop power only. Encoder jack is the RIGHT (front-to-back) odometry pod. -->
-            <Motor type="UnspecifiedMotor" name="intake" port="0" />
-            <!-- No motor. Encoder jack is the LEFT (front-to-back) odometry pod. -->
-            <Motor type="UnspecifiedMotor" name="leftPod" port="1" />
-            <!-- Shooter motor, open-loop power only. Encoder jack is the REAR (side-to-side) odometry pod. -->
-            <Motor type="UnspecifiedMotor" name="shooter" port="3" />
+            <!-- Motor port 0: intake motor (power only). Encoder jack: RIGHT odometry pod (front-to-back). -->
+            <Motor type="UnspecifiedMotor" name="ehPort0" port="0" />
+            <!-- Motor port 1: no motor. Encoder jack: LEFT odometry pod (front-to-back). -->
+            <Motor type="UnspecifiedMotor" name="ehPort1" port="1" />
+            <!-- Motor port 2: shooter motor (power only). Encoder jack: unused. -->
+            <Motor type="UnspecifiedMotor" name="ehPort2" port="2" />
+            <!-- Motor port 3: no motor. Encoder jack: X wheel = REAR odometry pod (side-to-side). -->
+            <Motor type="UnspecifiedMotor" name="ehPort3" port="3" />
+            <!-- Servo port 0: hopper, REV Smart Servo programmed to continuous mode. -->
+            <ContinuousRotationServo name="ehServo0" port="0" />
         </LynxModule>
     </LynxUsbDevice>
     <Webcam name="camera" serialNumber="4B75BEAF" />

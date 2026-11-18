@@ -4,6 +4,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
+import org.firstinspires.ftc.teamcode.config.Alliance;
+import org.firstinspires.ftc.teamcode.config.MatchState;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
@@ -20,6 +22,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private DeadWheelOdometry odometry;
     private AprilTagVision vision;
     private HardwareHealthMonitor hardwareHealth;
+    private Alliance alliance;
+    private boolean useAutoPose;
 
     private boolean wasFlywheelRunning = false;
     private boolean wasManualDriving = false;
@@ -40,27 +44,49 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         RobotLog.i("OpMode Initializing: IronEaglesTeleOp2026");
 
         robot.init(hardwareMap);
-        odometry = new DeadWheelOdometry(robot.leftPod, robot.rightPod, robot.rearPod);
+        alliance = MatchState.alliance;
+        useAutoPose = alliance != null && MatchState.hasAutoPose;
+        Alliance startSide = alliance != null ? alliance : Alliance.RED;
+        odometry = new DeadWheelOdometry(robot.leftPod, robot.rightPod, robot.rearPod,
+                startSide.startXIn(), startSide.startYIn(), startSide.startHeadingDeg());
         vision = new AprilTagVision(hardwareMap, robot.camera);
         vision.sample();
         hardwareHealth = new HardwareHealthMonitor(hardwareMap, robot, odometry, vision);
         hardwareHealth.update();
         telemetry.setMsTransmissionInterval(100);
+        robot.getLed().setAlliance(alliance);
+        RobotLog.i("[ALLIANCE] init: %s%s", alliance != null ? alliance : "NOT SET",
+                useAutoPose ? " (from Autonomous, with its final pose)" : "");
 
         if (robot.missingDevices.isEmpty()) {
-            telemetry.addData("STATUS", "Initialized - All devices found!");
             RobotLog.i("Hardware Map Initialization Complete: All devices found.");
         } else {
-            telemetry.addData("WARNING", "Initialized with missing config devices!");
-            telemetry.addData("MISSING", String.join(", ", robot.missingDevices));
             RobotLog.w("Hardware Map Initialization Warning: Missing devices -> %s",
                     String.join(", ", robot.missingDevices));
         }
-        writeTelemetry();
 
         RobotLog.i("[CONTROLS]\n%s", TunableValues.GAMEPAD_CONTROLS);
-        waitForStart();
-        RobotLog.i("OpMode Started: Match timer running. heading=%.1f", odometry.getHeadingDegrees());
+        while (opModeInInit()) {
+            if (gamepad1.bWasPressed()) {
+                chooseAlliance(Alliance.RED);
+            } else if (gamepad1.xWasPressed()) {
+                chooseAlliance(Alliance.BLUE);
+            }
+            if (gamepad1.yWasPressed() && useAutoPose) {
+                useAutoPose = false;
+                RobotLog.i("[ALLIANCE] Auto pose discarded; using %s start pose.", alliance);
+            }
+            writeInitTelemetry();
+            sleep(20);
+        }
+        if (isStopRequested()) {
+            robot.getLed().close();
+            hardwareHealth.close();
+            return;
+        }
+        applyAllianceAtStart();
+        RobotLog.i("OpMode Started: Match timer running. alliance=%s heading=%.1f",
+                alliance, odometry.getHeadingDegrees());
 
         loopTimer.reset();
         loopWindowTimer.reset();
@@ -110,10 +136,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             wasManualDriving = false;
         }
 
-        double heading = odometry.isPresent() ? odometry.getDriveHeadingDegrees() : 0.0;
+        double heading = odometry.isPresent()
+                ? odometry.getDriveHeadingDegrees(alliance.stickZeroDeg()) : 0.0;
         if (odometry.hasLocalizerVelocity()) {
-            driveAssist.apply(x, y, rx,
-                    odometry.getVelXMmS(), odometry.getVelYMmS(), odometry.getVelHeadingRadS());
+            int sign = alliance.driverFieldSign();
+            driveAssist.apply(x, y, rx, sign * odometry.getVelXMmS(), sign * odometry.getVelYMmS(),
+                    odometry.getVelHeadingRadS());
             x = driveAssist.getX();
             y = driveAssist.getY();
             rx = driveAssist.getRx();
@@ -210,7 +238,60 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         RobotLog.i("[SHOOTER POWER] %.0f%%", TunableValues.SHOOTER_POWER * 100.0);
     }
 
+    private void chooseAlliance(Alliance chosen) {
+        if (chosen == alliance) {
+            return;
+        }
+        if (useAutoPose) {
+            useAutoPose = false;
+            RobotLog.i("[ALLIANCE] Auto pose discarded (it was for %s).", alliance);
+        }
+        alliance = chosen;
+        robot.getLed().setAlliance(alliance);
+        RobotLog.i("[ALLIANCE] Driver chose %s.", alliance);
+    }
+
+    private void applyAllianceAtStart() {
+        if (alliance == null) {
+            alliance = Alliance.RED;
+            RobotLog.w("[ALLIANCE] None chosen before start; defaulting to RED.");
+        }
+        MatchState.alliance = alliance;
+        if (useAutoPose) {
+            odometry.setPoseInches(MatchState.autoXIn, MatchState.autoYIn, MatchState.autoHeadingDeg);
+        } else {
+            odometry.setPoseInches(alliance.startXIn(), alliance.startYIn(), alliance.startHeadingDeg());
+        }
+        MatchState.clearAutoPose();
+        targetCell.setAlliance(alliance);
+        robot.getLed().setAlliance(alliance);
+    }
+
+    private void writeInitTelemetry() {
+        if (alliance == null) {
+            telemetry.addData("ALLIANCE", "NOT SET - press B (RED) or X (BLUE)");
+        } else {
+            telemetry.addData("ALLIANCE", "%s   (B = RED, X = BLUE)", alliance);
+        }
+        if (useAutoPose) {
+            telemetry.addData("START POSE", "from Auto: X %.1f Y %.1f heading %.1f  (Y = use start)",
+                    MatchState.autoXIn, MatchState.autoYIn, MatchState.autoHeadingDeg);
+        } else {
+            Alliance side = alliance != null ? alliance : Alliance.RED;
+            telemetry.addData("START POSE", "%s start: X %.1f Y %.1f heading %.1f",
+                    side, side.startXIn(), side.startYIn(), side.startHeadingDeg());
+        }
+        if (robot.missingDevices.isEmpty()) {
+            telemetry.addData("STATUS", "Initialized - All devices found!");
+        } else {
+            telemetry.addData("WARNING", "Initialized with missing config devices!");
+            telemetry.addData("MISSING", String.join(", ", robot.missingDevices));
+        }
+        telemetry.update();
+    }
+
     private void writeTelemetry() {
+        telemetry.addData("ALLIANCE", alliance);
         telemetry.addData("FIELD X IN", poseInches(true));
         telemetry.addData("FIELD Y IN", poseInches(false));
         telemetry.addData("LEFT POD TICKS", podTicks(odometry.getLeftTicks()));

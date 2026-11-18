@@ -18,8 +18,8 @@ import java.util.Set;
  */
 public class HardwareHealthMonitor {
     private static final String[] MOTOR_NAMES = {
-            "frontLeft", "frontRight", "backLeft", "backRight",
-            "intake", "leftPod", "shooter"
+            "chPort0", "chPort1", "chPort2", "chPort3",
+            "ehPort0", "ehPort1", "ehPort2", "ehPort3"
     };
 
     private final HardwareMap hardwareMap;
@@ -94,29 +94,54 @@ public class HardwareHealthMonitor {
             try {
                 motor.getCurrentPosition();
             } catch (RuntimeException e) {
-                next.add(name + " disconnected");
+                next.add(name + " (" + useOf(name) + ") disconnected");
             }
         }
     }
 
     private DcMotor motorByName(String name) {
         switch (name) {
-            case "frontLeft":
-                return robot.frontLeft;
-            case "frontRight":
+            case "chPort0":
                 return robot.frontRight;
-            case "backLeft":
-                return robot.backLeft;
-            case "backRight":
+            case "chPort1":
                 return robot.backRight;
-            case "intake":
+            case "chPort2":
+                return robot.backLeft;
+            case "chPort3":
+                return robot.frontLeft;
+            case "ehPort0":
                 return robot.intake;
-            case "leftPod":
+            case "ehPort1":
                 return robot.leftPod;
-            case "shooter":
+            case "ehPort2":
                 return robot.shooter;
+            case "ehPort3":
+                return robot.rearPod;
             default:
                 return null;
+        }
+    }
+
+    private static String useOf(String name) {
+        switch (name) {
+            case "chPort0":
+                return "front right";
+            case "chPort1":
+                return "back right";
+            case "chPort2":
+                return "back left";
+            case "chPort3":
+                return "front left";
+            case "ehPort0":
+                return "intake / right pod";
+            case "ehPort1":
+                return "left pod";
+            case "ehPort2":
+                return "shooter";
+            case "ehPort3":
+                return "rear pod";
+            default:
+                return "?";
         }
     }
 

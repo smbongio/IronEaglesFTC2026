@@ -16,9 +16,9 @@ import java.util.List;
  * Three dead wheels, no IMU. FTCLib {@link HolonomicOdometry} turns the encoder
  * distances into field X, Y, and heading.
  *
- * {@code leftPod}  front-to-back wheel on the left side  (EH encoder 1, no motor).
- * {@code rightPod} front-to-back wheel on the right side (EH encoder 0, intake port).
- * {@code rearPod}  side-to-side wheel at the rear        (EH encoder 3, shooter port).
+ * {@code leftPod}  front-to-back wheel on the left side  (ehPort1 encoder, no motor).
+ * {@code rightPod} front-to-back wheel on the right side (ehPort0 encoder, intake motor's port).
+ * {@code rearPod}  side-to-side X wheel at the rear      (ehPort3 encoder, no motor).
  *
  * Field frame: +X audience, +Y blue, heading 0 faces +X, counter-clockwise positive.
  */
@@ -30,6 +30,7 @@ public class DeadWheelOdometry {
     private final DcMotorEx rightPod;
     private final DcMotorEx rearPod;
     private final HolonomicOdometry odometry;
+    private final double[][] alignmentCorrection;
     private final ElapsedTime logTimer = new ElapsedTime();
     private final ElapsedTime velocityTimer = new ElapsedTime();
 
@@ -60,7 +61,10 @@ public class DeadWheelOdometry {
     private double lastLoggedYMm;
     private double lastLoggedHeadingRad;
 
-    public DeadWheelOdometry(DcMotor leftPodMotor, DcMotor rightPodMotor, DcMotor rearPodMotor) {
+    private double startHeadingDeg;
+
+    public DeadWheelOdometry(DcMotor leftPodMotor, DcMotor rightPodMotor, DcMotor rearPodMotor,
+                             double startXIn, double startYIn, double startHeadingDeg) {
         leftPod = asEncoder(leftPodMotor, "left pod");
         rightPod = asEncoder(rightPodMotor, "right pod");
         rearPod = asEncoder(rearPodMotor, "rear pod");
@@ -74,23 +78,49 @@ public class DeadWheelOdometry {
             rearError = "rear pod missing";
         }
 
-        Pose2d start = new Pose2d(
-                TunableValues.START_POSE_X_IN * 25.4,
-                TunableValues.START_POSE_Y_IN * 25.4,
-                new Rotation2d(Math.toRadians(TunableValues.START_HEADING_DEG)));
+        this.startHeadingDeg = startHeadingDeg;
+        Pose2d start = poseFromInches(startXIn, startYIn, startHeadingDeg);
         odometry = new HolonomicOdometry(start,
                 TunableValues.ODO_TRACK_WIDTH_MM, TunableValues.ODO_REAR_POD_X_MM);
+        alignmentCorrection = buildAlignmentCorrection();
         readEncoders();
         setPose(start);
-        RobotLog.i("[ODO] initialized. start FIELD X=%.1f Y=%.1f in heading=%.1f  trackWidth=%.1f in rearPodX=%.1f in  LEFT=%s RIGHT=%s REAR=%s",
-                TunableValues.START_POSE_X_IN,
-                TunableValues.START_POSE_Y_IN,
-                TunableValues.START_HEADING_DEG,
+        RobotLog.i("[ODO] initialized. start FIELD X=%.1f Y=%.1f in heading=%.1f  trackWidth=%.2f in rearPodX=%.2f in  ticksPerMm=%.3f  LEFT=%s RIGHT=%s REAR=%s",
+                startXIn,
+                startYIn,
+                startHeadingDeg,
                 TunableValues.ODO_TRACK_WIDTH_MM / 25.4,
                 TunableValues.ODO_REAR_POD_X_MM / 25.4,
-                leftPod != null ? "EH1" : "MISSING",
-                rightPod != null ? "EH0" : "MISSING",
-                rearPod != null ? "EH3" : "MISSING");
+                TunableValues.ODO_TICKS_PER_MM,
+                leftPod != null ? "ehPort1" : "MISSING",
+                rightPod != null ? "ehPort0" : "MISSING",
+                rearPod != null ? "ehPort3" : "MISSING");
+        RobotLog.i("[ODO] alignment LEFT per sideways=%.4f RIGHT per sideways=%.4f REAR per forward=%.4f",
+                TunableValues.ODO_LEFT_PER_SIDEWAYS,
+                TunableValues.ODO_RIGHT_PER_SIDEWAYS,
+                TunableValues.ODO_REAR_PER_FORWARD);
+    }
+
+    /**
+     * Maps measured pod distances to what perfectly aligned pods would read.
+     * Robot motion (forward f, sideways s at the pod midpoint, turn t) drives the pods as
+     * LEFT = f + kL*s - (T/2)*t, RIGHT = f + kR*s + (T/2)*t, REAR = s + xR*t + kB*f.
+     * Ideal pods have kL = kR = kB = 0, so the correction is ideal * inverse(measured).
+     */
+    private static double[][] buildAlignmentCorrection() {
+        double halfTrack = TunableValues.ODO_TRACK_WIDTH_MM / 2.0;
+        double rearX = TunableValues.ODO_REAR_POD_X_MM;
+        double[][] measured = {
+                {1.0, TunableValues.ODO_LEFT_PER_SIDEWAYS, -halfTrack},
+                {1.0, TunableValues.ODO_RIGHT_PER_SIDEWAYS, halfTrack},
+                {TunableValues.ODO_REAR_PER_FORWARD, 1.0, rearX},
+        };
+        double[][] ideal = {
+                {1.0, 0.0, -halfTrack},
+                {1.0, 0.0, halfTrack},
+                {0.0, 1.0, rearX},
+        };
+        return multiply(ideal, invert(measured));
     }
 
     public void update() {
@@ -116,9 +146,13 @@ public class DeadWheelOdometry {
         }
 
         double perMm = TunableValues.ODO_TICKS_PER_MM;
-        double leftMm = (leftTicks - leftBaseTicks) / perMm;
-        double rightMm = (rightTicks - rightBaseTicks) / perMm;
-        double rearMm = (rearTicks - rearBaseTicks) / perMm;
+        double rawLeftMm = (leftTicks - leftBaseTicks) / perMm;
+        double rawRightMm = (rightTicks - rightBaseTicks) / perMm;
+        double rawRearMm = (rearTicks - rearBaseTicks) / perMm;
+        double[][] c = alignmentCorrection;
+        double leftMm = c[0][0] * rawLeftMm + c[0][1] * rawRightMm + c[0][2] * rawRearMm;
+        double rightMm = c[1][0] * rawLeftMm + c[1][1] * rawRightMm + c[1][2] * rawRearMm;
+        double rearMm = c[2][0] * rawLeftMm + c[2][1] * rawRightMm + c[2][2] * rawRearMm;
         // FTCLib computes heading as (left - right) / trackWidth, which is clockwise-positive.
         // Passing right first makes it counter-clockwise-positive like the field frame.
         odometry.update(rightMm, leftMm, rearMm);
@@ -160,14 +194,24 @@ public class DeadWheelOdometry {
         return leftPod != null && rightPod != null && rearPod != null;
     }
 
-    /** Keeps field X/Y and puts heading back to {@link TunableValues#START_HEADING_DEG} (Back button). */
+    /**
+     * Moves the pose to a new start (e.g. the alliance start or Autonomous' final pose).
+     * The Back button then restores this heading.
+     */
+    public void setPoseInches(double xIn, double yIn, double headingDeg) {
+        startHeadingDeg = headingDeg;
+        readEncoders();
+        setPose(poseFromInches(xIn, yIn, headingDeg));
+        RobotLog.i("[ODO] Pose set to FIELD X=%.1f Y=%.1f in heading=%.1f", xIn, yIn, headingDeg);
+    }
+
+    /** Keeps field X/Y and puts heading back to the start heading (Back button). */
     public void resetHeading() {
         if (!isPresent()) {
             return;
         }
-        setPose(new Pose2d(xMm, yMm, new Rotation2d(Math.toRadians(TunableValues.START_HEADING_DEG))));
-        RobotLog.i("[ODO] Heading restored to start %.1f deg (Back button).",
-                TunableValues.START_HEADING_DEG);
+        setPose(new Pose2d(xMm, yMm, new Rotation2d(Math.toRadians(startHeadingDeg))));
+        RobotLog.i("[ODO] Heading restored to start %.1f deg (Back button).", startHeadingDeg);
     }
 
     public double getHeadingDegrees() {
@@ -180,12 +224,11 @@ public class DeadWheelOdometry {
     }
 
     /**
-     * Heading for field-centric drive. Stick-up is field +Y (red-wall view),
-     * not robot-forward, so this is heading minus {@link TunableValues#DRIVE_STICK_ZERO_DEG}.
+     * Heading for field-centric drive: field heading minus the field direction the
+     * driver's stick-up points along (red +Y = 90, blue -Y = -90).
      */
-    public double getDriveHeadingDegrees() {
-        return wrapDegrees(getHeadingDegrees() - TunableValues.START_HEADING_DEG
-                - TunableValues.DRIVE_STICK_ZERO_DEG);
+    public double getDriveHeadingDegrees(double stickZeroDeg) {
+        return wrapDegrees(getHeadingDegrees() - stickZeroDeg);
     }
 
     public double getPosXMm() {
@@ -262,6 +305,10 @@ public class DeadWheelOdometry {
         velocityTimer.reset();
     }
 
+    private static Pose2d poseFromInches(double xIn, double yIn, double headingDeg) {
+        return new Pose2d(xIn * 25.4, yIn * 25.4, new Rotation2d(Math.toRadians(headingDeg)));
+    }
+
     private void zeroVelocity() {
         velXMmS = 0.0;
         velYMmS = 0.0;
@@ -301,6 +348,28 @@ public class DeadWheelOdometry {
             return null;
         }
         return (DcMotorEx) motor;
+    }
+
+    private static double[][] invert(double[][] m) {
+        double a = m[0][0], b = m[0][1], c = m[0][2];
+        double d = m[1][0], e = m[1][1], f = m[1][2];
+        double g = m[2][0], h = m[2][1], i = m[2][2];
+        double det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+        return new double[][] {
+                {(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det},
+                {(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det},
+                {(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det},
+        };
+    }
+
+    private static double[][] multiply(double[][] x, double[][] y) {
+        double[][] out = new double[3][3];
+        for (int r = 0; r < 3; r++) {
+            for (int col = 0; col < 3; col++) {
+                out[r][col] = x[r][0] * y[0][col] + x[r][1] * y[1][col] + x[r][2] * y[2][col];
+            }
+        }
+        return out;
     }
 
     private static double wrapRadians(double heading) {

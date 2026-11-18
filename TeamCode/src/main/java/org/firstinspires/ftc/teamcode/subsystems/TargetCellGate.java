@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.util.RobotLog;
+import org.firstinspires.ftc.teamcode.config.Alliance;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -9,20 +10,26 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 import java.util.List;
 
 /**
- * Sliding window over frames that contain the red audience cell (tags 34-37).
+ * Sliding window over frames that contain our alliance's audience cell
+ * (red tags 34-37, blue tags 38-41).
  * TRUE when at least VISION_SUCCESS_RATE of the last VISION_SAMPLE_RATE samples hit.
  */
 public class TargetCellGate {
-    private static final String TARGET_CLUSTER_NAME = "RED AUDIENCE";
-
     private final boolean[] hits;
     private int hitIndex;
     private int samplesTaken;
     private boolean lastReported;
     private boolean hasReported;
+    private Alliance alliance = Alliance.RED;
 
     public TargetCellGate() {
         hits = new boolean[Math.max(1, TunableValues.VISION_SAMPLE_RATE)];
+    }
+
+    public void setAlliance(Alliance alliance) {
+        this.alliance = alliance;
+        RobotLog.i("[VISION] Target cell %s (tags %d-%d)", alliance.targetClusterName(),
+                alliance.targetTagMin(), alliance.targetTagMax());
     }
 
     public void update(List<AprilTagDetection> detections) {
@@ -77,19 +84,20 @@ public class TargetCellGate {
         return Math.min(need, window);
     }
 
-    private static boolean containsTargetCell(List<AprilTagDetection> detections) {
+    private boolean containsTargetCell(List<AprilTagDetection> detections) {
         if (detections == null) {
             return false;
         }
         for (AprilTagDetection detection : detections) {
             if (detection instanceof AprilTagSingleDetection) {
                 int id = ((AprilTagSingleDetection) detection).id;
-                if (id >= TunableValues.VISION_TARGET_TAG_MIN && id <= TunableValues.VISION_TARGET_TAG_MAX) {
+                if (id >= alliance.targetTagMin() && id <= alliance.targetTagMax()) {
                     return true;
                 }
             } else if (detection instanceof AprilTagClusterDetection) {
                 AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
-                if (cluster.metadata != null && TARGET_CLUSTER_NAME.equals(cluster.metadata.name)) {
+                if (cluster.metadata != null
+                        && alliance.targetClusterName().equals(cluster.metadata.name)) {
                     return true;
                 }
             }
