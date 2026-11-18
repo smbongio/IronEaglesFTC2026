@@ -22,14 +22,12 @@ public final class TunableValues {
                     + "Gamepad 1 (Driver):\n"
                     + "  Left stick       field-centric X/Y\n"
                     + "  Right stick X    yaw\n"
-                    + "  A                hold: auto-align placeholder\n"
                     + "  Back             restore start heading (faces +X)\n"
                     + "Gamepad 2 (Operator):\n"
-                    + "  RT               hold: shooter forward\n"
-                    + "  RB               hold: shooter reverse\n"
-                    + "  D-pad up         tap: shooter power += 5%\n"
-                    + "  D-pad down       tap: shooter power -= 5%\n"
-                    + "  A                hold: auto-fire placeholder\n"
+                    + "  RT               hold: shooter forward at target ticks/s\n"
+                    + "  RB               hold: shooter reverse at target ticks/s\n"
+                    + "  D-pad up         tap: shooter target += 50 ticks/s\n"
+                    + "  D-pad down       tap: shooter target -= 50 ticks/s\n"
                     + "  LT               hold: intake forward\n"
                     + "  LB               hold: intake reverse\n"
                     + "  X                hold: hopper forward\n"
@@ -49,10 +47,11 @@ public final class TunableValues {
     // Intake has no encoder. Fraction of full motor power while LT/LB is held.
     public static double INTAKE_POWER = 0.50;
 
-    // Shooter runs open-loop (no encoder plugged into ehPort2). Fraction of full
-    // motor power while RT/RB is held. Starting point; tune on the field.
-    public static double SHOOTER_POWER = 0.35;
-    public static double SHOOTER_POWER_STEP = 0.05;
+    // Shooter speed the hub holds while RT/RB is held, using the shooter's own encoder
+    // on ehPort2. Gamepad 2 D-pad up/down steps it by SHOOTER_TPS_STEP, within 0..SHOOTER_MAX_TPS.
+    public static double SHOOTER_TARGET_TPS = 1000.0;
+    public static double SHOOTER_TPS_STEP = 50.0;
+    public static double SHOOTER_MAX_TPS = 3000.0;
     public static double HOPPER_MANUAL_POWER = 0.6;
 
     // Three dead wheels, no IMU (FTCLib HolonomicOdometry).

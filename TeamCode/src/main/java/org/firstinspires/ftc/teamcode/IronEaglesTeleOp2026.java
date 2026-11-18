@@ -193,8 +193,8 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private void logShooterStart(String direction) {
         if (!wasFlywheelRunning) {
-            RobotLog.i("[FLYWHEEL] Manual %s at %.0f%% power.",
-                    direction, TunableValues.SHOOTER_POWER * 100.0);
+            RobotLog.i("[FLYWHEEL] Manual %s at %.0f ticks/s.",
+                    direction, TunableValues.SHOOTER_TARGET_TPS);
             wasFlywheelRunning = true;
         }
     }
@@ -224,18 +224,18 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
 
     private void updateSpeedTargets() {
         if (gamepad2.dpad_up && !wasGp2DpadUp) {
-            bumpShooterPower(TunableValues.SHOOTER_POWER_STEP);
+            bumpShooterTarget(TunableValues.SHOOTER_TPS_STEP);
         } else if (gamepad2.dpad_down && !wasGp2DpadDown) {
-            bumpShooterPower(-TunableValues.SHOOTER_POWER_STEP);
+            bumpShooterTarget(-TunableValues.SHOOTER_TPS_STEP);
         }
         wasGp2DpadUp = gamepad2.dpad_up;
         wasGp2DpadDown = gamepad2.dpad_down;
     }
 
-    private static void bumpShooterPower(double delta) {
-        TunableValues.SHOOTER_POWER =
-                Math.max(0.0, Math.min(1.0, TunableValues.SHOOTER_POWER + delta));
-        RobotLog.i("[SHOOTER POWER] %.0f%%", TunableValues.SHOOTER_POWER * 100.0);
+    private static void bumpShooterTarget(double delta) {
+        TunableValues.SHOOTER_TARGET_TPS = Math.max(0.0,
+                Math.min(TunableValues.SHOOTER_MAX_TPS, TunableValues.SHOOTER_TARGET_TPS + delta));
+        RobotLog.i("[SHOOTER TARGET] %.0f ticks/s", TunableValues.SHOOTER_TARGET_TPS);
     }
 
     private void chooseAlliance(Alliance chosen) {
@@ -299,8 +299,9 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         telemetry.addData("REAR POD TICKS", podTicks(odometry.getRearTicks()));
         telemetry.addData("HEADING DEGREES", headingLine());
         telemetry.addData("TOTAL TURN DEGREES", totalTurnLine());
-        telemetry.addData("SHOOTER POWER", "%.0f%% set / %.0f%% now",
-                TunableValues.SHOOTER_POWER * 100.0,
+        telemetry.addData("SHOOTER TICKS/S", "%.0f set / %.0f now (%.0f%% power)",
+                TunableValues.SHOOTER_TARGET_TPS,
+                robot.getShooter().getMeasuredTps(),
                 Math.abs(robot.getShooter().getAppliedPower()) * 100.0);
         telemetry.addData("INTAKE POWER", "%.0f%%",
                 Math.abs(robot.getIntake().getAppliedPower()) * 100.0);

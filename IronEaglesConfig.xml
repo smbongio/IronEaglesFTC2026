@@ -18,7 +18,7 @@
             <Motor type="UnspecifiedMotor" name="ehPort0" port="0" />
             <!-- Motor port 1: no motor. Encoder jack: LEFT odometry pod (front-to-back). -->
             <Motor type="UnspecifiedMotor" name="ehPort1" port="1" />
-            <!-- Motor port 2: shooter motor (power only). Encoder jack: unused. -->
+            <!-- Motor port 2: shooter motor. Encoder jack: shooter motor's encoder (speed control). -->
             <Motor type="UnspecifiedMotor" name="ehPort2" port="2" />
             <!-- Motor port 3: no motor. Encoder jack: X wheel = REAR odometry pod (side-to-side). -->
             <Motor type="UnspecifiedMotor" name="ehPort3" port="3" />

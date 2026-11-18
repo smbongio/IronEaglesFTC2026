@@ -6,7 +6,7 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 
 * **4 wheel motors** (REV DC motor)
 * **1 intake motor** (REV DC motor, open-loop power, no encoder)
-* **1 shooter motor** (REV DC motor on Expansion Hub port 2, open-loop power, no encoder)
+* **1 shooter motor** (REV DC motor on Expansion Hub port 2, speed control in ticks/second from its own encoder on the same port)
 * **1 hopper servo** (REV Smart Servo in continuous mode on Expansion Hub servo port 0, open-loop speed, no position feedback)
 * **3 dead-wheel odometry pods** (left and right front-to-back, one side-to-side at the rear)
 * **An LED strip** (used for aim assist)

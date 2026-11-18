@@ -28,7 +28,7 @@ Config names are the hub port (`chPort0` = Control Hub motor port 0, `ehServo0` 
 |---|---|---|
 | `ehPort0` | Intake. Open-loop power (`INTAKE_POWER`, default 50%). | **RIGHT** odometry pod |
 | `ehPort1` | No motor | **LEFT** odometry pod |
-| `ehPort2` | Shooter. Open-loop power (`SHOOTER_POWER`, default 35%, d-pad ±5%). | Unused |
+| `ehPort2` | Shooter. Speed control at `SHOOTER_TARGET_TPS` (default 1000 ticks/s, d-pad ±50). | Shooter motor's own encoder |
 | `ehPort3` | No motor | **REAR** odometry pod (the X wheel, side-to-side) |
 
 Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.

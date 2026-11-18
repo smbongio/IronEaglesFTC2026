@@ -153,8 +153,7 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         }
         if (shooter != null) {
             shooter.setDirection(DcMotor.Direction.REVERSE);
-            // Power only. ehPort2's encoder jack is unused.
-            shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
         // Instantiate Subsystems from dedicated subsystem classes
         drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
