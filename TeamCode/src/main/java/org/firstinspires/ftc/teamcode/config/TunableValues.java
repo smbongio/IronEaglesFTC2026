@@ -43,20 +43,31 @@ public final class TunableValues {
     // flip it if X runs the hopper backwards.
     public static int HOPPER_DIR = -1;
     public static int SHOOTER_DIR = 1;
+    // Shooter follower on ehPort3 gets ehPort2's power times this. ehPort3 can't be set to
+    // REVERSE in software (that would flip the rear pod's encoder), so flip this instead.
+    // Check at low speed first: if the two motors fight, the flywheel barely turns and hums.
+    public static int SHOOTER_FOLLOW_DIR = 1;
 
     // Intake has no encoder. Fraction of full motor power while LT/LB is held.
     public static double INTAKE_POWER = 0.50;
 
-    // Shooter speed the hub holds while RT/RB is held, using the shooter's own encoder
+    // Shooter speed held while RT/RB is held, measured by the shooter motor's own encoder
     // on ehPort2. Gamepad 2 D-pad up/down steps it by SHOOTER_TPS_STEP, within 0..SHOOTER_MAX_TPS.
     public static double SHOOTER_TARGET_TPS = 1000.0;
     public static double SHOOTER_TPS_STEP = 50.0;
     public static double SHOOTER_MAX_TPS = 3000.0;
+    // Speed loop (runs in our code so both shooter motors get the same power):
+    // power = KF * target + KP * (target - measured), in ticks/s.
+    // Tune KF first with the flywheel empty: if "now" settles below "set", raise KF.
+    // 1/2800 assumes a 6000 rpm motor with 28 ticks/rev. Then raise KP for faster recovery
+    // after a shot; lower it if the speed oscillates.
+    public static double SHOOTER_KF = 1.0 / 2800.0;
+    public static double SHOOTER_KP = 0.0005;
     public static double HOPPER_MANUAL_POWER = 0.6;
 
     // Three dead wheels, no IMU (FTCLib HolonomicOdometry).
     // LEFT = ehPort1 encoder, RIGHT = ehPort0 encoder (both front-to-back).
-    // REAR = ehPort3 encoder, the X wheel (side-to-side).
+    // REAR = ehPort3 encoder, the X wheel (side-to-side). ehPort3's motor jack is the shooter follower.
     // Set each *_DIR so pushing the robot forward makes LEFT and RIGHT ticks go up,
     // and pushing it left makes REAR ticks go up.
     // ehPort0 reads through the intake motor, which is REVERSE (that flips its sign).
@@ -87,8 +98,10 @@ public final class TunableValues {
     //   set = (change in LEFT or RIGHT POD TICKS) / (change in REAR POD TICKS).
     // REAR: drag it straight forward the same way, then
     //   set = (change in REAR POD TICKS) / (average change in LEFT and RIGHT POD TICKS).
-    // 11/14 10 ft sideways drag: LEFT +2136, RIGHT -531, REAR -88599 ticks.
-    public static double ODO_LEFT_PER_SIDEWAYS = -0.0241;
+    // 11/14 10 ft sideways drag: LEFT +2136, RIGHT -531, REAR -88599 ticks (LEFT -0.0241, RIGHT 0.0060).
+    // Only LEFT minus RIGHT affects heading. 11/19 driven board runs (9 sideways strokes, 40-88 in)
+    // fit LEFT - RIGHT = -0.0120 best (-0.0301 over-corrected: ~0.2 deg of false turn per inch).
+    public static double ODO_LEFT_PER_SIDEWAYS = -0.0060;
     public static double ODO_RIGHT_PER_SIDEWAYS = 0.0060;
     public static double ODO_REAR_PER_FORWARD = 0.0;
 
@@ -144,6 +157,11 @@ public final class TunableValues {
     // Time one 180° hopper turn at AUTO_HOPPER_POWER and put it here (no encoder on the servo).
     public static long AUTO_HOPPER_HALF_TURN_MS = 700;
     public static long AUTO_HOPPER_PAUSE_MS = 300;
+    // The hopper is loaded horizontal and should rest vertical. Right after Play, Auto turns it
+    // this long at AUTO_HOPPER_POWER (a 90° turn; time it like the half turn). DIR -1 turns it
+    // the other way if the forward quarter turn would feed a ball.
+    public static long AUTO_HOPPER_QUARTER_TURN_MS = 350;
+    public static int AUTO_HOPPER_QUARTER_TURN_DIR = 1;
 
     // Red loading zone (park): tile A5 on the red wall, 23 in wide x 11 in deep.
     // We park with the robot center on the zone edge nearest the wall we started on (half in),
@@ -172,12 +190,25 @@ public final class TunableValues {
     // Stop moving this long before Autonomous ends.
     public static double AUTO_END_MARGIN_S = 1.0;
 
-    // Park check with the camera. Uses only our alliance's cells; only X is taken from the
-    // camera (the wall touch already fixed Y and heading).
+    // Park check with the camera. Only X is taken from the camera (the wall touch already
+    // fixed Y and heading).
     public static long AUTO_VISION_WINDOW_MS = 1500;
     public static int AUTO_VISION_MIN_FRAMES = 3;
     public static double AUTO_VISION_MAX_CORRECTION_IN = 12.0;
     public static int AUTO_VISION_MAX_TRIES = 3;
+
+    // Camera position fixes in Auto and TeleOp: at most one per interval, using the median of
+    // the cell sightings from the last window. Heading always stays with odometry. Sightings
+    // are skipped while turning fast (blur), past the max range (noisy), or more than the max
+    // jump from odometry (bad reading). Set ENABLED false until the camera mount and cell
+    // positions below are measured, or wrong numbers will pull the pose off.
+    public static boolean VISION_FIX_ENABLED = true;
+    public static double VISION_FIX_INTERVAL_S = 3.0;
+    public static double VISION_FIX_WINDOW_S = 1.0;
+    public static int VISION_FIX_MIN_SIGHTINGS = 3;
+    public static double VISION_FIX_MAX_RANGE_IN = 72.0;
+    public static double VISION_FIX_MAX_TURN_DEG_S = 30.0;
+    public static double VISION_FIX_MAX_JUMP_IN = 12.0;
 
     // Camera on the robot: inches in front of the robot center (negative = behind), inches
     // left of center, which way it looks (180 = out the back over the shooter), and its
@@ -191,6 +222,7 @@ public final class TunableValues {
     // BIOBUZZ cells, so these are estimates (cells 18.8 in apart, lined up with our start).
     // Calibrate: park, square on the wall, read CELL SEEN AT on the Driver Hub.
     // Up cell = red audience cell (tags 34-37); down cell = red scoring cell (tags 30-33).
+    // Blue cells are these rotated 180 degrees.
     public static double VISION_UP_CELL_X_IN = 9.4;
     public static double VISION_DOWN_CELL_X_IN = -9.4;
     public static double VISION_CELL_Y_IN = -11.0;

@@ -7,6 +7,7 @@ import org.firstinspires.ftc.teamcode.config.Alliance;
 import org.firstinspires.ftc.teamcode.config.MatchState;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
+import org.firstinspires.ftc.teamcode.subsystems.CameraPoseCorrector;
 import org.firstinspires.ftc.teamcode.subsystems.CellLocalizer;
 import org.firstinspires.ftc.teamcode.subsystems.DeadWheelOdometry;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -26,6 +27,7 @@ import java.util.List;
  *   <li>Camera check: if our cell's tags are seen, correct X and re-park until in
  *       tolerance; if nothing is seen, stop.</li>
  * </ol>
+ * Throughout, cell tag sightings correct X/Y every few seconds ({@link CameraPoseCorrector}).
  * Records the alliance and the pose every loop so TeleOp starts where Autonomous ended.
  */
 public abstract class IronEaglesAutoBase extends LinearOpMode {
@@ -38,10 +40,13 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
     protected abstract boolean cellUp();
 
     private final ElapsedTime matchTimer = new ElapsedTime();
+    private final ElapsedTime hopperTimer = new ElapsedTime();
+    private double hopperStopMs = -1.0;
     private IronEaglesHardware robot;
     private DeadWheelOdometry odometry;
     private AprilTagVision vision;
     private CellLocalizer cells;
+    private final CameraPoseCorrector cameraFix = new CameraPoseCorrector();
     private Alliance side;
     private String program;
     private String step = "INIT";
@@ -62,7 +67,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         odometry = new DeadWheelOdometry(robot.leftPod, robot.rightPod, robot.rearPod,
                 side.x(redStartX), side.y(redStartY), side.heading(redStartH));
         vision = new AprilTagVision(hardwareMap, robot.camera);
-        cells = new CellLocalizer(side);
+        cells = new CellLocalizer();
         MatchState.alliance = side;
         MatchState.clearAutoPose();
         robot.getLed().setAlliance(side);
@@ -94,6 +99,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         RobotLog.i("[AUTO] %s started at X=%.1f Y=%.1f heading=%.1f", program,
                 side.x(redStartX), side.y(redStartY), side.heading(redStartH));
         try {
+            hopperToVertical();
             double redShootX = redStartX + (up ? -1.0 : 1.0) * TunableValues.AUTO_MOVE_TO_CELL_IN;
             setStep("MOVE TO CELL");
             moveTo(redShootX, redStartY, redStartH, TunableValues.AUTO_POS_TOL_IN);
@@ -110,13 +116,13 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
             checkParkWithCamera(redParkX);
 
             while (opModeIsActive()) {
-                odometry.update();
-                savePose();
+                updateRobot();
                 writeTelemetry(null);
             }
         } finally {
             robot.getDrivetrain().stop();
             robot.getShooter().stop();
+            robot.getShooter().update();
             robot.getHopper().stop();
             vision.close();
             if (MatchState.hasAutoPose) {
@@ -126,7 +132,22 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         }
     }
 
+    /** Starts the 90° turn from the loaded (horizontal) to the rest (vertical) position; updateRobot() stops it. */
+    private void hopperToVertical() {
+        RobotLog.i("[AUTO] Hopper quarter turn to vertical (%d ms)", TunableValues.AUTO_HOPPER_QUARTER_TURN_MS);
+        robot.getHopper().runHopper(TunableValues.AUTO_HOPPER_POWER * TunableValues.AUTO_HOPPER_QUARTER_TURN_DIR);
+        hopperTimer.reset();
+        hopperStopMs = TunableValues.AUTO_HOPPER_QUARTER_TURN_MS;
+    }
+
     private void shoot() {
+        if (hopperStopMs >= 0) {
+            setStep("HOPPER TO VERTICAL");
+            while (opModeIsActive() && hopperStopMs >= 0) {
+                updateRobot();
+                writeTelemetry(null);
+            }
+        }
         setStep("SPIN UP");
         robot.getShooter().runShooter(1.0);
         waitSeconds(TunableValues.AUTO_SPINUP_S);
@@ -167,8 +188,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (opModeIsActive() && timer.milliseconds() < TunableValues.AUTO_WALL_SQUARE_MS) {
             robot.getDrivetrain().drive(0.0, TunableValues.AUTO_WALL_SQUARE_POWER, 0.0);
-            odometry.update();
-            savePose();
+            updateRobot();
             writeTelemetry(null);
         }
         robot.getDrivetrain().stop();
@@ -180,6 +200,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         double beforeHeading = odometry.getHeadingDegrees();
         odometry.setPoseInches(odometry.getPosXMm() / 25.4, side.y(redWallY()),
                 side.heading(PARK_HEADING_RED_DEG));
+        cameraFix.discardSightings();
         savePose();
         RobotLog.i("[AUTO] Squared on wall: Y %.1f -> %.1f, heading %.1f -> %.1f", before,
                 side.y(redWallY()), beforeHeading, side.heading(PARK_HEADING_RED_DEG));
@@ -202,7 +223,8 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
                 return;
             }
             double redX = side.x(fieldX);
-            odometry.setPoseInches(fieldX, odometry.getPosYMm() / 25.4, odometry.getHeadingDegrees());
+            odometry.setPositionInches(fieldX, odometry.getPosYMm() / 25.4);
+            cameraFix.discardSightings();
             savePose();
             if (Math.abs(redX - redParkX) <= TunableValues.AUTO_PARK_TOL_IN) {
                 setStep("PARKED (camera confirmed)");
@@ -224,8 +246,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         long lastFrame = -1;
         ElapsedTime window = new ElapsedTime();
         while (opModeIsActive() && window.milliseconds() < TunableValues.AUTO_VISION_WINDOW_MS) {
-            odometry.update();
-            savePose();
+            updateRobot();
             List<AprilTagDetection> detections = vision.sample();
             if (!detections.isEmpty() && detections.get(0).frameAcquisitionNanoTime != lastFrame) {
                 lastFrame = detections.get(0).frameAcquisitionNanoTime;
@@ -269,8 +290,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         boolean reached = false;
         while (opModeIsActive() && timer.seconds() < TunableValues.AUTO_MOVE_TIMEOUT_S
                 && timeLeft() > TunableValues.AUTO_END_MARGIN_S) {
-            odometry.update();
-            savePose();
+            updateRobot();
             double ex = tx - odometry.getPosXMm() / 25.4;
             double ey = ty - odometry.getPosYMm() / 25.4;
             double eh = wrapDegrees(th - odometry.getHeadingDegrees());
@@ -307,8 +327,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
     private void waitSeconds(double seconds) {
         ElapsedTime timer = new ElapsedTime();
         while (opModeIsActive() && timer.seconds() < seconds) {
-            odometry.update();
-            savePose();
+            updateRobot();
             writeTelemetry(null);
         }
     }
@@ -334,6 +353,7 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
         telemetry.addData("FIELD X IN", "%.1f", odometry.getPosXMm() / 25.4);
         telemetry.addData("FIELD Y IN", "%.1f", odometry.getPosYMm() / 25.4);
         telemetry.addData("HEADING DEGREES", "%.1f", odometry.getHeadingDegrees());
+        telemetry.addData("CAMERA FIX", cameraFix.getStatus());
         telemetry.addData("SHOOTER TICKS/S", "%.0f set / %.0f now",
                 robot.getShooter().getTargetTps(), robot.getShooter().getMeasuredTps());
         if (detections != null) {
@@ -355,6 +375,18 @@ public abstract class IronEaglesAutoBase extends LinearOpMode {
             telemetry.addData("CELL SEEN AT", "%s X %.1f Y %.1f", s.clusterName,
                     rx + s.fieldDxIn, ry + s.fieldDyIn);
         }
+    }
+
+    /** Once per loop: odometry, camera fixes, the shooter speed loop (and its follower), and the pose handoff. */
+    private void updateRobot() {
+        odometry.update();
+        if (hopperStopMs >= 0 && hopperTimer.milliseconds() >= hopperStopMs) {
+            robot.getHopper().stop();
+            hopperStopMs = -1.0;
+        }
+        cameraFix.update(odometry, vision.sample());
+        robot.getShooter().update();
+        savePose();
     }
 
     private void savePose() {

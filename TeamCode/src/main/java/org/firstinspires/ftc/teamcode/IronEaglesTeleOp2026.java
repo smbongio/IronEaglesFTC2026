@@ -9,6 +9,7 @@ import org.firstinspires.ftc.teamcode.config.MatchState;
 import org.firstinspires.ftc.teamcode.config.TunableValues;
 import org.firstinspires.ftc.teamcode.control.DriveVelocityAssist;
 import org.firstinspires.ftc.teamcode.subsystems.AprilTagVision;
+import org.firstinspires.ftc.teamcode.subsystems.CameraPoseCorrector;
 import org.firstinspires.ftc.teamcode.subsystems.HardwareHealthMonitor;
 import org.firstinspires.ftc.teamcode.subsystems.DeadWheelOdometry;
 
@@ -19,6 +20,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
     private final DriveVelocityAssist driveAssist = new DriveVelocityAssist();
     private DeadWheelOdometry odometry;
     private AprilTagVision vision;
+    private final CameraPoseCorrector cameraFix = new CameraPoseCorrector();
     private HardwareHealthMonitor hardwareHealth;
     private Alliance alliance;
     private boolean useAutoPose;
@@ -92,11 +94,12 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             while (opModeIsActive()) {
                 updateLoopTime();
                 odometry.update();
-                vision.sample();
+                cameraFix.update(odometry, vision.sample());
                 hardwareHealth.update();
 
                 if (gamepad1.backWasPressed()) {
                     odometry.resetHeading();
+                    cameraFix.discardSightings();
                 }
 
                 double rawY  = -gamepad1.left_stick_y;
@@ -186,6 +189,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
             }
             robot.getShooter().stop();
         }
+        robot.getShooter().update();
     }
 
     private void logShooterStart(String direction) {
@@ -295,6 +299,7 @@ public class IronEaglesTeleOp2026 extends LinearOpMode {
         telemetry.addData("REAR POD TICKS", podTicks(odometry.getRearTicks()));
         telemetry.addData("HEADING DEGREES", headingLine());
         telemetry.addData("TOTAL TURN DEGREES", totalTurnLine());
+        telemetry.addData("CAMERA FIX", cameraFix.getStatus());
         telemetry.addData("SHOOTER TICKS/S", "%.0f set / %.0f now (%.0f%% power)",
                 TunableValues.SHOOTER_TARGET_TPS,
                 robot.getShooter().getMeasuredTps(),

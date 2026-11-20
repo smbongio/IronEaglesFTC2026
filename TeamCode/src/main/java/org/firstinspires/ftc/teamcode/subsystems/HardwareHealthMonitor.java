@@ -139,7 +139,7 @@ public class HardwareHealthMonitor {
             case "ehPort2":
                 return "shooter";
             case "ehPort3":
-                return "rear pod";
+                return "shooter follower / rear pod";
             default:
                 return "?";
         }

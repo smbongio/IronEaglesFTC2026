@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Turns a sighting of one of our alliance's cell tag clusters into a robot field position,
+ * Turns a sighting of any of the four cell tag clusters into a robot field position,
  * using the cell positions and camera mount in {@link TunableValues} and the odometry heading.
  * Also runs the other way (where the cell is, given a known robot pose) for calibration.
  */
@@ -23,13 +23,16 @@ public class CellLocalizer {
         public final double cellYIn;
         public final double fieldDxIn;
         public final double fieldDyIn;
+        public final double rangeIn;
 
-        Sighting(String clusterName, double cellXIn, double cellYIn, double fieldDxIn, double fieldDyIn) {
+        Sighting(String clusterName, double cellXIn, double cellYIn, double fieldDxIn, double fieldDyIn,
+                 double rangeIn) {
             this.clusterName = clusterName;
             this.cellXIn = cellXIn;
             this.cellYIn = cellYIn;
             this.fieldDxIn = fieldDxIn;
             this.fieldDyIn = fieldDyIn;
+            this.rangeIn = rangeIn;
         }
 
         public double robotXIn() {
@@ -39,12 +42,6 @@ public class CellLocalizer {
         public double robotYIn() {
             return cellYIn - fieldDyIn;
         }
-    }
-
-    private final Alliance alliance;
-
-    public CellLocalizer(Alliance alliance) {
-        this.alliance = alliance;
     }
 
     public List<Sighting> sightings(List<AprilTagDetection> detections, double robotHeadingDeg) {
@@ -60,17 +57,20 @@ public class CellLocalizer {
             if (cluster.metadata == null) {
                 continue;
             }
-            double redCellX;
-            if (alliance.upCellClusterName().equals(cluster.metadata.name)) {
-                redCellX = TunableValues.VISION_UP_CELL_X_IN;
-            } else if (alliance.downCellClusterName().equals(cluster.metadata.name)) {
-                redCellX = TunableValues.VISION_DOWN_CELL_X_IN;
-            } else {
-                continue;
+            for (Alliance owner : Alliance.values()) {
+                double redCellX;
+                if (owner.upCellClusterName().equals(cluster.metadata.name)) {
+                    redCellX = TunableValues.VISION_UP_CELL_X_IN;
+                } else if (owner.downCellClusterName().equals(cluster.metadata.name)) {
+                    redCellX = TunableValues.VISION_DOWN_CELL_X_IN;
+                } else {
+                    continue;
+                }
+                double[] d = fieldOffset(detection, robotHeadingDeg);
+                out.add(new Sighting(cluster.metadata.name, owner.x(redCellX),
+                        owner.y(TunableValues.VISION_CELL_Y_IN), d[0], d[1],
+                        detection.distanceUnit.toInches(detection.ftcPose.range)));
             }
-            double[] d = fieldOffset(detection, robotHeadingDeg);
-            out.add(new Sighting(cluster.metadata.name, alliance.x(redCellX),
-                    alliance.y(TunableValues.VISION_CELL_Y_IN), d[0], d[1]));
         }
         return out;
     }

@@ -6,12 +6,12 @@ In the initialization phase, the robot must identify all hardware. The hardware 
 
 * **4 wheel motors** (REV DC motor)
 * **1 intake motor** (REV DC motor, open-loop power, no encoder)
-* **1 shooter motor** (REV DC motor on Expansion Hub port 2, speed control in ticks/second from its own encoder on the same port)
+* **2 shooter motors** (REV DC motors: leader on Expansion Hub port 2 with speed control in ticks/second from its own encoder; follower on port 3 gets the leader's power every loop)
 * **1 hopper servo** (REV Smart Servo in continuous mode on Expansion Hub servo port 0, open-loop speed, no position feedback)
 * **3 dead-wheel odometry pods** (left and right front-to-back, one side-to-side at the rear)
 * **An LED strip** (solid alliance color)
 
-An expansion hub connects intake (port 0) and shooter (port 2). Odometry pods use Expansion Hub encoder jacks: RIGHT on port 0, LEFT on port 1, REAR (the X wheel) on port 3. The intake shares port 0 with the RIGHT pod and runs on power only; ports 1 and 3 have no motor. Config names are the hub ports (`chPort0`, `ehPort2`, `ehServo0`, ...); see `HARDWARE.md`. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
+An expansion hub connects intake (port 0), shooter (port 2), and shooter follower (port 3). Odometry pods use Expansion Hub encoder jacks: RIGHT on port 0, LEFT on port 1, REAR (the X wheel) on port 3. The intake shares port 0 with the RIGHT pod and the follower shares port 3 with the REAR pod; both run on power only. Port 1 has no motor. Config names are the hub ports (`chPort0`, `ehPort2`, `ehServo0`, ...); see `HARDWARE.md`. Motor directions (`*_DIR`, +1 or −1) live in `TunableValues.java`.
 
 > **Note:** Due to the way the wheels are mounted, the **FRONT RIGHT** wheel motor must turn in the inverse direction as all other wheels.
 
@@ -27,11 +27,11 @@ Live constants (red side): `FIELD_SIZE_IN`, `START_POSE_X_IN`, `START_POSE_Y_IN`
 
 Four programs: **Red Cell Up**, **Red Cell Down**, **Blue Cell Up**, **Blue Cell Down**. At the start, red's audience-side cell and blue's far-side cell are tipped up. The shooter and camera are on the back; the intake bumper touches the start wall.
 
-* **Cell up:** start with the intake bumper on the wall facing the up cell (red: audience wall at (63, −11); blue: far wall at (−63, +11)). Back up 12 in toward the cell, spin the shooter 2 s, turn the hopper 180° twice, park.
+* **Cell up:** start with the intake bumper on the wall facing the up cell (red: audience wall at (63, −11); blue: far wall at (−63, +11)). Back up 12 in toward the cell (while turning the hopper 90° from its loaded horizontal position to vertical), spin the shooter 2 s, turn the hopper 180° twice (it ends vertical), park.
 * **Cell down:** start on the opposite wall (red: (−63, −11); blue: (63, +11)), back up 12 in, wait 10 s for the partner to tip the hive, then shoot and park the same way.
 * **Park:** drive along the park lane (Y = −40 for red) to the loading zone (red tile A5, X −47.5 to −24.5 on the red wall; blue tile F2, mirrored by the rotation). The robot center goes on the zone edge nearest the wall it started on, so half the robot is in and the partner has the other half. Intake bumper toward the alliance wall; it pushes into the wall to reset Y and heading.
-* **Camera check:** the camera faces the hive. If it sees our alliance's cell tags in enough frames, it corrects X (only), and re-parks if X is more than 4 in off. If it sees nothing, the robot stays put.
-* The Driver Hub shows **CELL SEEN AT** in INIT and during the camera check: where the camera puts each of our cells if the odometry pose is right. Use it at a known pose to set `VISION_UP_CELL_X_IN`, `VISION_DOWN_CELL_X_IN`, `VISION_CELL_Y_IN`, and measure `CAMERA_*`.
+* **Camera check:** the camera faces the hive. If it sees cell tags in enough frames, it corrects X (only), and re-parks if X is more than 4 in off. If it sees nothing, the robot stays put.
+* The Driver Hub shows **CELL SEEN AT** in INIT and during the camera check: where the camera puts each cell it sees if the odometry pose is right. Use it at a known pose to set `VISION_UP_CELL_X_IN`, `VISION_DOWN_CELL_X_IN`, `VISION_CELL_Y_IN`, and measure `CAMERA_*`.
 
 ### Alliance selection
 
@@ -87,6 +87,7 @@ Gamepad 2 should handle the operations of the robot.
 * **B Button:** Spin the shooter motor in the opposite shooting direction.
 
 ## Vision Control
+* **Camera position fixes (Auto and TeleOp):** the camera scans all match. Any of the four cells' tag clusters within 72 in gives a robot X/Y (using the odometry heading). At most every 3 s, odometry X/Y moves to the median of the last second's sightings. Heading is never changed by the camera. Sightings are ignored while turning faster than 30°/s or when more than 12 in from odometry. The Driver Hub shows **CAMERA FIX**; the log shows `[CAMERA FIX]`. Turn off with `VISION_FIX_ENABLED`.
 * The LED stays solid alliance color all match (team decision 11/17); in-range feedback, if added, goes on the Driver Hub instead.
 * The robot is in range if it is within a 45-degree cone of the hive.
 * When locating the hive that is in range, we need to identify the hive that is in our color and is in the upright position.

@@ -20,11 +20,11 @@
             <Motor type="UnspecifiedMotor" name="ehPort1" port="1" />
             <!-- Motor port 2: shooter motor. Encoder jack: shooter motor's encoder (speed control). -->
             <Motor type="UnspecifiedMotor" name="ehPort2" port="2" />
-            <!-- Motor port 3: no motor. Encoder jack: X wheel = REAR odometry pod (side-to-side). -->
+            <!-- Motor port 3: shooter follower motor (copies port 2's power). Encoder jack: X wheel = REAR odometry pod (side-to-side). -->
             <Motor type="UnspecifiedMotor" name="ehPort3" port="3" />
             <!-- Servo port 0: hopper, REV Smart Servo programmed to continuous mode. -->
             <ContinuousRotationServo name="ehServo0" port="0" />
         </LynxModule>
     </LynxUsbDevice>
-    <Webcam name="camera" serialNumber="4B75BEAF" />
+    <Webcam name="camera" serialNumber="BHI260AP" />
 </Robot>

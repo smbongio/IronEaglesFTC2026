@@ -38,13 +38,14 @@ public class IronEaglesHardware implements RobotHardwareInterface {
 
     public DcMotor intake;      // ehPort0
     public DcMotor shooter;     // ehPort2
+    public DcMotor shooterFollow;  // ehPort3. Same device object as rearPod.
     // REV Smart Servo, continuous mode.
     public CRServo hopper;      // ehServo0
 
     // Dead-wheel encoders. A pod on a motor port shares that port's one encoder jack.
     public DcMotor rightPod;    // ehPort0 encoder (front-to-back). Same device object as intake.
     public DcMotor leftPod;     // ehPort1 encoder (front-to-back). No motor on this port.
-    public DcMotor rearPod;     // ehPort3 encoder, the X wheel (side-to-side). No motor on this port.
+    public DcMotor rearPod;     // ehPort3 encoder, the X wheel (side-to-side). Same device as shooterFollow.
 
     public final List<String> missingDevices = new ArrayList<>();
 
@@ -129,9 +130,10 @@ public class IronEaglesHardware implements RobotHardwareInterface {
         intake   = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort0");
         leftPod  = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort1");
         shooter  = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort2");
-        rearPod  = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort3");
+        shooterFollow = getHardwareSafely(hardwareMap, DcMotor.class, "ehPort3");
         hopper   = getHardwareSafely(hardwareMap, CRServo.class, "ehServo0");
         rightPod = intake;
+        rearPod  = shooterFollow;
 
         // USB
         camera = getHardwareSafely(hardwareMap, WebcamName.class, "camera");
@@ -155,11 +157,16 @@ public class IronEaglesHardware implements RobotHardwareInterface {
             shooter.setDirection(DcMotor.Direction.REVERSE);
             shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
+        if (shooterFollow != null) {
+            // Direction stays FORWARD: it also sets the rear pod's encoder sign. See SHOOTER_FOLLOW_DIR.
+            shooterFollow.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            shooterFollow.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
         // Instantiate Subsystems from dedicated subsystem classes
         drivetrainSubsystem = new MecanumDrivetrain(frontLeft, frontRight, backLeft, backRight);
         intakeSubsystem     = new IntakeSubsystem(intake);
         hopperSubsystem     = new HopperSubsystem(hopper);
-        shooterSubsystem    = new ShooterSubsystem(shooter);
+        shooterSubsystem    = new ShooterSubsystem(shooter, shooterFollow);
         ledSubsystem        = new BlinkinLedSubsystem(blinkin);
     }
 

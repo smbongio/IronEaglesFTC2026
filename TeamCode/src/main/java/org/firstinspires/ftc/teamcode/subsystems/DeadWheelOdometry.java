@@ -18,7 +18,7 @@ import java.util.List;
  *
  * {@code leftPod}  front-to-back wheel on the left side  (ehPort1 encoder, no motor).
  * {@code rightPod} front-to-back wheel on the right side (ehPort0 encoder, intake motor's port).
- * {@code rearPod}  side-to-side X wheel at the rear      (ehPort3 encoder, no motor).
+ * {@code rearPod}  side-to-side X wheel at the rear      (ehPort3 encoder, shooter follower's port).
  *
  * Field frame: +X audience, +Y blue, heading 0 faces +X, counter-clockwise positive.
  */
@@ -203,6 +203,23 @@ public class DeadWheelOdometry {
         readEncoders();
         setPose(poseFromInches(xIn, yIn, headingDeg));
         RobotLog.i("[ODO] Pose set to FIELD X=%.1f Y=%.1f in heading=%.1f", xIn, yIn, headingDeg);
+    }
+
+    /**
+     * Moves field X/Y only (camera fixes). Heading, the Back-button heading, and the
+     * velocity estimate are kept, so drive assist does not see a jump.
+     */
+    public void setPositionInches(double xIn, double yIn) {
+        if (!isPresent()) {
+            return;
+        }
+        double vx = velXMmS;
+        double vy = velYMmS;
+        double vh = velHeadingRadS;
+        setPose(new Pose2d(xIn * 25.4, yIn * 25.4, new Rotation2d(headingRad)));
+        velXMmS = vx;
+        velYMmS = vy;
+        velHeadingRadS = vh;
     }
 
     /** Keeps field X/Y and puts heading back to the start heading (Back button). */

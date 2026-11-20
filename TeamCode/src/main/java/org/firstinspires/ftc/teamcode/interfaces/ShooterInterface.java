@@ -9,8 +9,11 @@ public interface ShooterInterface extends MechanismInterface {
      */
     void runShooter(double speed);
 
+    /** Runs the speed loop: call once per loop while the OpMode runs. */
+    void update();
+
     /**
-     * Power the hub is applying to the shooter motor this loop.
+     * Power applied to the shooter motor (and copied to the follower) this loop.
      */
     double getAppliedPower();
 
